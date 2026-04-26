@@ -50,15 +50,27 @@ spec: "密码错误时返回 INVALID_CREDENTIALS 错误"
 
 每个节点执行完成后，先跑 tsc 编译检查，再跑从 spec 派生的行为验证，两者都通过才标记为 `done`。
 
-### 分层 Agent 协作
+### 分层 Agent 协作（OpenAI-compatible tool loop）
 
 ```
-Planner Agent（Opus）    → 理解 spec，生成执行图，不写代码
-Implementer Agent（Sonnet）→ 执行单个节点，只知道自己的任务
-Verifier              → 确定性验证（tsc）+ spec-derived 行为验证
+Planner LLM（planning model）      → 理解 spec，生成执行图 JSON（不执行工具）
+Implementer LLM（implementation model）→ 通过 OpenAI-compatible tool loop 调用 write_file/read_file/run_command
+Verifier                           → 确定性验证（tsc）+ spec-derived 行为验证
 ```
 
-每个 Implementer Agent 的 context 是隔离的——它只看到自己的任务描述和依赖节点的接口，不会被整个项目的信息污染。
+当前实现不依赖 Claude Agent SDK 执行链。工具调用循环由 `src/llm.ts` 内的 `runAgent()` 自行实现：
+- 请求 `/chat/completions`
+- 读取 `tool_calls`
+- 本地执行工具
+- 将 tool 结果回填到 messages
+- 直到 `finish_reason=stop`
+
+每个 Implementer 节点的 context 是隔离的——它只看到自己的任务描述和依赖节点的接口，不会被整个项目的信息污染。
+
+### Planner prompt 来源
+
+规划阶段实际使用的是 `src/shipyard.ts` 中的 `GRAPH_PLANNER_PROMPT` 常量，`buildGraph()` 会直接把它传给 `runAgent(..., withTools=false)` 来生成可解析的计划 JSON。
+`src/prompts.ts` 目前承载的是实现和审查相关 prompt，不是当前规划链路的实际来源。
 
 ---
 
@@ -70,7 +82,7 @@ shipyard/
 │   ├── graph.ts       核心数据结构：ExecutionGraph、GraphNode、状态机、Evidence
 │   ├── verify.ts      验证系统：tsc 编译检查 + spec-derived 行为验证
 │   ├── shipyard.ts    调度引擎：buildGraph → executeNode → verifyNode → transitionNode
-│   ├── prompts.ts     System prompts：Planner、Implementer、Reviewer
+│   ├── prompts.ts     System prompts：Implementer、Reviewer（Planner 见 shipyard.ts）
 │   ├── hooks.ts       Agent hooks：路径安全、审计日志、进度输出
 │   ├── config.ts      配置：模型路由、重试次数、工作目录
 │   └── index.ts       CLI 入口
@@ -114,30 +126,46 @@ npm install
 ### 配置
 
 ```bash
-# 必须
+# 必须（两套变量名都支持，优先 OPENAI_*）
+export OPENAI_API_KEY=sk-xxx
+# 或
 export ANTHROPIC_API_KEY=sk-xxx
 
 # 可选：使用中转服务（支持任何 OpenAI 兼容格式）
+export OPENAI_BASE_URL=https://your-proxy.com/v1
+# 或
 export ANTHROPIC_BASE_URL=https://your-proxy.com/v1
 
-# 可选：自定义模型路由
-export MODEL_PLANNING=claude-opus-4-5        # 规划阶段（默认）
-export MODEL_IMPLEMENTATION=claude-sonnet-4-5 # 实现阶段（默认）
-export MODEL_REVIEW=claude-haiku-4-5          # review 阶段（默认）
+# 可选：自定义模型路由（默认 gpt-5.1）
+export MODEL_PLANNING=gpt-5.1
+export MODEL_IMPLEMENTATION=gpt-5.1
+export MODEL_REVIEW=gpt-5.1
 ```
+
+说明：运行时请求的是 OpenAI-compatible `/chat/completions` 接口，`baseURL` 默认值为 `https://api.openai.com/v1`。
+如果你使用 Anthropic 网关，也需要提供 OpenAI 兼容格式的转发地址。
 
 ### 运行
 
 ```bash
+# 默认模式：每次运行前清空 output/
 npx ts-node src/index.ts "实现用户登录：接收 email 和 password，密码错误返回 INVALID_CREDENTIALS，成功返回 JWT token，24小时过期"
+
+# resume 模式：保留已有 output/ 文件，再继续执行
+npx ts-node src/index.ts --resume "实现用户登录：接收 email 和 password，密码错误返回 INVALID_CREDENTIALS，成功返回 JWT token，24小时过期"
 ```
+
+### output 与 resume 行为
+
+- 默认模式（不带 `--resume`）：启动时会清空 `output/` 后再执行。
+- resume 模式（带 `--resume`）：不会清空 `output/`，会保留现有文件并继续执行流程。
 
 ### 输出示例
 
 ```
 🚢 Shipyard v0.3
 📋 Spec: 实现用户登录...
-🤖 plan=claude-opus-4-5 | impl=claude-sonnet-4-5
+🤖 plan=gpt-5.1 | impl=gpt-5.1
 
 [PLANNING] Building execution graph...
   ℹ️  Assumptions:
@@ -196,11 +224,13 @@ npx ts-node src/index.ts "实现用户登录：接收 email 和 password，密�
 
 ### 为什么不用 LangChain / AutoGen
 
-Shipyard 基于 [Claude Agent SDK](https://code.claude.com/docs/en/sdk)，直接使用 Anthropic 官方的 agent harness。不引入额外的 agent 框架，原因：
+Shipyard 当前使用自实现的 OpenAI-compatible tool loop（`src/llm.ts`），不依赖 Claude Agent SDK 执行链，也不引入 LangChain/AutoGen。
+
+原因：
 
 - 减少抽象层，每层都可控
-- Claude Agent SDK 已经处理了 tool execution、context 管理、错误重试
-- 你的业务逻辑（图调度、验证、evidence 收集）不应该被框架约束
+- tool execution、消息回填、循环终止条件都由项目内代码明确控制
+- 业务逻辑（图调度、验证、evidence 收集）不被外部 agent 框架约束
 
 ### 为什么用执行图而不是线性流水线
 
@@ -267,7 +297,7 @@ Shipyard 基于 [Claude Agent SDK](https://code.claude.com/docs/en/sdk)，直接
 
 ### `hooks.ts`
 
-Agent 生命周期 hook。`makePathGuard` 防止越权写文件，`auditLog` 记录所有写操作，`progressLog` 实时输出进度。
+执行过程中的副作用函数。`isPathSafe` 负责写入路径安全校验，`auditWrite` 负责记录写入审计日志（`.shipyard-audit.log`）。
 
 ---
 

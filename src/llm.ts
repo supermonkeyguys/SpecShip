@@ -11,6 +11,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
+import { isPathSafe, auditWrite } from "./hooks";
 
 // ---- 配置 ----
 
@@ -112,12 +113,13 @@ function executeTool(
   try {
     if (name === "write_file") {
       const filePath = path.resolve(workDir, args.path);
-      // 安全检查：只允许写 workDir 内
-      if (!filePath.startsWith(path.resolve(workDir))) {
+      // 安全检查：复用 hooks.ts
+      if (!isPathSafe(args.path, workDir)) {
         return { output: `Blocked: path outside workDir`, success: false };
       }
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, args.content, "utf-8");
+      auditWrite(filePath, workDir);
       const lines = args.content.split("\n").length;
       return { output: `Written: ${args.path} (${lines} lines)`, success: true, filePath: args.path };
     }

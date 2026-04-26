@@ -47,6 +47,9 @@ async function main() {
   const outputDir = path.join(config.workDir, "output");
   if (!resumeMode && fs.existsSync(outputDir)) fs.rmSync(outputDir, { recursive: true });
   fs.mkdirSync(outputDir, { recursive: true });
+  if (resumeMode) {
+    console.log("↻ Resume mode: keep existing output directory");
+  }
 
   let runSpec = spec;
   let initialGraph: ExecutionGraph | undefined;
