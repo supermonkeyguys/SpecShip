@@ -74,6 +74,12 @@ Rules:
 - Maximum 5 criteria per spec fragment
 `.trim();
 
+const BEHAVIOR_SEMANTIC_REGEX = /(returns?|throws?|errors?|success|failure|返回|抛错|抛出|错误|成功|失败)/i;
+
+function hasBehaviorSemantics(specFragment: string): boolean {
+  return BEHAVIOR_SEMANTIC_REGEX.test(specFragment);
+}
+
 export async function extractVerificationCriteria(
   specFragment: string,
   config: ShipyardConfig
@@ -226,9 +232,27 @@ export async function verifyNode(
 
   // 3. 从 spec 提取行为验证标准
   const criteria = await extractVerificationCriteria(specFragment, config);
+  const behaviorCriteria = criteria.filter((c) => c.type === "behavior");
 
-  // 3. 运行行为验证
-  for (const criterion of criteria.filter((c) => c.type === "behavior")) {
+  // 含行为语义但无法提取任何行为验证标准时，视为验证失败，走重试链
+  if (hasBehaviorSemantics(specFragment) && behaviorCriteria.length === 0) {
+    records.push({
+      type: "spec_check",
+      passed: false,
+      output: "Spec contains behavior semantics but no executable verification criteria were extracted",
+      durationMs: 0,
+      timestamp: new Date().toISOString(),
+    });
+
+    return {
+      passed: false,
+      records,
+      summary: "Behavioral spec check failed: no verification criteria extracted",
+    };
+  }
+
+  // 4. 运行行为验证
+  for (const criterion of behaviorCriteria) {
     const result = runBehaviorVerification(criterion, outputFiles, workDir);
     records.push(result);
     console.log(`    ${result.passed ? "✅" : "❌"} ${criterion.description}`);

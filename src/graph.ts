@@ -253,11 +253,21 @@ export function transitionNode(
   return updated;
 }
 
+/** 依赖是否满足（支持依赖 nodeId 或输出文件路径） */
+export function isDependencySatisfied(graph: ExecutionGraph, dependency: string): boolean {
+  const depNode = graph.nodes.get(dependency);
+  if (depNode?.status === "done") return true;
+
+  return Array.from(graph.nodes.values()).some(
+    (n) => n.status === "done" && (n.outputs.files ?? []).includes(dependency)
+  );
+}
+
 /** 找出当前可以运行的节点 */
 export function getReadyNodes(graph: ExecutionGraph): GraphNode[] {
   return Array.from(graph.nodes.values()).filter((n) => {
     if (n.status !== "ready") return false;
-    return n.dependsOn.every((depId) => graph.nodes.get(depId)?.status === "done");
+    return n.dependsOn.every((dependency) => isDependencySatisfied(graph, dependency));
   });
 }
 

@@ -2,10 +2,10 @@ import * as path from "path";
 import * as fs from "fs";
 import * as crypto from "crypto";
 import { ShipyardConfig } from "./config";
-import { PLANNER_PROMPT, IMPLEMENTER_PROMPT } from "./prompts";
+import { GRAPH_PLANNER_PROMPT, IMPLEMENTER_PROMPT } from "./prompts";
 import {
   ExecutionGraph, GraphNode, NodeStatus, Evidence,
-  createGraph, addNode, transitionNode, getReadyNodes, buildHistory,
+  createGraph, addNode, transitionNode, getReadyNodes, buildHistory, isDependencySatisfied,
 } from "./graph";
 import { verifyNode } from "./verify";
 import { runAgent, LLMClientConfig } from "./llm";
@@ -24,37 +24,6 @@ function makeLLMConfig(model: string, config: ShipyardConfig): LLMClientConfig {
 }
 
 // ---- Phase 1: 规划 → 构建执行图 ----
-
-const GRAPH_PLANNER_PROMPT = `
-You are a software architect. Analyze a spec and produce a parallel-safe implementation plan.
-
-Output ONLY a JSON object, no markdown:
-{
-  "title": "short title",
-  "ambiguities": ["assumption made"],
-  "steps": [
-    {
-      "id": "impl-types",
-      "title": "Define types",
-      "specFragment": "the exact spec text this addresses",
-      "description": "what to implement",
-      "outputFile": "output/types.ts",
-      "dependsOn": [],
-      "role": "types"
-    }
-  ]
-}
-
-Rules:
-- id: unique, kebab-case (e.g. "impl-auth", "test-login")
-- Each step produces ONE .ts file with unique path (always TypeScript, never .js)
-- dependsOn: only when you need to IMPORT from that file
-- types/interfaces → dependsOn: []
-- implementation → depends on types file only
-- tests → depends on the file being tested
-- Max 6 steps
-- role: types | implementation | test | util
-`.trim();
 
 async function buildGraph(spec: string, config: ShipyardConfig): Promise<ExecutionGraph | null> {
   console.log("\n[PLANNING] Building execution graph...");
@@ -232,19 +201,8 @@ export async function run(spec: string, config: ShipyardConfig): Promise<Executi
   while (true) {
     // 推进 pending → ready（依赖已完成）
     // dependsOn 可能是节点 id 或文件路径，两种都支持
-    const doneNodeIds = new Set(
-      Array.from(graph.nodes.values()).filter((n) => n.status === "done").map((n) => n.id)
-    );
-    const doneOutputFiles = new Set(
-      Array.from(graph.nodes.values())
-        .filter((n) => n.status === "done")
-        .flatMap((n) => n.outputs.files ?? [])
-    );
-
     for (const node of Array.from(graph.nodes.values())) {
-      if (node.status === "pending" && node.dependsOn.every(
-        (d) => doneNodeIds.has(d) || doneOutputFiles.has(d)
-      )) {
+      if (node.status === "pending" && node.dependsOn.every((d) => isDependencySatisfied(graph, d))) {
         const pendingNodes = new Map<string, GraphNode>(graph.nodes);
         pendingNodes.set(node.id, { ...node, status: "ready" as NodeStatus });
         graph = { ...graph, nodes: pendingNodes };
