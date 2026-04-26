@@ -175,8 +175,9 @@ runTest().catch(e => { console.error(e); process.exit(1); });
 
   try {
     fs.writeFileSync(tmpFile, testCode);
+    const compilerOptions = JSON.stringify({ module: "commonjs", esModuleInterop: true }).replace(/"/g, '\\"');
     const output = execSync(
-      `npx ts-node --skipProject --compiler-options '{"module":"commonjs","esModuleInterop":true}' ${tmpFile}`,
+      `npx ts-node --skipProject --compiler-options "${compilerOptions}" "${tmpFile}"`,
       { cwd: workDir, encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] }
     );
     return { type: "test", passed: true, output: output.trim().slice(0, 200), durationMs: Date.now() - start, timestamp };

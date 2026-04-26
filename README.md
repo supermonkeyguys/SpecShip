@@ -69,8 +69,8 @@ Verifier                           → 确定性验证（tsc）+ spec-derived �
 
 ### Planner prompt 来源
 
-规划阶段实际使用的是 `src/shipyard.ts` 中的 `GRAPH_PLANNER_PROMPT` 常量，`buildGraph()` 会直接把它传给 `runAgent(..., withTools=false)` 来生成可解析的计划 JSON。
-`src/prompts.ts` 目前承载的是实现和审查相关 prompt，不是当前规划链路的实际来源。
+规划阶段使用 `src/prompts.ts` 中的 `GRAPH_PLANNER_PROMPT`，`buildGraph()` 会直接把它传给 `runAgent(..., withTools=false)` 来生成可解析的计划 JSON。
+`shipyard.ts` 只负责调用，不再维护重复的 planner prompt 常量。
 
 ---
 
