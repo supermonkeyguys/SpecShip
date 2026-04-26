@@ -9,6 +9,7 @@ import {
 } from "./graph";
 import { verifyNode } from "./verify";
 import { runAgent, LLMClientConfig } from "./llm";
+import { saveGraphCheckpoint } from "./checkpoint";
 
 export type { ExecutionGraph, GraphNode, NodeStatus };
 export { buildHistory };
@@ -184,14 +185,20 @@ Write the complete implementation to the output file using write_file tool.
 
 // ---- 主调度循环 ----
 
-export async function run(spec: string, config: ShipyardConfig): Promise<ExecutionGraph> {
-  const graphOrNull = await buildGraph(spec, config);
+export async function run(
+  spec: string,
+  config: ShipyardConfig,
+  initialGraph?: ExecutionGraph
+): Promise<ExecutionGraph> {
+  const graphOrNull = initialGraph ?? await buildGraph(spec, config);
   if (!graphOrNull) {
     const g = createGraph(spec);
     return { ...g, status: "failed" };
   }
 
   let graph: ExecutionGraph = { ...graphOrNull, status: "running" };
+  const checkpoint = () => saveGraphCheckpoint(config.workDir, graph);
+  checkpoint();
   console.log(`\n[EXECUTING] Parallel agent dispatch`);
 
   const running = new Map<string, Promise<{
@@ -206,12 +213,14 @@ export async function run(spec: string, config: ShipyardConfig): Promise<Executi
         const pendingNodes = new Map<string, GraphNode>(graph.nodes);
         pendingNodes.set(node.id, { ...node, status: "ready" as NodeStatus });
         graph = { ...graph, nodes: pendingNodes };
+        checkpoint();
       }
     }
 
     // 派发就绪节点
     for (const node of getReadyNodes(graph)) {
       graph = transitionNode(graph, node.id, "running");
+      checkpoint();
       console.log(`  ▶ [${node.id}] ${node.title}`);
       running.set(node.id, executeNode(node, graph, config).then((r) => ({ nodeId: node.id, ...r })));
     }
@@ -223,6 +232,7 @@ export async function run(spec: string, config: ShipyardConfig): Promise<Executi
     running.delete(nodeId);
 
     graph = transitionNode(graph, nodeId, "verifying");
+    checkpoint();
 
     const node = graph.nodes.get(nodeId)!;
     const verifyResult = await verifyNode(node.specFragment, outputFiles, config.workDir, config);
@@ -240,6 +250,7 @@ export async function run(spec: string, config: ShipyardConfig): Promise<Executi
         }
       }
       graph = { ...graph, nodes: unblocked };
+      checkpoint();
     } else {
       const currentNode = graph.nodes.get(nodeId)!;
       if (currentNode.retryCount < currentNode.maxRetries) {
@@ -247,12 +258,14 @@ export async function run(spec: string, config: ShipyardConfig): Promise<Executi
         const nodes = new Map(graph.nodes);
         nodes.set(nodeId, { ...graph.nodes.get(nodeId)!, status: "ready", retryCount: currentNode.retryCount + 1 });
         graph = { ...graph, nodes };
+        checkpoint();
         console.log(`  ↻ [${nodeId}] Retry ${currentNode.retryCount + 1}/${currentNode.maxRetries}`);
       } else {
         graph = transitionNode(graph, nodeId, "failed", {
           evidence: fullEvidence,
           error: { message: verifyResult.summary, category: "compile", recoverable: false },
         });
+        checkpoint();
         console.log(`  ❌ [${nodeId}] ${verifyResult.summary}`);
       }
     }
@@ -261,5 +274,6 @@ export async function run(spec: string, config: ShipyardConfig): Promise<Executi
   const stats = graph.stats;
   const allDone = stats.byStatus.done === stats.total;
   graph = { ...graph, status: allDone ? "done" : "failed", completedAt: new Date().toISOString() };
+  checkpoint();
   return graph;
 }

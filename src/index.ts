@@ -1,13 +1,22 @@
 import * as path from "path";
 import * as fs from "fs";
-import { run, buildHistory } from "./shipyard";
+import { run, buildHistory, type ExecutionGraph } from "./shipyard";
 import { DEFAULT_CONFIG } from "./config";
+import {
+  getCheckpointPath,
+  loadGraphCheckpoint,
+  prepareGraphForResume,
+  saveGraphCheckpoint,
+} from "./checkpoint";
 
 async function main() {
-  const spec = process.argv.slice(2).join(" ").trim();
+  const args = process.argv.slice(2);
+  const resumeMode = args.includes("--resume");
+  const spec = args.filter((arg) => arg !== "--resume").join(" ").trim();
 
-  if (!spec) {
+  if (!resumeMode && !spec) {
     console.log("Usage: ts-node src/index.ts <spec>");
+    console.log("       ts-node src/index.ts --resume");
     console.log('Example: ts-node src/index.ts "实现用户登录：接收 email/password，密码错误返回 INVALID_CREDENTIALS，成功返回 JWT token，24小时过期"');
     console.log("\nEnv vars:");
     console.log("  OPENAI_API_KEY=sk-xxx          (or ANTHROPIC_API_KEY)");
@@ -15,6 +24,10 @@ async function main() {
     console.log("  MODEL_PLANNING=gpt-5.1         (optional)");
     console.log("  MODEL_IMPLEMENTATION=gpt-5.1   (optional)");
     process.exit(1);
+  }
+
+  if (resumeMode && spec) {
+    console.log("ℹ️  --resume 模式下会忽略新传入 spec，继续使用 checkpoint 中的 originalSpec");
   }
 
   const apiKey = process.env.OPENAI_API_KEY ?? process.env.ANTHROPIC_API_KEY;
@@ -28,19 +41,33 @@ async function main() {
     workDir: process.cwd(),
   };
 
-  // 清空输出目录
+  const checkpointPath = getCheckpointPath(config.workDir);
+
+  // output 目录策略：新任务清空；resume 保留
   const outputDir = path.join(config.workDir, "output");
-  if (fs.existsSync(outputDir)) fs.rmSync(outputDir, { recursive: true });
+  if (!resumeMode && fs.existsSync(outputDir)) fs.rmSync(outputDir, { recursive: true });
   fs.mkdirSync(outputDir, { recursive: true });
 
+  let runSpec = spec;
+  let initialGraph: ExecutionGraph | undefined;
+
+  if (resumeMode) {
+    const loaded = loadGraphCheckpoint(config.workDir);
+    const resumed = prepareGraphForResume(loaded);
+    saveGraphCheckpoint(config.workDir, resumed);
+    initialGraph = resumed;
+    runSpec = resumed.originalSpec;
+  }
+
   console.log("🚢 Shipyard v0.3");
-  console.log(`📋 Spec: ${spec}`);
+  console.log(`📋 Spec: ${runSpec}`);
+  if (resumeMode) console.log(`♻️ Resume from ${path.relative(config.workDir, checkpointPath)}`);
   console.log(`🤖 plan=${config.models.planning} | impl=${config.models.implementation}`);
   const baseURL = process.env.OPENAI_BASE_URL ?? process.env.ANTHROPIC_BASE_URL;
   if (baseURL) console.log(`🔀 Relay: ${baseURL}`);
 
   const startTime = Date.now();
-  const graph = await run(spec, config);
+  const graph = await run(runSpec, config, initialGraph);
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
   // ── 报告 ──
@@ -87,12 +114,7 @@ async function main() {
   }
 
   // 保存图到文件（供后续 UI 消费）
-  const graphPath = path.join(config.workDir, ".shipyard-graph.json");
-  const serializable = {
-    ...graph,
-    nodes: Array.from(graph.nodes.entries()),
-  };
-  fs.writeFileSync(graphPath, JSON.stringify(serializable, null, 2));
+  const graphPath = saveGraphCheckpoint(config.workDir, graph);
   console.log(`\n💾 Graph saved to ${path.relative(config.workDir, graphPath)}`);
 }
 
