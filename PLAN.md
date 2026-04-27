@@ -11,13 +11,45 @@
 
 ---
 
-## 当前状态（v0.3，已完成）
+## 当前状态（v0.4，已完成）
 
 - 执行图数据结构（graph.ts）
 - OpenAI 兼容 LLM 客户端，支持任意中转（llm.ts）
 - Spec-derived 行为验证（verify.ts）
 - 多 agent 并行调度，失败隔离，重试机制
 - Evidence 完整记录（tool calls、文件 checksum、验证结果）
+- Express + SSE server（server/）
+- 三栏 IDE 界面（client/）：React Flow 画板 + 文件树 + 聊天框
+- SSE 历史回放（刷新不丢状态）
+- 实时节点状态推送（diff 推送，节点逐步出现）
+- 验证系统修复（LLM 用实际代码生成正确函数名）
+
+## 待办（按功能性优先）
+
+### A — 右侧聊天框接入 AI 对话 【最高优先级】
+用户输入意图 → LLM 判断是"从某节点重跑"还是"全部重来" → 触发对应 API。
+这是产品核心差异点。
+- [ ] POST /api/chat 端点，接收用户消息
+- [ ] LLM 判断意图（intent classification）
+- [ ] 意图 → 操作映射（retry node / new run）
+- [ ] 前端聊天框接入
+
+### B — 引擎断点恢复加固
+任务中断后能从最后一个完成的节点恢复，不用从头跑。
+- [ ] 完善 checkpoint resume 逻辑
+- [ ] 中断检测（running 状态节点重置为 ready）
+- [ ] 前端显示"可恢复"状态
+
+### C — 已有仓库接入
+让 Shipyard 能在真实项目上工作。
+- [ ] --repo 参数支持
+- [ ] 读取仓库文件树 + package.json
+- [ ] 注入 Planner prompt（控制 context 大小）
+
+### D — UI 打磨
+- [ ] 节点 running 状态脉冲动画
+- [ ] 文件树点击预览内容
+- [ ] 日志 tab 显示更多细节（每步 tool call）
 - CLI 入口，输出执行历史
 - 已端到端跑通
 

@@ -2,7 +2,8 @@ import * as path from "path";
 import * as fs from "fs";
 import * as crypto from "crypto";
 import { ShipyardConfig } from "./config";
-import { GRAPH_PLANNER_PROMPT, IMPLEMENTER_PROMPT } from "./prompts";
+import { GRAPH_PLANNER_PROMPT, IMPLEMENTER_PROMPT, REVIEWER_PROMPT } from "./prompts";
+import { extractRepoContext } from "./repo";
 import {
   ExecutionGraph, GraphNode, NodeStatus, Evidence,
   createGraph, addNode, transitionNode, getReadyNodes, buildHistory, isDependencySatisfied,
@@ -29,8 +30,27 @@ function makeLLMConfig(model: string, config: ShipyardConfig): LLMClientConfig {
 async function buildGraph(spec: string, config: ShipyardConfig): Promise<ExecutionGraph | null> {
   console.log("\n[PLANNING] Building execution graph...");
 
+  // outputDir：session 模式下用独立目录，否则用默认 output/
+  const outputDir = config.outputDir ?? "output";
+  fs.mkdirSync(path.join(config.workDir, outputDir), { recursive: true });
+
+  // 如果有仓库路径，提取上下文注入 spec
+  let enrichedSpec = spec;
+  if (config.repoPath) {
+    try {
+      const repoCtx = extractRepoContext(config.repoPath);
+      enrichedSpec = `${repoCtx.summary}\n\n=== Task ===\n${spec}`;
+      console.log(`  📂 Repo context loaded: ${config.repoPath}`);
+    } catch (e) {
+      console.warn(`  ⚠️  Failed to load repo context: ${(e as Error).message}`);
+    }
+  }
+
+  // 告诉 Planner 文件应该写在哪个目录
+  const plannerInput = `Output directory: ${outputDir}\n\n${enrichedSpec}`;
+
   const llmConfig = makeLLMConfig(config.models.planning, config);
-  const { finalText } = await runAgent(GRAPH_PLANNER_PROMPT, spec, config.workDir, llmConfig, false);
+  const { finalText } = await runAgent(GRAPH_PLANNER_PROMPT, plannerInput, config.workDir, llmConfig, false);
 
   let planData: {
     title: string;
@@ -119,15 +139,28 @@ async function executeNode(
     .filter(Boolean)
     .join("\n\n");
 
+  // 读取上次生成的文件内容（如果是重试）
+  const prevFileContent = node.lastError && node.outputs.files?.[0]
+    ? (() => {
+        const p = path.resolve(config.workDir, node.outputs.files![0]);
+        return fs.existsSync(p) ? fs.readFileSync(p, "utf-8").slice(0, 3000) : null;
+      })()
+    : null;
+
   const prompt = `
 Spec context: ${node.specFragment}
 
 Task: ${node.inputs.description}
 Output file: ${node.outputs.files?.[0]}
 
-${depContext ? `Dependencies (import from these):\n\`\`\`typescript\n${depContext}\n\`\`\`` : ""}
-
-Write the complete implementation to the output file using write_file tool.
+${depContext ? `Dependencies (import from these):\n\`\`\`\n${depContext}\n\`\`\`` : ""}
+${node.lastError ? `
+⚠️  PREVIOUS ATTEMPT FAILED — you must fix these errors:
+\`\`\`
+${node.lastError.slice(0, 1500)}
+\`\`\`
+${prevFileContent ? `Previous code that failed:\n\`\`\`\n${prevFileContent}\n\`\`\`\n\nFix the errors above and rewrite the complete corrected file.` : "Rewrite the file fixing all errors above."}
+` : "Write the complete implementation to the output file using write_file tool."}
 `.trim();
 
   const llmConfig = makeLLMConfig(config.models.implementation, config);
@@ -183,12 +216,54 @@ Write the complete implementation to the output file using write_file tool.
   return { evidence, outputFiles };
 }
 
+// ---- Code Review ----
+
+async function runCodeReview(
+  node: GraphNode,
+  outputFiles: string[],
+  config: ShipyardConfig
+): Promise<boolean> {
+  const fileContents = outputFiles
+    .filter((f) => fs.existsSync(f))
+    .map((f) => `// ${path.relative(config.workDir, f)}\n${fs.readFileSync(f, "utf-8").slice(0, 2000)}`)
+    .join("\n\n");
+
+  if (!fileContents) return true;
+
+  try {
+    const { finalText } = await runAgent(
+      REVIEWER_PROMPT,
+      `Spec: ${node.specFragment}\n\nCode:\n${fileContents}`,
+      config.workDir,
+      makeLLMConfig(config.models.review ?? config.models.planning, config),
+      false
+    );
+
+    const match = finalText.match(/\{[\s\S]*\}/);
+    if (!match) return true;
+
+    const result = JSON.parse(match[0]) as { passed: boolean; blocking?: string[]; warnings?: string[]; summary?: string };
+
+    if (result.blocking?.length) {
+      console.log(`  🔍 Review blocking: ${result.blocking.join("; ")}`);
+    }
+    if (result.warnings?.length) {
+      console.log(`  ⚠️  Review warnings: ${result.warnings.join("; ")}`);
+    }
+
+    return result.passed !== false;
+  } catch {
+    return true; // review 出错不阻塞
+  }
+}
+
 // ---- 主调度循环 ----
 
 export async function run(
   spec: string,
   config: ShipyardConfig,
-  initialGraph?: ExecutionGraph
+  initialGraph?: ExecutionGraph,
+  onUpdate?: (graph: ExecutionGraph) => void
 ): Promise<ExecutionGraph> {
   const graphOrNull = initialGraph ?? await buildGraph(spec, config);
   if (!graphOrNull) {
@@ -197,7 +272,14 @@ export async function run(
   }
 
   let graph: ExecutionGraph = { ...graphOrNull, status: "running" };
-  const checkpoint = () => saveGraphCheckpoint(config.workDir, graph);
+  const sessionGraphPath = config.sessionId && config.projectId
+    ? require("./project").getSessionGraphPath(config.workDir, config.projectId, config.sessionId)
+    : undefined;
+
+  const checkpoint = () => {
+    saveGraphCheckpoint(config.workDir, graph, sessionGraphPath);
+    onUpdate?.(graph);
+  };
   checkpoint();
   console.log(`\n[EXECUTING] Parallel agent dispatch`);
 
@@ -240,6 +322,18 @@ export async function run(
     const fullEvidence: Evidence = { ...evidence, verifications: verifyResult.records };
 
     if (verifyResult.passed) {
+      // Review：verify 通过后做一次代码 review
+      const reviewPassed = await runCodeReview(node, outputFiles, config);
+      if (!reviewPassed && node.retryCount < node.maxRetries) {
+        // review 失败 → 重试
+        const nodes = new Map(graph.nodes);
+        nodes.set(nodeId, { ...graph.nodes.get(nodeId)!, status: "ready", retryCount: node.retryCount + 1 });
+        graph = { ...graph, nodes };
+        checkpoint();
+        console.log(`  🔍 [${nodeId}] Review failed, retrying...`);
+        continue;
+      }
+
       graph = transitionNode(graph, nodeId, "done", { evidence: fullEvidence });
       console.log(`  ✅ [${nodeId}] ${verifyResult.summary}`);
       // 节点成功后，解除因之前失败而被 blocked 的下游节点
@@ -254,9 +348,20 @@ export async function run(
     } else {
       const currentNode = graph.nodes.get(nodeId)!;
       if (currentNode.retryCount < currentNode.maxRetries) {
+        // 收集详细错误信息，注入下次重试的 prompt
+        const failedVerifications = verifyResult.records
+          .filter((r) => !r.passed)
+          .map((r) => r.output)
+          .join("\n");
+
         graph = transitionNode(graph, nodeId, "failed", { evidence: fullEvidence });
         const nodes = new Map(graph.nodes);
-        nodes.set(nodeId, { ...graph.nodes.get(nodeId)!, status: "ready", retryCount: currentNode.retryCount + 1 });
+        nodes.set(nodeId, {
+          ...graph.nodes.get(nodeId)!,
+          status: "ready",
+          retryCount: currentNode.retryCount + 1,
+          lastError: failedVerifications,  // 传给下次执行
+        });
         graph = { ...graph, nodes };
         checkpoint();
         console.log(`  ↻ [${nodeId}] Retry ${currentNode.retryCount + 1}/${currentNode.maxRetries}`);

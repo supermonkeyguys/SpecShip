@@ -45,33 +45,40 @@ export function runCompileCheck(files: string[], workDir: string): VerificationR
 // ─────────────────────────────────────────
 
 const SPEC_EXTRACTOR_PROMPT = `
-You are a test specification extractor.
+You are a test specification extractor. Your job is to generate EXECUTABLE verification criteria from a spec and its implementation.
 
-Given a spec fragment, extract concrete, executable verification criteria.
-
-Output ONLY a JSON array:
+Given a spec fragment AND the actual implementation code, output ONLY a JSON array:
 [
   {
     "id": "vc-1",
-    "description": "human readable description",
-    "type": "compile | test | behavior | lint",
+    "description": "human readable description of what is being verified",
+    "type": "behavior",
+    "hardness": "hard" | "soft",
     "testCase": {
-      "input": "login('a@b.com', 'wrongpass')",
-      "expectedOutput": null,
-      "expectError": "INVALID_CREDENTIALS"
+      "input": "addTwoNumbers(1, 2)",
+      "expectedOutput": "3",
+      "expectError": null
     }
   }
 ]
 
+hardness:
+- "hard": must pass — objective correctness (returns exact value, throws specific error)
+- "soft": best-effort — subjective or approximate (output contains string, result is truthy)
+
+CRITICAL rules for testCase.input:
+- SCAN the implementation code for exported function/class names
+- Use the EXACT exported name — never guess or abbreviate
+- Input must be a valid expression that can be evaluated in Node.js
+- Use simple, concrete values (numbers, strings, booleans) — no complex objects unless required
+- If the function is async, the test runner handles await automatically
+
 Rules:
-- Extract ONLY what is explicitly stated in the spec
-- Do not invent requirements not in the spec
-- behavior type: must have a concrete testCase with input/output
-- compile type: no testCase needed
-- Keep testCase.input as a valid TypeScript expression
-- If spec says "returns X", create a behavior criterion
-- If spec says "throws Y" or "错误", create a behavior criterion with expectError
-- Maximum 5 criteria per spec fragment
+- Extract ONLY behaviors explicitly stated in the spec
+- Generate 1-3 behavior criteria — quality over quantity
+- Each criterion must be independently executable
+- If spec is purely about types/interfaces with no runtime behavior, return []
+- expectedOutput: use JSON-serializable value (number, string, boolean, null, array, object)
 `.trim();
 
 const BEHAVIOR_SEMANTIC_REGEX = /(returns?|throws?|errors?|success|failure|返回|抛错|抛出|错误|成功|失败)/i;
@@ -82,11 +89,25 @@ function hasBehaviorSemantics(specFragment: string): boolean {
 
 export async function extractVerificationCriteria(
   specFragment: string,
-  config: ShipyardConfig
+  config: ShipyardConfig,
+  outputFiles?: string[]
 ): Promise<VerificationCriterion[]> {
+  // 把实际实现代码传给 LLM，让它用正确的函数名生成 testCase
+  const codeContext = outputFiles
+    ?.filter((f) => fs.existsSync(f))
+    .map((f) => {
+      const content = fs.readFileSync(f, "utf-8").slice(0, 1000);
+      return `// ${path.basename(f)}\n${content}`;
+    })
+    .join("\n\n") ?? "";
+
+  const userMessage = codeContext
+    ? `Spec:\n${specFragment}\n\nImplementation:\n${codeContext}`
+    : `Extract verification criteria from this spec:\n\n${specFragment}`;
+
   const { finalText: raw } = await runAgent(
     SPEC_EXTRACTOR_PROMPT,
-    `Extract verification criteria from this spec:\n\n${specFragment}`,
+    userMessage,
     config.workDir,
     { baseURL: config.baseURL, apiKey: config.apiKey, model: config.models.planning },
     false
@@ -231,8 +252,8 @@ export async function verifyNode(
     return { passed: true, records, summary: `Compile passed (types-only file, skipping behavior tests)` };
   }
 
-  // 3. 从 spec 提取行为验证标准
-  const criteria = await extractVerificationCriteria(specFragment, config);
+  // 3. 从 spec 提取行为验证标准（传入实际文件内容，让 LLM 用正确函数名）
+  const criteria = await extractVerificationCriteria(specFragment, config, outputFiles);
   const behaviorCriteria = criteria.filter((c) => c.type === "behavior");
 
   // 含行为语义但无法提取任何行为验证标准时，视为验证失败，走重试链
@@ -252,20 +273,28 @@ export async function verifyNode(
     };
   }
 
-  // 4. 运行行为验证
+  // 4. 运行行为验证（区分 hard/soft）
   for (const criterion of behaviorCriteria) {
     const result = runBehaviorVerification(criterion, outputFiles, workDir);
     records.push(result);
-    console.log(`    ${result.passed ? "✅" : "❌"} ${criterion.description}`);
+    const isHard = criterion.hardness !== "soft";
+    console.log(`    ${result.passed ? "✅" : isHard ? "❌" : "⚠️ "} ${criterion.description}${!isHard ? " (soft)" : ""}`);
   }
 
-  const allPassed = records.every((r) => r.passed);
+  // 只有 hard 验证失败才算节点失败
+  const hardFailed = records.filter((r, i) => {
+    if (r.passed) return false;
+    const criterion = behaviorCriteria[i - 1]; // compile 在 records[0]
+    return criterion?.hardness !== "soft";
+  });
+  const compileFailed = !records[0]?.passed;
+  const passed = !compileFailed && hardFailed.length === 0;
   const failCount = records.filter((r) => !r.passed).length;
 
   return {
-    passed: allPassed,
+    passed,
     records,
-    summary: allPassed
+    summary: passed
       ? `All ${records.length} check(s) passed`
       : `${failCount}/${records.length} check(s) failed`,
   };

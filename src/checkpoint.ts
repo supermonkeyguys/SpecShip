@@ -8,12 +8,13 @@ type SerializedExecutionGraph = Omit<ExecutionGraph, "nodes"> & {
   nodes: Array<[string, GraphNode]> | Record<string, GraphNode>;
 };
 
-export function getCheckpointPath(workDir: string): string {
+export function getCheckpointPath(workDir: string, sessionGraphPath?: string): string {
+  if (sessionGraphPath) return sessionGraphPath;
   return path.join(workDir, CHECKPOINT_FILE);
 }
 
-export function saveGraphCheckpoint(workDir: string, graph: ExecutionGraph): string {
-  const graphPath = getCheckpointPath(workDir);
+export function saveGraphCheckpoint(workDir: string, graph: ExecutionGraph, sessionGraphPath?: string): string {
+  const graphPath = getCheckpointPath(workDir, sessionGraphPath);
   const tmpPath = `${graphPath}.tmp-${process.pid}-${Date.now()}`;
   const serializable: SerializedExecutionGraph = {
     ...graph,
@@ -31,8 +32,8 @@ export function saveGraphCheckpoint(workDir: string, graph: ExecutionGraph): str
   return graphPath;
 }
 
-export function loadGraphCheckpoint(workDir: string): ExecutionGraph {
-  const graphPath = getCheckpointPath(workDir);
+export function loadGraphCheckpoint(workDir: string, sessionGraphPath?: string): ExecutionGraph {
+  const graphPath = getCheckpointPath(workDir, sessionGraphPath);
   if (!fs.existsSync(graphPath)) {
     throw new Error(`Checkpoint not found: ${graphPath}`);
   }

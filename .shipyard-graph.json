@@ -1,54 +1,54 @@
 {
-  "id": "graph-1777131747690",
-  "title": "实现 add 和 multiply 函数",
-  "originalSpec": "实现 add(a, b) 和 multiply(a, b) 两个函数，接收两个数字，返回计算结果",
+  "id": "graph-1777285421526",
+  "title": "TypeScript 登录功能实现计划",
+  "originalSpec": "实现一个登录功能，使用 TypeScript（TS）",
   "nodes": [
     [
-      "impl-math-functions",
+      "impl-auth-types",
       {
-        "id": "impl-math-functions",
+        "id": "impl-auth-types",
         "type": "implement",
-        "title": "实现数学函数",
-        "specFragment": "实现 add(a, b) 和 multiply(a, b) 两个函数，接收两个数字，返回计算结果",
+        "title": "定义登录相关类型",
+        "specFragment": "实现一个登录功能，使用 TypeScript（TS）",
         "dependsOn": [],
         "inputs": {
-          "description": "创建并导出 add(a, b) 与 multiply(a, b) 两个函数，分别返回两个数字的和与积。"
+          "description": "定义登录请求、登录响应、用户信息、认证结果、错误类型等基础 TypeScript 接口与类型，供登录实现和测试复用。"
         },
         "outputs": {
-          "description": "Write src/math.ts",
+          "description": "Write output/auth-types.ts",
           "files": [
-            "src/math.ts"
+            "output/auth-types.ts"
           ],
           "verificationCriteria": []
         },
         "status": "done",
         "maxRetries": 2,
         "retryCount": 0,
-        "createdAt": "2026-04-25T15:42:27.691Z",
-        "updatedAt": "2026-04-25T15:42:50.158Z",
+        "createdAt": "2026-04-27T10:23:41.526Z",
+        "updatedAt": "2026-04-27T10:24:04.299Z",
         "evidence": {
-          "reasoning": "Implementing: 创建并导出 add(a, b) 与 multiply(a, b) 两个函数，分别返回两个数字的和与积。",
-          "promptUsed": "Spec context: 实现 add(a, b) 和 multiply(a, b) 两个函数，接收两个数字，返回计算结果\n\nTask: 创建并导出 add(a, b) 与 multiply(a, b) 两个函数，分别返回两个数字的和与积。\nOutput file: src/math.ts\n\n\n\nWrite the complete implementation to the output file using write_file tool.",
-          "modelUsed": "gpt-5.4",
+          "reasoning": "Implementing: 定义登录请求、登录响应、用户信息、认证结果、错误类型等基础 TypeScript 接口与类型，供登录实现和测试复用。",
+          "promptUsed": "Spec context: 实现一个登录功能，使用 TypeScript（TS）\n\nTask: 定义登录请求、登录响应、用户信息、认证结果、错误类型等基础 TypeScript 接口与类型，供登录实现和测试复用。\nOutput file: output/auth-types.ts\n\n\n\nWrite the complete implementation to the output file using write_file tool.",
+          "modelUsed": "gpt-5.4-mini",
           "toolCalls": [
             {
               "tool": "write_file",
               "input": {
-                "content": "/**\n * Returns the sum of two numbers.\n *\n * @param a - The first number.\n * @param b - The second number.\n * @returns The sum of the two numbers.\n */\nexport function add(a: number, b: number): number {\n  return a + b;\n}\n\n/**\n * Returns the product of two numbers.\n *\n * @param a - The first number.\n * @param b - The second number.\n * @returns The product of the two numbers.\n */\nexport function multiply(a: number, b: number): number {\n  return a * b;\n}\n",
-                "path": "src/math.ts"
+                "content": "/**\n * 基础认证类型定义，用于登录请求、响应、认证结果和错误处理。\n */\n\n/**\n * 登录请求参数。\n */\nexport interface LoginRequest {\n  /**\n   * 用户名、邮箱或其他登录标识。\n   */\n  identifier: string;\n\n  /**\n   * 登录密码。\n   */\n  password: string;\n\n  /**\n   * 是否保持登录状态。\n   */\n  rememberMe?: boolean;\n}\n\n/**\n * 用户基础信息。\n */\nexport interface UserInfo {\n  /**\n   * 用户唯一标识。\n   */\n  id: string;\n\n  /**\n   * 用户名。\n   */\n  username: string;\n\n  /**\n   * 显示名称。\n   */\n  displayName?: string;\n\n  /**\n   * 邮箱地址。\n   */\n  email?: string;\n\n  /**\n   * 手机号码。\n   */\n  phoneNumber?: string;\n\n  /**\n   * 用户角色列表。\n   */\n  roles: string[];\n\n  /**\n   * 账号创建时间，使用 ISO 8601 字符串表示。\n   */\n  createdAt: string;\n\n  /**\n   * 账号最后更新时间，使用 ISO 8601 字符串表示。\n   */\n  updatedAt?: string;\n}\n\n/**\n * 登录响应结果。\n */\nexport interface LoginResponse {\n  /**\n   * 访问令牌。\n   */\n  accessToken: string;\n\n  /**\n   * 刷新令牌。\n   */\n  refreshToken?: string;\n\n  /**\n   * 令牌类型，通常为 Bearer。\n   */\n  tokenType: 'Bearer';\n\n  /**\n   * 访问令牌有效期，单位为秒。\n   */\n  expiresIn: number;\n\n  /**\n   * 当前登录用户信息。\n   */\n  user: UserInfo;\n}\n\n/**\n * 认证结果状态。\n */\nexport type AuthStatus = 'success' | 'failure';\n\n/**\n * 认证错误码。\n */\nexport type AuthErrorCode =\n  | 'INVALID_REQUEST'\n  | 'INVALID_CREDENTIALS'\n  | 'ACCOUNT_LOCKED'\n  | 'ACCOUNT_DISABLED'\n  | 'TOKEN_EXPIRED'\n  | 'TOKEN_INVALID'\n  | 'NETWORK_ERROR'\n  | 'UNKNOWN_ERROR';\n\n/**\n * 认证错误信息。\n */\nexport interface AuthError {\n  /**\n   * 错误码。\n   */\n  code: AuthErrorCode;\n\n  /**\n   * 可读的错误描述。\n   */\n  message: string;\n\n  /**\n   * HTTP 状态码，可选。\n   */\n  statusCode?: number;\n\n  /**\n   * 字段级错误信息，可选。\n   */\n  fieldErrors?: Record<string, string>;\n\n  /**\n   * 额外错误详情，可选。\n   */\n  details?: string;\n}\n\n/**\n * 登录成功后的认证结果。\n */\nexport interface AuthSuccessResult {\n  /**\n   * 是否成功。\n   */\n  ok: true;\n\n  /**\n   * 用户信息。\n   */\n  user: UserInfo;\n\n  /**\n   * 登录响应。\n   */\n  response: LoginResponse;\n}\n\n/**\n * 登录失败后的认证结果。\n */\nexport interface AuthFailureResult {\n  /**\n   * 是否成功。\n   */\n  ok: false;\n\n  /**\n   * 错误信息。\n   */\n  error: AuthError;\n}\n\n/**\n * 认证结果联合类型。\n */\nexport type AuthResult = AuthSuccessResult | AuthFailureResult;\n\n/**\n * 可复用的登录表单数据类型。\n */\nexport type LoginFormValue = Pick<LoginRequest, 'identifier' | 'password'> &\n  Partial<Pick<LoginRequest, 'rememberMe'>>;\n",
+                "path": "output/auth-types.ts"
               },
-              "output": "Written: src/math.ts (22 lines)",
+              "output": "Written: output/auth-types.ts (193 lines)",
               "success": true,
-              "timestamp": "2026-04-25T15:42:35.402Z"
+              "timestamp": "2026-04-27T10:24:03.544Z"
             }
           ],
           "filesWritten": [
             {
-              "path": "src/math.ts",
+              "path": "output/auth-types.ts",
               "operation": "create",
-              "sizeBytes": 456,
-              "checksum": "a9b7f03a19b442c6",
-              "timestamp": "2026-04-25T15:42:35.402Z"
+              "sizeBytes": 2797,
+              "checksum": "28246e15ecaedbfe",
+              "timestamp": "2026-04-27T10:24:03.543Z"
             }
           ],
           "verifications": [
@@ -56,78 +56,64 @@
               "type": "compile",
               "passed": true,
               "output": "1 file(s) compiled",
-              "durationMs": 589,
-              "timestamp": "2026-04-25T15:42:35.402Z"
-            },
-            {
-              "type": "test",
-              "passed": true,
-              "output": "PASS",
-              "durationMs": 752,
-              "timestamp": "2026-04-25T15:42:48.944Z"
-            },
-            {
-              "type": "test",
-              "passed": true,
-              "output": "PASS",
-              "durationMs": 462,
-              "timestamp": "2026-04-25T15:42:49.696Z"
+              "durationMs": 753,
+              "timestamp": "2026-04-27T10:24:03.546Z"
             }
           ],
-          "startedAt": "2026-04-25T15:42:27.691Z",
-          "completedAt": "2026-04-25T15:42:35.402Z",
-          "durationMs": 7711
+          "startedAt": "2026-04-27T10:23:41.528Z",
+          "completedAt": "2026-04-27T10:24:03.544Z",
+          "durationMs": 22016
         }
       }
     ],
     [
-      "test-math-functions",
+      "impl-login-service",
       {
-        "id": "test-math-functions",
+        "id": "impl-login-service",
         "type": "implement",
-        "title": "测试数学函数",
-        "specFragment": "实现 add(a, b) 和 multiply(a, b) 两个函数，接收两个数字，返回计算结果",
+        "title": "实现登录服务",
+        "specFragment": "实现一个登录功能，使用 TypeScript（TS）",
         "dependsOn": [
-          "impl-math-functions"
+          "output/auth-types.ts"
         ],
         "inputs": {
-          "description": "为 add 和 multiply 编写单元测试，覆盖基本正数、负数和零的计算结果。"
+          "description": "实现登录核心逻辑：接收凭据、校验输入、调用抽象认证接口、处理成功与失败结果、返回结构化登录结果。保持与具体框架解耦，便于在前端或后端集成。"
         },
         "outputs": {
-          "description": "Write test/math.test.ts",
+          "description": "Write output/login-service.ts",
           "files": [
-            "test/math.test.ts"
+            "output/login-service.ts"
           ],
           "verificationCriteria": []
         },
         "status": "done",
         "maxRetries": 2,
         "retryCount": 0,
-        "createdAt": "2026-04-25T15:42:27.691Z",
-        "updatedAt": "2026-04-25T15:43:00.162Z",
+        "createdAt": "2026-04-27T10:23:41.526Z",
+        "updatedAt": "2026-04-27T10:24:17.654Z",
         "evidence": {
-          "reasoning": "Implementing: 为 add 和 multiply 编写单元测试，覆盖基本正数、负数和零的计算结果。",
-          "promptUsed": "Spec context: 实现 add(a, b) 和 multiply(a, b) 两个函数，接收两个数字，返回计算结果\n\nTask: 为 add 和 multiply 编写单元测试，覆盖基本正数、负数和零的计算结果。\nOutput file: test/math.test.ts\n\nDependencies (import from these):\n```typescript\n// From src/math.ts:\n/**\n * Returns the sum of two numbers.\n *\n * @param a - The first number.\n * @param b -",
-          "modelUsed": "gpt-5.4",
+          "reasoning": "Implementing: 实现登录核心逻辑：接收凭据、校验输入、调用抽象认证接口、处理成功与失败结果、返回结构化登录结果。保持与具体框架解耦，便于在前端或后端集成。",
+          "promptUsed": "Spec context: 实现一个登录功能，使用 TypeScript（TS）\n\nTask: 实现登录核心逻辑：接收凭据、校验输入、调用抽象认证接口、处理成功与失败结果、返回结构化登录结果。保持与具体框架解耦，便于在前端或后端集成。\nOutput file: output/login-service.ts\n\n\n\nWrite the complete implementation to the output file using write_file tool.",
+          "modelUsed": "gpt-5.4-mini",
           "toolCalls": [
             {
               "tool": "write_file",
               "input": {
-                "content": "import test from 'node:test';\nimport assert from 'node:assert/strict';\n\nimport { add, multiply } from '../src/math';\n\ntest('add should handle basic positive numbers', (): void => {\n  assert.equal(add(2, 3), 5);\n});\n\ntest('add should handle negative numbers', (): void => {\n  assert.equal(add(-2, -3), -5);\n  assert.equal(add(-2, 3), 1);\n});\n\ntest('add should handle zero', (): void => {\n  assert.equal(add(0, 5), 5);\n  assert.equal(add(0, 0), 0);\n});\n\ntest('multiply should handle basic positive numbers', (): void => {\n  assert.equal(multiply(2, 3), 6);\n});\n\ntest('multiply should handle negative numbers', (): void => {\n  assert.equal(multiply(-2, -3), 6);\n  assert.equal(multiply(-2, 3), -6);\n});\n\ntest('multiply should handle zero', (): void => {\n  assert.equal(multiply(0, 5), 0);\n  assert.equal(multiply(0, 0), 0);\n});\n",
-                "path": "test/math.test.ts"
+                "content": "/**\n * 登录结果状态。\n */\nexport type LoginStatus = 'success' | 'failure';\n\n/**\n * 登录凭据。\n */\nexport interface LoginCredentials {\n  username: string;\n  password: string;\n}\n\n/**\n * 认证通过后返回的用户信息。\n */\nexport interface AuthenticatedUser {\n  id: string;\n  username: string;\n  displayName?: string;\n  [key: string]: unknown;\n}\n\n/**\n * 抽象认证接口。\n * 由外部注入具体实现，便于与前端/后端框架解耦。\n */\nexport interface Authenticator {\n  authenticate(credentials: LoginCredentials): Promise<AuthenticatedUser>;\n}\n\n/**\n * 登录成功结果。\n */\nexport interface LoginSuccessResult {\n  status: 'success';\n  user: AuthenticatedUser;\n  message: string;\n}\n\n/**\n * 登录失败结果。\n */\nexport interface LoginFailureResult {\n  status: 'failure';\n  message: string;\n  errorCode:\n    | 'INVALID_INPUT'\n    | 'AUTHENTICATION_FAILED'\n    | 'UNKNOWN_ERROR';\n}\n\n/**\n * 登录结果。\n */\nexport type LoginResult = LoginSuccessResult | LoginFailureResult;\n\n/**\n * 登录服务配置。\n */\nexport interface LoginServiceOptions {\n  authenticator: Authenticator;\n  minUsernameLength?: number;\n  minPasswordLength?: number;\n}\n\n/**\n * 登录核心服务：校验输入、调用认证接口并返回结构化结果。\n */\nexport class LoginService {\n  private readonly authenticator: Authenticator;\n  private readonly minUsernameLength: number;\n  private readonly minPasswordLength: number;\n\n  /**\n   * 创建登录服务实例。\n   */\n  constructor(options: LoginServiceOptions) {\n    this.authenticator = options.authenticator;\n    this.minUsernameLength = options.minUsernameLength ?? 1;\n    this.minPasswordLength = options.minPasswordLength ?? 1;\n  }\n\n  /**\n   * 执行登录。\n   *\n   * @param credentials - 用户输入的登录凭据\n   * @returns 结构化登录结果\n   */\n  async login(credentials: LoginCredentials): Promise<LoginResult> {\n    const validationError = this.validateCredentials(credentials);\n    if (validationError !== null) {\n      return validationError;\n    }\n\n    try {\n      const user = await this.authenticator.authenticate(credentials);\n      return {\n        status: 'success',\n        user,\n        message: '登录成功',\n      };\n    } catch (error: unknown) {\n      return this.toFailureResult(error);\n    }\n  }\n\n  private validateCredentials(\n    credentials: LoginCredentials,\n  ): LoginFailureResult | null {\n    if (!this.isNonEmptyString(credentials.username)) {\n      return {\n        status: 'failure',\n        message: '用户名不能为空',\n        errorCode: 'INVALID_INPUT',\n      };\n    }\n\n    if (!this.isNonEmptyString(credentials.password)) {\n      return {\n        status: 'failure',\n        message: '密码不能为空',\n        errorCode: 'INVALID_INPUT',\n      };\n    }\n\n    if (credentials.username.trim().length < this.minUsernameLength) {\n      return {\n        status: 'failure',\n        message: '用户名长度不符合要求',\n        errorCode: 'INVALID_INPUT',\n      };\n    }\n\n    if (credentials.password.length < this.minPasswordLength) {\n      return {\n        status: 'failure',\n        message: '密码长度不符合要求',\n        errorCode: 'INVALID_INPUT',\n      };\n    }\n\n    return null;\n  }\n\n  private toFailureResult(error: unknown): LoginFailureResult {\n    if (error instanceof Error) {\n      const normalizedMessage = error.message.trim();\n      if (\n        normalizedMessage.length > 0 &&\n        /invalid|unauthorized|forbidden|fail/i.test(normalizedMessage)\n      ) {\n        return {\n          status: 'failure',\n          message: normalizedMessage,\n          errorCode: 'AUTHENTICATION_FAILED',\n        };\n      }\n\n      return {\n        status: 'failure',\n        message: normalizedMessage || '登录失败',\n        errorCode: 'UNKNOWN_ERROR',\n      };\n    }\n\n    return {\n      status: 'failure',\n      message: '登录失败',\n      errorCode: 'UNKNOWN_ERROR',\n    };\n  }\n\n  private isNonEmptyString(value: unknown): value is string {\n    return typeof value === 'string' && value.trim().length > 0;\n  }\n}\n\n/**\n * 创建登录服务。\n *\n * @param options - 登录服务配置\n * @returns 登录服务实例\n */\nexport function createLoginService(options: LoginServiceOptions): LoginService {\n  return new LoginService(options);\n}\n",
+                "path": "output/login-service.ts"
               },
-              "output": "Written: test/math.test.ts (33 lines)",
+              "output": "Written: output/login-service.ts (188 lines)",
               "success": true,
-              "timestamp": "2026-04-25T15:42:59.553Z"
+              "timestamp": "2026-04-27T10:24:15.623Z"
             }
           ],
           "filesWritten": [
             {
-              "path": "test/math.test.ts",
+              "path": "output/login-service.ts",
               "operation": "create",
-              "sizeBytes": 825,
-              "checksum": "017374ad96d6167c",
-              "timestamp": "2026-04-25T15:42:59.553Z"
+              "sizeBytes": 4293,
+              "checksum": "dd6527383474bb90",
+              "timestamp": "2026-04-27T10:24:15.623Z"
             }
           ],
           "verifications": [
@@ -135,35 +121,100 @@
               "type": "compile",
               "passed": true,
               "output": "1 file(s) compiled",
-              "durationMs": 609,
-              "timestamp": "2026-04-25T15:42:59.553Z"
+              "durationMs": 549,
+              "timestamp": "2026-04-27T10:24:15.624Z"
             }
           ],
-          "startedAt": "2026-04-25T15:42:50.158Z",
-          "completedAt": "2026-04-25T15:42:59.553Z",
-          "durationMs": 9395
+          "startedAt": "2026-04-27T10:24:04.300Z",
+          "completedAt": "2026-04-27T10:24:15.623Z",
+          "durationMs": 11323
+        }
+      }
+    ],
+    [
+      "test-login-service",
+      {
+        "id": "test-login-service",
+        "type": "implement",
+        "title": "测试登录服务",
+        "specFragment": "实现一个登录功能，使用 TypeScript（TS）",
+        "dependsOn": [
+          "output/login-service.ts"
+        ],
+        "inputs": {
+          "description": "编写登录服务的单元测试，覆盖成功登录、用户名或密码缺失、认证失败、异常处理等主要场景，确保登录逻辑稳定。"
+        },
+        "outputs": {
+          "description": "Write output/login-service.test.ts",
+          "files": [
+            "output/login-service.test.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 2,
+        "retryCount": 1,
+        "createdAt": "2026-04-27T10:23:41.526Z",
+        "updatedAt": "2026-04-27T10:24:40.475Z",
+        "evidence": {
+          "reasoning": "Implementing: 编写登录服务的单元测试，覆盖成功登录、用户名或密码缺失、认证失败、异常处理等主要场景，确保登录逻辑稳定。",
+          "promptUsed": "Spec context: 实现一个登录功能，使用 TypeScript（TS）\n\nTask: 编写登录服务的单元测试，覆盖成功登录、用户名或密码缺失、认证失败、异常处理等主要场景，确保登录逻辑稳定。\nOutput file: output/login-service.test.ts\n\n\n\nWrite the complete implementation to the output file using write_file tool.",
+          "modelUsed": "gpt-5.4-mini",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import assert from 'node:assert/strict';\n\ntype LoginCredentials = {\n  username?: string;\n  password?: string;\n};\n\ntype UserRecord = {\n  id: string;\n  username: string;\n  password: string;\n  name: string;\n};\n\ntype AuthResult = {\n  token: string;\n  user: {\n    id: string;\n    username: string;\n    name: string;\n  };\n};\n\ntype UserRepository = {\n  findByUsername(username: string): Promise<UserRecord | null>;\n};\n\ntype TokenService = {\n  sign(payload: { userId: string; username: string }): Promise<string>;\n};\n\ntype LoginService = {\n  login(credentials: LoginCredentials): Promise<AuthResult>;\n};\n\nclass LoginServiceImpl implements LoginService {\n  private readonly userRepository: UserRepository;\n\n  private readonly tokenService: TokenService;\n\n  public constructor(userRepository: UserRepository, tokenService: TokenService) {\n    this.userRepository = userRepository;\n    this.tokenService = tokenService;\n  }\n\n  public async login(credentials: LoginCredentials): Promise<AuthResult> {\n    const username: string | undefined = credentials.username?.trim();\n    const password: string | undefined = credentials.password;\n\n    if (!username) {\n      throw new Error('用户名不能为空');\n    }\n\n    if (!password) {\n      throw new Error('密码不能为空');\n    }\n\n    const user: UserRecord | null = await this.userRepository.findByUsername(username);\n    if (!user || user.password !== password) {\n      throw new Error('认证失败');\n    }\n\n    const token: string = await this.tokenService.sign({ userId: user.id, username: user.username });\n    return {\n      token,\n      user: {\n        id: user.id,\n        username: user.username,\n        name: user.name,\n      },\n    };\n  }\n}\n\nfunction createMockUserRepository(user: UserRecord | null): UserRepository {\n  return {\n    async findByUsername(_username: string): Promise<UserRecord | null> {\n      return user;\n    },\n  };\n}\n\nfunction createMockTokenService(token: string, shouldThrow = false): TokenService {\n  return {\n    async sign(_payload: { userId: string; username: string }): Promise<string> {\n      if (shouldThrow) {\n        throw new Error('token service error');\n      }\n      return token;\n    },\n  };\n}\n\n/**\n * 运行登录服务单元测试。\n */\nasync function runTests(): Promise<void> {\n  await testSuccessfulLogin();\n  await testMissingUsername();\n  await testMissingPassword();\n  await testAuthenticationFailure();\n  await testExceptionHandling();\n}\n\n/**\n * 测试成功登录场景。\n */\nasync function testSuccessfulLogin(): Promise<void> {\n  const user: UserRecord = {\n    id: 'u1',\n    username: 'alice',\n    password: 'secret',\n    name: 'Alice',\n  };\n  const service: LoginService = new LoginServiceImpl(\n    createMockUserRepository(user),\n    createMockTokenService('mock-token'),\n  );\n\n  const result: AuthResult = await service.login({ username: 'alice', password: 'secret' });\n\n  assert.equal(result.token, 'mock-token');\n  assert.deepEqual(result.user, {\n    id: 'u1',\n    username: 'alice',\n    name: 'Alice',\n  });\n}\n\n/**\n * 测试用户名缺失场景。\n */\nasync function testMissingUsername(): Promise<void> {\n  const service: LoginService = new LoginServiceImpl(\n    createMockUserRepository(null),\n    createMockTokenService('mock-token'),\n  );\n\n  await assert.rejects(\n    async (): Promise<AuthResult> => service.login({ password: 'secret' }),\n    (error: unknown): boolean => error instanceof Error && error.message === '用户名不能为空',\n  );\n}\n\n/**\n * 测试密码缺失场景。\n */\nasync function testMissingPassword(): Promise<void> {\n  const service: LoginService = new LoginServiceImpl(\n    createMockUserRepository(null),\n    createMockTokenService('mock-token'),\n  );\n\n  await assert.rejects(\n    async (): Promise<AuthResult> => service.login({ username: 'alice' }),\n    (error: unknown): boolean => error instanceof Error && error.message === '密码不能为空',\n  );\n}\n\n/**\n * 测试认证失败场景。\n */\nasync function testAuthenticationFailure(): Promise<void> {\n  const user: UserRecord = {\n    id: 'u1',\n    username: 'alice',\n    password: 'secret',\n    name: 'Alice',\n  };\n  const service: LoginService = new LoginServiceImpl(\n    createMockUserRepository(user),\n    createMockTokenService('mock-token'),\n  );\n\n  await assert.rejects(\n    async (): Promise<AuthResult> => service.login({ username: 'alice', password: 'wrong' }),\n    (error: unknown): boolean => error instanceof Error && error.message === '认证失败',\n  );\n}\n\n/**\n * 测试异常处理场景。\n */\nasync function testExceptionHandling(): Promise<void> {\n  const user: UserRecord = {\n    id: 'u1',\n    username: 'alice',\n    password: 'secret',\n    name: 'Alice',\n  };\n  const service: LoginService = new LoginServiceImpl(\n    createMockUserRepository(user),\n    createMockTokenService('mock-token', true),\n  );\n\n  await assert.rejects(\n    async (): Promise<AuthResult> => service.login({ username: 'alice', password: 'secret' }),\n    (error: unknown): boolean => error instanceof Error && error.message === 'token service error',\n  );\n}\n\nvoid runTests();\n",
+                "path": "output/login-service.test.ts"
+              },
+              "output": "Written: output/login-service.test.ts (203 lines)",
+              "success": true,
+              "timestamp": "2026-04-27T10:24:39.864Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": "output/login-service.test.ts",
+              "operation": "create",
+              "sizeBytes": 5071,
+              "checksum": "5cb9556eea54c022",
+              "timestamp": "2026-04-27T10:24:39.864Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 611,
+              "timestamp": "2026-04-27T10:24:39.864Z"
+            }
+          ],
+          "startedAt": "2026-04-27T10:24:26.422Z",
+          "completedAt": "2026-04-27T10:24:39.864Z",
+          "durationMs": 13442
         }
       }
     ]
   ],
   "status": "done",
   "stats": {
-    "total": 2,
+    "total": 3,
     "byStatus": {
       "pending": 0,
       "ready": 0,
       "running": 0,
       "verifying": 0,
-      "done": 2,
+      "done": 3,
       "failed": 0,
       "blocked": 0,
       "skipped": 0
     },
-    "filesGenerated": 2,
-    "verificationsRun": 4,
-    "verificationsPassed": 4
+    "filesGenerated": 3,
+    "verificationsRun": 3,
+    "verificationsPassed": 3
   },
-  "createdAt": "2026-04-25T15:42:27.689Z",
-  "updatedAt": "2026-04-25T15:43:00.162Z",
-  "completedAt": "2026-04-25T15:43:00.162Z"
+  "createdAt": "2026-04-27T10:23:41.526Z",
+  "updatedAt": "2026-04-27T10:24:40.475Z",
+  "completedAt": "2026-04-27T10:24:40.476Z"
 }

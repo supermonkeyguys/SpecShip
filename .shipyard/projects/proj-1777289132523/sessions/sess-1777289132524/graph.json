@@ -1,0 +1,417 @@
+{
+  "id": "graph-1777289139872",
+  "title": "Colorful personal blog",
+  "originalSpec": "实现一个风格绚丽的个人博客。",
+  "nodes": [
+    [
+      "impl-types",
+      {
+        "id": "impl-types",
+        "type": "implement",
+        "title": "Define blog UI types and content models",
+        "specFragment": "实现一个风格绚丽的个人博客",
+        "dependsOn": [],
+        "inputs": {
+          "description": "Define the TypeScript interfaces and mock data shapes needed for a colorful personal blog, including site metadata, navigation items, hero content, post cards, tags, and social links."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts",
+          "files": [
+            ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 2,
+        "retryCount": 0,
+        "createdAt": "2026-04-27T11:25:39.872Z",
+        "updatedAt": "2026-04-27T11:26:00.822Z",
+        "evidence": {
+          "reasoning": "Implementing: Define the TypeScript interfaces and mock data shapes needed for a colorful personal blog, including site metadata, navigation items, hero content, post cards, tags, and social links.",
+          "promptUsed": "Spec context: 实现一个风格绚丽的个人博客\n\nTask: Define the TypeScript interfaces and mock data shapes needed for a colorful personal blog, including site metadata, navigation items, hero content, post cards, tags, and social links.\nOutput file: .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/ou",
+          "modelUsed": "gpt-5.4-mini",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "/**\n * Site-wide metadata for the colorful personal blog.\n */\nexport interface SiteMetadata {\n  /** Display name of the blog. */\n  title: string;\n  /** Short description used for SEO and sharing. */\n  description: string;\n  /** Canonical site URL. */\n  url: string;\n  /** Blog author or owner name. */\n  author: string;\n  /** Primary brand color in hex or CSS-compatible format. */\n  primaryColor: string;\n  /** Secondary brand color in hex or CSS-compatible format. */\n  secondaryColor: string;\n}\n\n/**\n * A navigation item shown in the blog header or sidebar.\n */\nexport interface NavigationItem {\n  /** Unique item label shown to users. */\n  label: string;\n  /** Target path or URL. */\n  href: string;\n  /** Whether the navigation item is currently active. */\n  active?: boolean;\n  /** Optional icon name or identifier. */\n  icon?: string;\n}\n\n/**\n * Hero section content presented at the top of the landing page.\n */\nexport interface HeroContent {\n  /** Main headline. */\n  headline: string;\n  /** Supporting subtitle. */\n  subtitle: string;\n  /** Short introduction paragraph. */\n  description: string;\n  /** Primary call-to-action label. */\n  primaryActionLabel: string;\n  /** Primary call-to-action link. */\n  primaryActionHref: string;\n  /** Optional secondary action label. */\n  secondaryActionLabel?: string;\n  /** Optional secondary action link. */\n  secondaryActionHref?: string;\n  /** Decorative background gradient or image reference. */\n  backgroundStyle?: string;\n}\n\n/**\n * A tag used to categorize blog posts.\n */\nexport interface BlogTag {\n  /** Tag name displayed to readers. */\n  name: string;\n  /** Slug used in routes or filtering. */\n  slug: string;\n  /** Accent color associated with the tag. */\n  color?: string;\n  /** Number of posts in the tag, if known. */\n  count?: number;\n}\n\n/**\n * A social profile link displayed in the blog.\n */\nexport interface SocialLink {\n  /** Platform name, such as GitHub or X. */\n  platform: string;\n  /** Profile URL. */\n  href: string;\n  /** Icon name or identifier for the platform. */\n  icon?: string;\n  /** Optional accessible label for the link. */\n  label?: string;\n}\n\n/**\n * A compact post card used in listings and grids.\n */\nexport interface PostCard {\n  /** Unique post identifier. */\n  id: string;\n  /** Post title. */\n  title: string;\n  /** Short excerpt or summary. */\n  excerpt: string;\n  /** Cover image URL. */\n  coverImage: string;\n  /** Publication date in ISO format. */\n  publishedAt: string;\n  /** Estimated reading time, in minutes. */\n  readingTimeMinutes: number;\n  /** Associated post tags. */\n  tags: BlogTag[];\n  /** Author name if different from site metadata. */\n  author?: string;\n  /** Whether the post is featured. */\n  featured?: boolean;\n  /** Canonical post URL or route. */\n  href: string;\n}\n\n/**\n * Complete data bundle for rendering the blog UI.\n */\nexport interface BlogMockData {\n  /** Site metadata object. */\n  site: SiteMetadata;\n  /** Header or sidebar navigation items. */\n  navigation: NavigationItem[];\n  /** Hero banner content. */\n  hero: HeroContent;\n  /** Popular tags. */\n  tags: BlogTag[];\n  /** Social profile links. */\n  socialLinks: SocialLink[];\n  /** Featured and recent post cards. */\n  posts: PostCard[];\n}\n\n/**\n * A ready-to-use mock data set for a colorful personal blog.\n */\nexport const mockBlogData: BlogMockData = {\n  site: {\n    title: '彩虹笔记',\n    description: '一个风格绚丽、记录灵感与生活片段的个人博客。',\n    url: 'https://example.com',\n    author: 'Alex Chen',\n    primaryColor: '#7c3aed',\n    secondaryColor: '#ec4899',\n  },\n  navigation: [\n    { label: '首页', href: '/', active: true, icon: 'home' },\n    { label: '文章', href: '/posts', icon: 'article' },\n    { label: '标签', href: '/tags', icon: 'tag' },\n    { label: '关于', href: '/about', icon: 'user' },\n  ],\n  hero: {\n    headline: '把每个瞬间，写成一篇彩色故事',\n    subtitle: 'Creative Notes & Daily Sparks',\n    description: '记录开发、设计、旅行与灵感，把生活过成一场不断更新的灵感展览。',\n    primaryActionLabel: '开始阅读',\n    primaryActionHref: '/posts',\n    secondaryActionLabel: '认识我',\n    secondaryActionHref: '/about',\n    backgroundStyle: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)',\n  },\n  tags: [\n    { name: '设计', slug: 'design', color: '#f472b6', count: 12 },\n    { name: '前端', slug: 'frontend', color: '#60a5fa', count: 18 },\n    { name: '生活', slug: 'life', color: '#34d399', count: 9 },\n    { name: '旅行', slug: 'travel', color: '#f59e0b', count: 6 },\n  ],\n  socialLinks: [\n    { platform: 'GitHub', href: 'https://github.com/example', icon: 'github', label: 'GitHub 主页' },\n    { platform: 'X', href: 'https://x.com/example', icon: 'x', label: 'X 主页' },\n    { platform: 'Dribbble', href: 'https://dribbble.com/example', icon: 'dribbble', label: 'Dribbble 作品集' },\n  ],\n  posts: [\n    {\n      id: 'post-001',\n      title: '如何用渐变与玻璃拟态打造更有氛围感的博客首页',\n      excerpt: '从视觉层次、色彩搭配到卡片布局，分享我在个人博客首页设计中的实践心得。',\n      coverImage: 'https://images.example.com/covers/gradient-blog.jpg',\n      publishedAt: '2025-01-12',\n      readingTimeMinutes: 8,\n      tags: [\n        { name: '设计', slug: 'design', color: '#f472b6' },\n        { name: '前端', slug: 'frontend', color: '#60a5fa' },\n      ],\n      author: 'Alex Chen',\n      featured: true,\n      href: '/posts/gradient-blog-homepage',\n    },\n    {\n      id: 'post-002',\n      title: '我的日常灵感收集术：把碎片想法变成可执行清单',\n      excerpt: '我会如何记录灵感、归类素材，并在每周回顾中把零碎点子转化为实际项目。',\n      coverImage: 'https://images.example.com/covers/inspiration-notes.jpg',\n      publishedAt: '2025-01-05',\n      readingTimeMinutes: 6,\n      tags: [\n        { name: '生活', slug: 'life', color: '#34d399' },\n        { name: '效率', slug: 'productivity', color: '#a78bfa' },\n      ],\n      author: 'Alex Chen',\n      href: '/posts/inspiration-notes',\n    },\n    {\n      id: 'post-003',\n      title: '一次海边旅行中的色彩观察：从天空到浪花的配色灵感',\n      excerpt: '旅行不仅是放松，也是一场关于色彩、光影和情绪的观察练习。',\n      coverImage: 'https://images.example.com/covers/seaside-colors.jpg',\n      publishedAt: '2024-12-22',\n      readingTimeMinutes: 5,\n      tags: [\n        { name: '旅行', slug: 'travel', color: '#f59e0b' },\n        { name: '摄影', slug: 'photography', color: '#38bdf8' },\n      ],\n      author: 'Alex Chen',\n      href: '/posts/seaside-color-observations',\n    },\n  ],\n};\n\n/**\n * Returns the featured posts from a list of post cards.\n *\n * @param posts - The list of posts to filter.\n * @returns Featured posts in the same order they appear in the input list.\n */\nexport function getFeaturedPosts(posts: PostCard[]): PostCard[] {\n  return posts.filter((post) => post.featured === true);\n}\n\n/**\n * Returns a post card by its identifier.\n *\n * @param posts - The list of posts to search.\n * @param id - The post identifier.\n * @returns The matching post, or undefined if not found.\n */\nexport function findPostById(posts: PostCard[], id: string): PostCard | undefined {\n  return posts.find((post) => post.id === id);\n}",
+                "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts (232 lines)",
+              "success": true,
+              "timestamp": "2026-04-27T11:25:58.705Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts",
+              "operation": "create",
+              "sizeBytes": 7389,
+              "checksum": "33f358847da07f47",
+              "timestamp": "2026-04-27T11:25:58.705Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 745,
+              "timestamp": "2026-04-27T11:25:58.707Z"
+            }
+          ],
+          "startedAt": "2026-04-27T11:25:39.874Z",
+          "completedAt": "2026-04-27T11:25:58.705Z",
+          "durationMs": 18831
+        }
+      }
+    ],
+    [
+      "impl-data",
+      {
+        "id": "impl-data",
+        "type": "implement",
+        "title": "Create blog content and theme data",
+        "specFragment": "实现一个风格绚丽的个人博客",
+        "dependsOn": [
+          "impl-types"
+        ],
+        "inputs": {
+          "description": "Implement a TypeScript module exporting representative blog content, theme tokens, and structured data for the homepage and post listings, using the defined types."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/data.ts",
+          "files": [
+            ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/data.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 2,
+        "retryCount": 0,
+        "createdAt": "2026-04-27T11:25:39.872Z",
+        "updatedAt": "2026-04-27T11:27:15.212Z",
+        "evidence": {
+          "reasoning": "Implementing: Implement a TypeScript module exporting representative blog content, theme tokens, and structured data for the homepage and post listings, using the defined types.",
+          "promptUsed": "Spec context: 实现一个风格绚丽的个人博客\n\nTask: Implement a TypeScript module exporting representative blog content, theme tokens, and structured data for the homepage and post listings, using the defined types.\nOutput file: .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/data.ts\n\nDepend",
+          "modelUsed": "gpt-5.4-mini",
+          "toolCalls": [
+            {
+              "tool": "read_file",
+              "input": {
+                "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts"
+              },
+              "output": "/**\n * Site-wide metadata for the colorful personal blog.\n */\nexport interface SiteMetadata {\n  /** Display name of the blog. */\n  title: string;\n  /** Short description used for SEO and sharing. */\n  description: string;\n  /** Canonical site URL. */\n  url: string;\n  /** Blog author or owner name. *",
+              "success": true,
+              "timestamp": "2026-04-27T11:27:08.579Z"
+            },
+            {
+              "tool": "read_file",
+              "input": {
+                "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts"
+              },
+              "output": "/**\n * Site-wide metadata for the colorful personal blog.\n */\nexport interface SiteMetadata {\n  /** Display name of the blog. */\n  title: string;\n  /** Short description used for SEO and sharing. */\n  description: string;\n  /** Canonical site URL. */\n  url: string;\n  /** Blog author or owner name. *",
+              "success": true,
+              "timestamp": "2026-04-27T11:27:08.579Z"
+            },
+            {
+              "tool": "run_command",
+              "input": {
+                "command": "node -e \"const fs=require('fs'); const s=fs.readFileSync('.shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts','utf8'); console.log(s.length); console.log(s.slice(0,5000));\""
+              },
+              "output": "6833\n/**\n * Site-wide metadata for the colorful personal blog.\n */\nexport interface SiteMetadata {\n  /** Display name of the blog. */\n  title: string;\n  /** Short description used for SEO and sharing. */\n  description: string;\n  /** Canonical site URL. */\n  url: string;\n  /** Blog author or owner na",
+              "success": true,
+              "timestamp": "2026-04-27T11:27:08.579Z"
+            },
+            {
+              "tool": "run_command",
+              "input": {
+                "command": "node -e \"const fs=require('fs'); const s=fs.readFileSync('.shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts','utf8'); console.log(s.slice(5000));\""
+              },
+              "output": "{ name: '设计', slug: 'design', color: '#f472b6' },\n        { name: '前端', slug: 'frontend', color: '#60a5fa' },\n      ],\n      author: 'Alex Chen',\n      featured: true,\n      href: '/posts/gradient-blog-homepage',\n    },\n    {\n      id: 'post-002',\n      title: '我的日常灵感收集术：把碎片想法变成可执行清单',\n      excerpt",
+              "success": true,
+              "timestamp": "2026-04-27T11:27:08.579Z"
+            },
+            {
+              "tool": "run_command",
+              "input": {
+                "command": "node -e \"const fs=require('fs'); const s=fs.readFileSync('.shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts','utf8'); const idx=s.indexOf('export interface BlogMockData'); console.log(s.slice(idx));\""
+              },
+              "output": "export interface BlogMockData {\n  /** Site metadata object. */\n  site: SiteMetadata;\n  /** Header or sidebar navigation items. */\n  navigation: NavigationItem[];\n  /** Hero banner content. */\n  hero: HeroContent;\n  /** Popular tags. */\n  tags: BlogTag[];\n  /** Social profile links. */\n  socialLinks:",
+              "success": true,
+              "timestamp": "2026-04-27T11:27:08.579Z"
+            },
+            {
+              "tool": "run_command",
+              "input": {
+                "command": "node -e \"const fs=require('fs'); const s=fs.readFileSync('.shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts','utf8'); const idx=s.indexOf('hero: {'); console.log(s.slice(idx, idx+3500));\""
+              },
+              "output": "hero: {\n    headline: '把每个瞬间，写成一篇彩色故事',\n    subtitle: 'Creative Notes & Daily Sparks',\n    description: '记录开发、设计、旅行与灵感，把生活过成一场不断更新的灵感展览。',\n    primaryActionLabel: '开始阅读',\n    primaryActionHref: '/posts',\n    secondaryActionLabel: '认识我',\n    secondaryActionHref: '/about',\n    backgroundStyle: 'linear",
+              "success": true,
+              "timestamp": "2026-04-27T11:27:08.579Z"
+            },
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import type {\n  BlogMockData,\n  BlogTag,\n  HeroContent,\n  NavigationItem,\n  PostCard,\n  SiteMetadata,\n  SocialLink,\n} from './types';\n\n/**\n * Theme design tokens for the colorful blog interface.\n */\nexport interface ThemeTokens {\n  colors: {\n    background: string;\n    surface: string;\n    surfaceElevated: string;\n    textPrimary: string;\n    textSecondary: string;\n    border: string;\n    brandPrimary: string;\n    brandSecondary: string;\n    accentCyan: string;\n    accentAmber: string;\n    accentEmerald: string;\n    accentViolet: string;\n  };\n  gradients: {\n    hero: string;\n    card: string;\n    mesh: string;\n  };\n  shadows: {\n    soft: string;\n    glow: string;\n  };\n  typography: {\n    fontSans: string;\n    fontDisplay: string;\n    fontMono: string;\n    headlineLetterSpacing: string;\n    bodyLineHeight: string;\n  };\n  radii: {\n    small: string;\n    medium: string;\n    large: string;\n    pill: string;\n  };\n  spacing: {\n    xs: string;\n    sm: string;\n    md: string;\n    lg: string;\n    xl: string;\n    '2xl': string;\n  };\n}\n\n/**\n * Structured content for the homepage layout.\n */\nexport interface HomepageStructuredData {\n  site: SiteMetadata;\n  navigation: NavigationItem[];\n  hero: HeroContent;\n  featuredTags: BlogTag[];\n  socialLinks: SocialLink[];\n  featuredPosts: PostCard[];\n  recentPosts: PostCard[];\n}\n\n/**\n * Structured content for the posts listing page.\n */\nexport interface PostsListingStructuredData {\n  title: string;\n  description: string;\n  totalPosts: number;\n  featuredPosts: PostCard[];\n  recentPosts: PostCard[];\n  tags: BlogTag[];\n}\n\n/**\n * Site metadata for the colorful personal blog.\n */\nexport const siteMetadata: SiteMetadata = {\n  title: '彩虹笔记',\n  description: '一个风格绚丽的个人博客，记录开发、设计、旅行和生活中的灵感碎片。',\n  url: 'https://example.com',\n  author: 'Alex Chen',\n  primaryColor: '#7c3aed',\n  secondaryColor: '#ec4899',\n};\n\n/**\n * Main navigation entries used in the header and sidebar.\n */\nexport const navigation: NavigationItem[] = [\n  { label: '首页', href: '/', active: true, icon: 'home' },\n  { label: '文章', href: '/posts', icon: 'article' },\n  { label: '标签', href: '/tags', icon: 'tag' },\n  { label: '灵感', href: '/inspiration', icon: 'sparkles' },\n  { label: '关于', href: '/about', icon: 'user' },\n];\n\n/**\n * Hero content for the top section of the homepage.\n */\nexport const heroContent: HeroContent = {\n  headline: '把每个瞬间，写成一篇彩色故事',\n  subtitle: 'Creative Notes & Daily Sparks',\n  description: '记录开发、设计、旅行与灵感，把生活过成一场不断更新的灵感展览。',\n  primaryActionLabel: '开始阅读',\n  primaryActionHref: '/posts',\n  secondaryActionLabel: '认识我',\n  secondaryActionHref: '/about',\n  backgroundStyle: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)',\n};\n\n/**\n * Popular tags displayed across the site.\n */\nexport const tags: BlogTag[] = [\n  { name: '设计', slug: 'design', color: '#f472b6', count: 12 },\n  { name: '前端', slug: 'frontend', color: '#60a5fa', count: 18 },\n  { name: '生活', slug: 'life', color: '#34d399', count: 9 },\n  { name: '旅行', slug: 'travel', color: '#f59e0b', count: 6 },\n  { name: '效率', slug: 'productivity', color: '#a78bfa', count: 7 },\n  { name: '摄影', slug: 'photography', color: '#22c55e', count: 5 },\n];\n\n/**\n * Social profile links shown in the footer and profile card.\n */\nexport const socialLinks: SocialLink[] = [\n  { platform: 'GitHub', href: 'https://github.com/example', icon: 'github', label: 'GitHub 主页' },\n  { platform: 'X', href: 'https://x.com/example', icon: 'x', label: 'X 主页' },\n  { platform: 'Dribbble', href: 'https://dribbble.com/example', icon: 'dribbble', label: 'Dribbble 作品集' },\n  { platform: 'RSS', href: '/rss.xml', icon: 'rss', label: 'RSS 订阅' },\n];\n\n/**\n * Representative post cards used in the listing and homepage modules.\n */\nexport const posts: PostCard[] = [\n  {\n    id: 'post-001',\n    title: '如何设计一个让人一眼记住的渐变博客首页',\n    excerpt: '从视觉层次、排版节奏到动效氛围，拆解一个既活泼又易读的个人博客首页。',\n    coverImage: 'https://images.example.com/covers/gradient-blog-homepage.jpg',\n    publishedAt: '2025-01-12',\n    readingTimeMinutes: 8,\n    tags: [\n      { name: '设计', slug: 'design', color: '#f472b6' },\n      { name: '前端', slug: 'frontend', color: '#60a5fa' },\n    ],\n    author: 'Alex Chen',\n    featured: true,\n    href: '/posts/gradient-blog-homepage',\n  },\n  {\n    id: 'post-002',\n    title: '我的日常灵感收集术：把碎片想法变成可执行清单',\n    excerpt: '我会如何记录灵感、归类素材，并在每周回顾中把零碎点子转化为实际项目。',\n    coverImage: 'https://images.example.com/covers/inspiration-notes.jpg',\n    publishedAt: '2025-01-05',\n    readingTimeMinutes: 6,\n    tags: [\n      { name: '生活', slug: 'life', color: '#34d399' },\n      { name: '效率', slug: 'productivity', color: '#a78bfa' },\n    ],\n    author: 'Alex Chen',\n    href: '/posts/inspiration-notes',\n  },\n  {\n    id: 'post-003',\n    title: '一次海边旅行中的色彩观察：从天空到浪花的配色灵感',\n    excerpt: '旅行不仅是放松，也是一场关于色彩、光影和情绪的观察练习。',\n    coverImage: 'https://images.example.com/covers/seaside-colors.jpg',\n    publishedAt: '2024-12-22',\n    readingTimeMinutes: 5,\n    tags: [\n      { name: '旅行', slug: 'travel', color: '#f59e0b' },\n      { name: '摄影', slug: 'photography', color: '#22c55e' },\n    ],\n    author: 'Alex Chen',\n    href: '/posts/seaside-colors',\n  },\n  {\n    id: 'post-004',\n    title: '给个人博客添加微交互：按钮、卡片和标题的动效设计',\n    excerpt: '不需要复杂动画，只要几个细节微交互，就能显著提升阅读体验与品牌感。',\n    coverImage: 'https://images.example.com/covers/micro-interactions.jpg',\n    publishedAt: '2024-12-14',\n    readingTimeMinutes: 7,\n    tags: [\n      { name: '前端', slug: 'frontend', color: '#60a5fa' },\n      { name: '设计', slug: 'design', color: '#f472b6' },\n    ],\n    author: 'Alex Chen',\n    href: '/posts/micro-interactions',\n  },\n  {\n    id: 'post-005',\n    title: '我的每周复盘模板：如何保持稳定输出而不焦虑',\n    excerpt: '一个简洁的周复盘框架，帮助你梳理进展、发现阻塞并保持长期节奏。',\n    coverImage: 'https://images.example.com/covers/weekly-review.jpg',\n    publishedAt: '2024-12-01',\n    readingTimeMinutes: 4,\n    tags: [\n      { name: '效率', slug: 'productivity', color: '#a78bfa' },\n      { name: '生活', slug: 'life', color: '#34d399' },\n    ],\n    author: 'Alex Chen',\n    href: '/posts/weekly-review-template',\n  },\n  {\n    id: 'post-006',\n    title: '用一组照片讲述城市夜色：霓虹、雨水与反光路面',\n    excerpt: '当城市亮起灯火后，我喜欢用镜头记录那些转瞬即逝的色彩层次。',\n    coverImage: 'https://images.example.com/covers/city-night-photography.jpg',\n    publishedAt: '2024-11-18',\n    readingTimeMinutes: 6,\n    tags: [\n      { name: '摄影', slug: 'photography', color: '#22c55e' },\n      { name: '旅行', slug: 'travel', color: '#f59e0b' },\n    ],\n    author: 'Alex Chen',\n    href: '/posts/city-night-photography',\n  },\n];\n\n/**\n * Featured post cards for the homepage spotlight section.\n */\nexport const featuredPosts: PostCard[] = posts.filter((post: PostCard) => Boolean(post.featured));\n\n/**\n * Recent post cards shown in the homepage feed.\n */\nexport const recentPosts: PostCard[] = posts.slice(0, 4);\n\n/**\n * Theme tokens used to build the colorful blog UI.\n */\nexport const themeTokens: ThemeTokens = {\n  colors: {\n    background: '#0f1020',\n    surface: 'rgba(255, 255, 255, 0.08)',\n    surfaceElevated: 'rgba(255, 255, 255, 0.12)',\n    textPrimary: '#f8fafc',\n    textSecondary: '#cbd5e1',\n    border: 'rgba(255, 255, 255, 0.14)',\n    brandPrimary: siteMetadata.primaryColor,\n    brandSecondary: siteMetadata.secondaryColor,\n    accentCyan: '#22d3ee',\n    accentAmber: '#f59e0b',\n    accentEmerald: '#34d399',\n    accentViolet: '#8b5cf6',\n  },\n  gradients: {\n    hero: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)',\n    card: 'linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%)',\n    mesh: 'radial-gradient(circle at top left, rgba(124, 58, 237, 0.35), transparent 35%), radial-gradient(circle at top right, rgba(236, 72, 153, 0.28), transparent 30%), radial-gradient(circle at bottom left, rgba(34, 211, 238, 0.22), transparent 30%)',\n  },\n  shadows: {\n    soft: '0 12px 40px rgba(15, 23, 42, 0.25)',\n    glow: '0 0 0 1px rgba(255,255,255,0.14), 0 16px 48px rgba(124, 58, 237, 0.28)',\n  },\n  typography: {\n    fontSans: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif',\n    fontDisplay: 'Poppins, Inter, ui-sans-serif, system-ui, sans-serif',\n    fontMono: 'SFMono-Regular, Consolas, \"Liberation Mono\", Menlo, monospace',\n    headlineLetterSpacing: '-0.03em',\n    bodyLineHeight: '1.7',\n  },\n  radii: {\n    small: '12px',\n    medium: '20px',\n    large: '28px',\n    pill: '999px',\n  },\n  spacing: {\n    xs: '0.5rem',\n    sm: '0.75rem',\n    md: '1rem',\n    lg: '1.5rem',\n    xl: '2rem',\n    '2xl': '3rem',\n  },\n};\n\n/**\n * Complete homepage data bundle for the colorful blog.\n */\nexport const homepageData: HomepageStructuredData = {\n  site: siteMetadata,\n  navigation,\n  hero: heroContent,\n  featuredTags: tags,\n  socialLinks,\n  featuredPosts,\n  recentPosts,\n};\n\n/**\n * Complete post listing data bundle for archive and index pages.\n */\nexport const postsListingData: PostsListingStructuredData = {\n  title: '文章列表',\n  description: '浏览全部博客文章，按主题探索设计、前端、旅行和生活记录。',\n  totalPosts: posts.length,\n  featuredPosts,\n  recentPosts: posts.slice(0, 5),\n  tags,\n};\n\n/**\n * Aggregate mock data compatible with the shared blog types.\n */\nexport const blogMockData: BlogMockData = {\n  site: siteMetadata,\n  navigation,\n  hero: heroContent,\n  tags,\n  socialLinks,\n  posts,\n};\n\n/**\n * Canonical exported data map for page-level consumption.\n */\nexport const data = {\n  siteMetadata,\n  navigation,\n  heroContent,\n  tags,\n  socialLinks,\n  posts,\n  featuredPosts,\n  recentPosts,\n  themeTokens,\n  homepageData,\n  postsListingData,\n  blogMockData,\n} as const;\n",
+                "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/data.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/data.ts (350 lines)",
+              "success": true,
+              "timestamp": "2026-04-27T11:27:08.579Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/data.ts",
+              "operation": "create",
+              "sizeBytes": 10454,
+              "checksum": "b5016c0b37d23b22",
+              "timestamp": "2026-04-27T11:27:08.579Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 694,
+              "timestamp": "2026-04-27T11:27:08.580Z"
+            }
+          ],
+          "startedAt": "2026-04-27T11:26:00.825Z",
+          "completedAt": "2026-04-27T11:27:08.579Z",
+          "durationMs": 67754
+        }
+      }
+    ],
+    [
+      "impl-layout",
+      {
+        "id": "impl-layout",
+        "type": "implement",
+        "title": "Build the blog page composition",
+        "specFragment": "实现一个风格绚丽的个人博客",
+        "dependsOn": [
+          "impl-types",
+          "impl-data"
+        ],
+        "inputs": {
+          "description": "Implement the main page composition logic in TypeScript: hero section, featured posts, category/tag filters, about section, and footer layout assembly, using the content data."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.ts",
+          "files": [
+            ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 2,
+        "retryCount": 2,
+        "createdAt": "2026-04-27T11:25:39.872Z",
+        "updatedAt": "2026-04-27T11:28:14.076Z",
+        "evidence": {
+          "reasoning": "Implementing: Implement the main page composition logic in TypeScript: hero section, featured posts, category/tag filters, about section, and footer layout assembly, using the content data.",
+          "promptUsed": "Spec context: 实现一个风格绚丽的个人博客\n\nTask: Implement the main page composition logic in TypeScript: hero section, featured posts, category/tag filters, about section, and footer layout assembly, using the content data.\nOutput file: .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/lay",
+          "modelUsed": "gpt-5.4-mini",
+          "toolCalls": [
+            {
+              "tool": "read_file",
+              "input": {
+                "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/types.ts"
+              },
+              "output": "/**\n * Site-wide metadata for the colorful personal blog.\n */\nexport interface SiteMetadata {\n  /** Display name of the blog. */\n  title: string;\n  /** Short description used for SEO and sharing. */\n  description: string;\n  /** Canonical site URL. */\n  url: string;\n  /** Blog author or owner name. *",
+              "success": true,
+              "timestamp": "2026-04-27T11:28:13.298Z"
+            },
+            {
+              "tool": "read_file",
+              "input": {
+                "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/data.ts"
+              },
+              "output": "import type {\n  BlogMockData,\n  BlogTag,\n  HeroContent,\n  NavigationItem,\n  PostCard,\n  SiteMetadata,\n  SocialLink,\n} from './types';\n\n/**\n * Theme design tokens for the colorful blog interface.\n */\nexport interface ThemeTokens {\n  colors: {\n    background: string;\n    surface: string;\n    surfaceEl",
+              "success": true,
+              "timestamp": "2026-04-27T11:28:13.298Z"
+            },
+            {
+              "tool": "read_file",
+              "input": {
+                "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/data.ts"
+              },
+              "output": "import type {\n  BlogMockData,\n  BlogTag,\n  HeroContent,\n  NavigationItem,\n  PostCard,\n  SiteMetadata,\n  SocialLink,\n} from './types';\n\n/**\n * Theme design tokens for the colorful blog interface.\n */\nexport interface ThemeTokens {\n  colors: {\n    background: string;\n    surface: string;\n    surfaceEl",
+              "success": true,
+              "timestamp": "2026-04-27T11:28:13.298Z"
+            },
+            {
+              "tool": "read_file",
+              "input": {
+                "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/data.ts"
+              },
+              "output": "import type {\n  BlogMockData,\n  BlogTag,\n  HeroContent,\n  NavigationItem,\n  PostCard,\n  SiteMetadata,\n  SocialLink,\n} from './types';\n\n/**\n * Theme design tokens for the colorful blog interface.\n */\nexport interface ThemeTokens {\n  colors: {\n    background: string;\n    surface: string;\n    surfaceEl",
+              "success": true,
+              "timestamp": "2026-04-27T11:28:13.298Z"
+            },
+            {
+              "tool": "read_file",
+              "input": {
+                "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/data.ts"
+              },
+              "output": "import type {\n  BlogMockData,\n  BlogTag,\n  HeroContent,\n  NavigationItem,\n  PostCard,\n  SiteMetadata,\n  SocialLink,\n} from './types';\n\n/**\n * Theme design tokens for the colorful blog interface.\n */\nexport interface ThemeTokens {\n  colors: {\n    background: string;\n    surface: string;\n    surfaceEl",
+              "success": true,
+              "timestamp": "2026-04-27T11:28:13.298Z"
+            },
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import type { BlogMockData, BlogTag, PostCard, SocialLink } from './types';\n\n/**\n * Main page layout parts for the colorful personal blog.\n */\nexport interface MainPageLayout {\n  hero: HeroSectionLayout;\n  filters: CategoryTagFilterLayout;\n  featuredPosts: FeaturedPostsLayout;\n  about: AboutSectionLayout;\n  footer: FooterLayout;\n}\n\n/**\n * Hero section layout model.\n */\nexport interface HeroSectionLayout {\n  title: string;\n  subtitle: string;\n  description: string;\n  primaryActionLabel: string;\n  primaryActionHref: string;\n  secondaryActionLabel?: string;\n  secondaryActionHref?: string;\n  backgroundStyle?: string;\n}\n\n/**\n * Category/tag filter layout model.\n */\nexport interface CategoryTagFilterLayout {\n  title: string;\n  allTags: BlogTag[];\n  activeSlug?: string;\n  allPostsLabel: string;\n}\n\n/**\n * Featured posts section layout model.\n */\nexport interface FeaturedPostsLayout {\n  title: string;\n  posts: PostCard[];\n  viewAllLabel: string;\n  viewAllHref: string;\n}\n\n/**\n * About section layout model.\n */\nexport interface AboutSectionLayout {\n  title: string;\n  summary: string;\n  author: string;\n  siteTitle: string;\n  siteDescription: string;\n}\n\n/**\n * Footer layout model.\n */\nexport interface FooterLayout {\n  copyrightText: string;\n  socialLinks: SocialLink[];\n  navigationLabels: string[];\n}\n\nfunction getFeaturedPosts(data: BlogMockData): PostCard[] {\n  return data.featuredPosts.filter((post: PostCard) => post.featured === true);\n}\n\nfunction getFilterTags(data: BlogMockData): BlogTag[] {\n  const seen: Set<string> = new Set<string>();\n  const tags: BlogTag[] = [];\n\n  for (const post of data.featuredPosts.concat(data.recentPosts)) {\n    for (const tag of post.tags) {\n      if (!seen.has(tag.slug)) {\n        seen.add(tag.slug);\n        tags.push(tag);\n      }\n    }\n  }\n\n  return tags;\n}\n\n/**\n * Build the full main page composition from structured blog content.\n */\nexport function buildMainPageLayout(data: BlogMockData): MainPageLayout {\n  const featuredPosts: PostCard[] = getFeaturedPosts(data);\n  const filterTags: BlogTag[] = getFilterTags(data);\n  const allPosts: PostCard[] = data.featuredPosts.concat(data.recentPosts);\n\n  return {\n    hero: {\n      title: data.hero.headline,\n      subtitle: data.hero.subtitle,\n      description: data.hero.description,\n      primaryActionLabel: data.hero.primaryActionLabel,\n      primaryActionHref: data.hero.primaryActionHref,\n      secondaryActionLabel: data.hero.secondaryActionLabel,\n      secondaryActionHref: data.hero.secondaryActionHref,\n      backgroundStyle: data.hero.backgroundStyle,\n    },\n    filters: {\n      title: '按标签探索内容',\n      allTags: filterTags,\n      activeSlug: undefined,\n      allPostsLabel: `全部文章 · ${allPosts.length}`,\n    },\n    featuredPosts: {\n      title: '精选文章',\n      posts: featuredPosts.length > 0 ? featuredPosts : data.featuredPosts,\n      viewAllLabel: '查看全部文章',\n      viewAllHref: '/posts',\n    },\n    about: {\n      title: '关于这个博客',\n      summary: '用色彩、故事和持续更新的笔记，构建一个充满灵感的数字角落。',\n      author: data.site.author,\n      siteTitle: data.site.title,\n      siteDescription: data.site.description,\n    },\n    footer: {\n      copyrightText: `© ${new Date().getFullYear()} ${data.site.author} · ${data.site.title}`,\n      socialLinks: data.socialLinks,\n      navigationLabels: data.navigation.map((item: { label: string }) => item.label),\n    },\n  };\n}\n",
+                "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.ts (133 lines)",
+              "success": true,
+              "timestamp": "2026-04-27T11:28:13.298Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.ts",
+              "operation": "create",
+              "sizeBytes": 3473,
+              "checksum": "7cdc6e7feba39e34",
+              "timestamp": "2026-04-27T11:28:13.298Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": false,
+              "output": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.ts(69,15): error TS2339: Property 'featuredPosts' does not exist on type 'BlogMockData'.\n.shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.ts(76,27): error TS2339: Property 'featuredPosts' does not exist on type 'BlogMockData'.\n.shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.ts(76,53): error TS2339: Property 'recentPosts' does not exist on type 'BlogMockData'.\n.shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.ts(94,37): error TS2339: Property 'featuredPosts' does not exist on type 'BlogMockData'.\n.shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.ts(94,63): error TS2339: Property 'recentPosts",
+              "durationMs": 776,
+              "timestamp": "2026-04-27T11:28:13.300Z"
+            }
+          ],
+          "startedAt": "2026-04-27T11:27:53.137Z",
+          "completedAt": "2026-04-27T11:28:13.298Z",
+          "durationMs": 20161
+        },
+        "error": {
+          "message": "Compile failed: .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.ts(69,15): error TS2339: Property 'featuredPosts' does not exist on type 'BlogMockData'.",
+          "category": "compile",
+          "recoverable": false
+        }
+      }
+    ],
+    [
+      "impl-style",
+      {
+        "id": "impl-style",
+        "type": "implement",
+        "title": "Implement vivid visual style helpers",
+        "specFragment": "实现一个风格绚丽的个人博客",
+        "dependsOn": [
+          "impl-types"
+        ],
+        "inputs": {
+          "description": "Create TypeScript utilities for style generation such as gradient palettes, animation class mappings, card variants, and responsive layout helpers to support the vivid visual design."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/styles.ts",
+          "files": [
+            ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/styles.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 2,
+        "retryCount": 0,
+        "createdAt": "2026-04-27T11:25:39.872Z",
+        "updatedAt": "2026-04-27T11:26:27.224Z",
+        "evidence": {
+          "reasoning": "Implementing: Create TypeScript utilities for style generation such as gradient palettes, animation class mappings, card variants, and responsive layout helpers to support the vivid visual design.",
+          "promptUsed": "Spec context: 实现一个风格绚丽的个人博客\n\nTask: Create TypeScript utilities for style generation such as gradient palettes, animation class mappings, card variants, and responsive layout helpers to support the vivid visual design.\nOutput file: .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/out",
+          "modelUsed": "gpt-5.4-mini",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import type { SiteMetadata } from './types';\n\n/**\n * A gradient palette used to build vivid blog surfaces and accents.\n */\nexport interface GradientPalette {\n  /** Human-readable palette name. */\n  name: string;\n  /** CSS linear-gradient value. */\n  background: string;\n  /** Text color that contrasts with the gradient. */\n  textColor: string;\n  /** Optional border/outline color suitable for the palette. */\n  borderColor: string;\n}\n\n/**\n * Supported animation presets for the blog UI.\n */\nexport type AnimationPreset =\n  | 'float'\n  | 'glow'\n  | 'pulse'\n  | 'slideUp'\n  | 'slideInLeft'\n  | 'slideInRight'\n  | 'shimmer'\n  | 'bounceGentle';\n\n/**\n * Supported card visual variants.\n */\nexport type CardVariant =\n  | 'glass'\n  | 'neon'\n  | 'soft'\n  | 'outline'\n  | 'spotlight';\n\n/**\n * Responsive breakpoint names.\n */\nexport type Breakpoint = 'sm' | 'md' | 'lg' | 'xl' | '2xl';\n\n/**\n * A responsive style helper result.\n */\nexport interface ResponsiveLayout {\n  /** CSS class name string for the layout container. */\n  containerClassName: string;\n  /** CSS class name string for the content grid. */\n  gridClassName: string;\n  /** CSS class name string for spacing. */\n  spacingClassName: string;\n}\n\nconst DEFAULT_GRADIENTS: GradientPalette[] = [\n  {\n    name: 'aurora',\n    background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #22c55e 100%)',\n    textColor: '#ffffff',\n    borderColor: 'rgba(255, 255, 255, 0.22)',\n  },\n  {\n    name: 'sunset',\n    background: 'linear-gradient(135deg, #f97316 0%, #ef4444 48%, #8b5cf6 100%)',\n    textColor: '#ffffff',\n    borderColor: 'rgba(255, 255, 255, 0.18)',\n  },\n  {\n    name: 'ocean',\n    background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #1d4ed8 100%)',\n    textColor: '#ffffff',\n    borderColor: 'rgba(255, 255, 255, 0.2)',\n  },\n  {\n    name: 'mint',\n    background: 'linear-gradient(135deg, #22c55e 0%, #14b8a6 48%, #0ea5e9 100%)',\n    textColor: '#06231b',\n    borderColor: 'rgba(6, 35, 27, 0.14)',\n  },\n  {\n    name: 'royal',\n    background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%)',\n    textColor: '#ffffff',\n    borderColor: 'rgba(255, 255, 255, 0.18)',\n  },\n];\n\nconst ANIMATION_CLASSES: Record<AnimationPreset, string> = {\n  float: 'animate-[float_6s_ease-in-out_infinite]',\n  glow: 'animate-[glow_2.8s_ease-in-out_infinite]',\n  pulse: 'animate-pulse',\n  slideUp: 'animate-[slideUp_0.6s_ease-out_both]',\n  slideInLeft: 'animate-[slideInLeft_0.6s_ease-out_both]',\n  slideInRight: 'animate-[slideInRight_0.6s_ease-out_both]',\n  shimmer: 'animate-[shimmer_1.8s_linear_infinite]',\n  bounceGentle: 'animate-[bounceGentle_1.2s_ease-in-out_infinite]',\n};\n\nconst CARD_VARIANTS: Record<CardVariant, string> = {\n  glass: 'rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl shadow-xl shadow-black/10',\n  neon: 'rounded-2xl border border-fuchsia-400/40 bg-zinc-950/80 shadow-[0_0_30px_rgba(217,70,239,0.28)]',\n  soft: 'rounded-2xl border border-slate-200/70 bg-white shadow-lg shadow-slate-200/60',\n  outline: 'rounded-2xl border border-current/15 bg-transparent',\n  spotlight: 'rounded-3xl border border-white/15 bg-gradient-to-br from-white/15 to-white/5 shadow-2xl shadow-black/10',\n};\n\n/**\n * Returns a copy of the built-in gradient palettes.\n *\n * @returns Available vivid gradient palettes.\n */\nexport function getGradientPalettes(): GradientPalette[] {\n  return DEFAULT_GRADIENTS.map((palette) => ({ ...palette }));\n}\n\n/**\n * Picks a gradient palette from site metadata, falling back to the first palette.\n *\n * @param metadata - Site metadata containing brand colors.\n * @returns A gradient palette aligned to the site's theme.\n */\nexport function createBrandGradient(metadata: SiteMetadata): GradientPalette {\n  const background = `linear-gradient(135deg, ${metadata.primaryColor} 0%, ${metadata.secondaryColor} 100%)`;\n  const textColor = isLightColor(metadata.primaryColor) || isLightColor(metadata.secondaryColor) ? '#111827' : '#ffffff';\n  return {\n    name: 'brand',\n    background,\n    textColor,\n    borderColor: withAlpha(textColor === '#ffffff' ? '#ffffff' : '#111827', 0.18),\n  };\n}\n\n/**\n * Gets the Tailwind-compatible animation class for a preset.\n *\n * @param preset - Animation preset name.\n * @returns CSS class string for the animation.\n */\nexport function getAnimationClass(preset: AnimationPreset): string {\n  return ANIMATION_CLASSES[preset];\n}\n\n/**\n * Gets the Tailwind-compatible card classes for a variant.\n *\n * @param variant - Card visual variant.\n * @returns CSS class string for the card.\n */\nexport function getCardVariantClass(variant: CardVariant): string {\n  return CARD_VARIANTS[variant];\n}\n\n/**\n * Builds responsive layout helper classes for the blog.\n *\n * @param breakpoint - Minimum screen size for the layout.\n * @returns Responsive class names for containers, grids, and spacing.\n */\nexport function getResponsiveLayout(breakpoint: Breakpoint): ResponsiveLayout {\n  const breakpointPrefix = breakpoint === 'sm' ? '' : `${breakpoint}:`;\n  return {\n    containerClassName: 'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8',\n    gridClassName: `${breakpointPrefix}grid ${breakpointPrefix}grid-cols-1 ${breakpoint === 'sm' ? 'grid grid-cols-1' : ''} ${breakpoint === 'lg' ? 'lg:grid-cols-12' : breakpoint === 'md' ? 'md:grid-cols-8' : breakpoint === 'xl' ? 'xl:grid-cols-12' : breakpoint === '2xl' ? '2xl:grid-cols-12' : ''}`.trim(),\n    spacingClassName: breakpoint === 'sm' ? 'gap-4' : breakpoint === 'md' ? 'gap-6' : breakpoint === 'lg' ? 'gap-8' : 'gap-10',\n  };\n}\n\n/**\n * Creates a complete style map that combines gradient, animation, and card helpers.\n *\n * @param metadata - Site metadata for brand-aware styling.\n * @returns A practical style utility bundle for vivid blog UI components.\n */\nexport function createStyleSystem(metadata: SiteMetadata): {\n  brandGradient: GradientPalette;\n  palettes: GradientPalette[];\n  animations: Record<AnimationPreset, string>;\n  cards: Record<CardVariant, string>;\n  layout: Record<Breakpoint, ResponsiveLayout>;\n} {\n  return {\n    brandGradient: createBrandGradient(metadata),\n    palettes: getGradientPalettes(),\n    animations: { ...ANIMATION_CLASSES },\n    cards: { ...CARD_VARIANTS },\n    layout: {\n      sm: getResponsiveLayout('sm'),\n      md: getResponsiveLayout('md'),\n      lg: getResponsiveLayout('lg'),\n      xl: getResponsiveLayout('xl'),\n      '2xl': getResponsiveLayout('2xl'),\n    },\n  };\n}\n\nfunction isLightColor(color: string): boolean {\n  const rgb = parseColor(color);\n  if (!rgb) {\n    return false;\n  }\n  const [r, g, b] = rgb;\n  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;\n  return luminance >= 0.65;\n}\n\nfunction withAlpha(color: string, alpha: number): string {\n  const rgb = parseColor(color);\n  if (!rgb) {\n    return color;\n  }\n  const [r, g, b] = rgb;\n  return `rgba(${r}, ${g}, ${b}, ${alpha})`;\n}\n\nfunction parseColor(color: string): [number, number, number] | null {\n  const hex = color.trim();\n  if (!hex.startsWith('#')) {\n    return null;\n  }\n  const value = hex.slice(1);\n  if (value.length === 3) {\n    const r = Number.parseInt(value[0] + value[0], 16);\n    const g = Number.parseInt(value[1] + value[1], 16);\n    const b = Number.parseInt(value[2] + value[2], 16);\n    return [r, g, b];\n  }\n  if (value.length === 6) {\n    const r = Number.parseInt(value.slice(0, 2), 16);\n    const g = Number.parseInt(value.slice(2, 4), 16);\n    const b = Number.parseInt(value.slice(4, 6), 16);\n    return [r, g, b];\n  }\n  return null;\n}\n",
+                "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/styles.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/styles.ts (237 lines)",
+              "success": true,
+              "timestamp": "2026-04-27T11:26:24.117Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/styles.ts",
+              "operation": "create",
+              "sizeBytes": 7466,
+              "checksum": "71f47d10736dfac1",
+              "timestamp": "2026-04-27T11:26:24.117Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 639,
+              "timestamp": "2026-04-27T11:26:24.119Z"
+            }
+          ],
+          "startedAt": "2026-04-27T11:26:00.827Z",
+          "completedAt": "2026-04-27T11:26:24.117Z",
+          "durationMs": 23290
+        }
+      }
+    ],
+    [
+      "test-layout",
+      {
+        "id": "test-layout",
+        "type": "implement",
+        "title": "Test blog composition and data integrity",
+        "specFragment": "实现一个风格绚丽的个人博客",
+        "dependsOn": [
+          "impl-layout"
+        ],
+        "inputs": {
+          "description": "Add TypeScript tests to validate that blog content is well-formed, featured sections render from data, and required homepage blocks exist for the colorful personal blog experience."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.test.ts",
+          "files": [
+            ".shipyard/projects/proj-1777289132523/sessions/sess-1777289132524/output/layout.test.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 2,
+        "retryCount": 0,
+        "createdAt": "2026-04-27T11:25:39.872Z",
+        "updatedAt": "2026-04-27T11:27:27.136Z"
+      }
+    ]
+  ],
+  "status": "failed",
+  "stats": {
+    "total": 5,
+    "byStatus": {
+      "pending": 0,
+      "ready": 0,
+      "running": 0,
+      "verifying": 0,
+      "done": 3,
+      "failed": 1,
+      "blocked": 1,
+      "skipped": 0
+    },
+    "filesGenerated": 4,
+    "verificationsRun": 4,
+    "verificationsPassed": 3
+  },
+  "createdAt": "2026-04-27T11:25:39.872Z",
+  "updatedAt": "2026-04-27T11:28:14.076Z",
+  "completedAt": "2026-04-27T11:28:14.077Z"
+}

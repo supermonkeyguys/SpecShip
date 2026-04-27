@@ -137,8 +137,11 @@ export interface GraphNode {
   error?: {
     message: string;
     category: "compile" | "api" | "logic" | "timeout" | "unknown";
-    recoverable: boolean;     // 是否可以自动重试
+    recoverable: boolean;
   };
+
+  // 上一次失败的详细错误输出（重试时注入 prompt，让 LLM 知道哪里错了）
+  lastError?: string;
 
   // 时间戳
   createdAt: string;
@@ -151,14 +154,14 @@ export interface GraphNode {
 
 export interface VerificationCriterion {
   id: string;
-  description: string;        // 人类可读，显示在 UI 上
+  description: string;
   type: "compile" | "test" | "behavior" | "lint";
+  hardness?: "hard" | "soft";  // hard=必须通过, soft=尽力而为
 
-  // behavior 类型的可执行验证
   testCase?: {
-    input: string;            // 函数调用或 HTTP 请求
-    expectedOutput: string;   // 期望结果（支持正则）
-    expectError?: string;     // 期望抛出的错误
+    input: string;
+    expectedOutput: string;
+    expectError?: string;
   };
 }
 

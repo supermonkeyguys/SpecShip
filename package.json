@@ -4,12 +4,18 @@
   "description": "AI-driven code generation harness — spec in, code out",
   "scripts": {
     "start": "ts-node src/index.ts",
-    "dev": "ts-node src/index.ts"
+    "dev": "ts-node src/index.ts",
+    "server": "ts-node server/index.ts",
+    "server:dev": "ts-node --watch server/index.ts"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.119"
+    "@anthropic-ai/claude-agent-sdk": "^0.2.119",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.0"

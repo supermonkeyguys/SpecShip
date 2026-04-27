@@ -1,12 +1,17 @@
 export interface ShipyardConfig {
   workDir: string;
   maxRetries: number;
-  baseURL: string;   // OpenAI 兼容接口地址
-  apiKey: string;    // API Key
+  baseURL: string;
+  apiKey: string;
+  repoPath?: string;
+  // Session 隔离：每个 session 有独立的 outputDir
+  projectId?: string;
+  sessionId?: string;
+  outputDir?: string;  // 默认 workDir/output，session 模式下为 session 专属目录
   models: {
     planning:       string;
     implementation: string;
-    review:         string;
+    review:         string;   // code review，默认用 planning 模型
   };
 }
 
