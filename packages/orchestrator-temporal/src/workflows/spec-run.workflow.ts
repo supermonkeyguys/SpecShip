@@ -1,28 +1,32 @@
 /**
- * spec-run.workflow.ts — SpecRunWorkflow 骨架
+ * spec-run.workflow.ts — SpecRunWorkflow
  *
- * Phase 1 目标：跑通最小端到端流程（单节点）。
- * Phase 2 将接入 DAG 并发调度。
+ * Phase 2: 接入真实 Activities，串行执行 DAG 节点。
+ * Phase 3: 改为并发调度（ready 节点并行执行）。
  *
  * Workflow 规则（必须遵守）：
- * - 不做任何 IO、网络、文件读写、随机数、当前时间
- * - 所有副作用下沉到 Activity
+ * - 不做任何 IO、网络、文件读写、随机数
+ * - 所有副作用在 Activity 里执行
+ * - 不使用 Date.now() / Math.random() — 用 workflow.now() 代替
  */
 
-import { proxyActivities, defineSignal, defineQuery, setHandler } from "@temporalio/workflow";
-import type { SpecRunActivities } from "../activities/spec-run.activities";
+import { proxyActivities, defineSignal, defineQuery, setHandler, ApplicationFailure } from "@temporalio/workflow";
+import type { SpecRunActivities, SerializedGraph } from "../activities/spec-run.activities";
 
-// Activity proxy — timeout 根据各步骤特性分别配置
-const { planGraph, executeNode, getRunStatus } = proxyActivities<SpecRunActivities>({
+const { planGraph, executeNode, persistGraph } = proxyActivities<SpecRunActivities>({
   startToCloseTimeout: "10 minutes",
+  retry: {
+    maximumAttempts: 3,
+    backoffCoefficient: 2,
+  },
 });
 
-// ---- Signals（写操作）----
+// ---- Signals ----
 export const resumeRunSignal = defineSignal("resumeRun");
 export const retryNodeSignal = defineSignal<[nodeId: string]>("retryNode");
 export const cancelRunSignal = defineSignal<[reason: string]>("cancelRun");
 
-// ---- Queries（读操作）----
+// ---- Queries ----
 export const getRunSummaryQuery = defineQuery<RunSummary>("getRunSummary");
 
 export interface RunSummary {
@@ -35,64 +39,90 @@ export interface SpecRunInput {
   spec: string;
   projectId: string;
   sessionId: string;
+  workDir: string;
   repoPath?: string;
 }
 
 export async function SpecRunWorkflow(input: SpecRunInput): Promise<RunSummary> {
-  // Phase 1 内部状态：轻量 nodeId → status 映射（B2 路线）
   const nodeStatuses: Record<string, "pending" | "running" | "done" | "failed"> = {};
   let cancelled = false;
-  let cancelReason = "";
+  let currentGraph: SerializedGraph | null = null;
 
-  // Signal handlers
   setHandler(cancelRunSignal, (reason: string) => {
+    console.log(`[workflow] cancel requested: ${reason}`);
     cancelled = true;
-    cancelReason = reason;
   });
 
-  // Query handler — 实时返回当前状态
   setHandler(getRunSummaryQuery, (): RunSummary => ({
     status: cancelled ? "cancelled" : "running",
-    nodeStatuses,
+    nodeStatuses: { ...nodeStatuses },
+    completedAt: undefined,
   }));
 
-  // Step 1: 规划，生成节点列表
-  const planResult = await planGraph({ spec: input.spec, repoPath: input.repoPath });
+  // Step 1: 规划
+  const planResult = await planGraph({
+    spec: input.spec,
+    workDir: input.workDir,
+    projectId: input.projectId,
+    sessionId: input.sessionId,
+    repoPath: input.repoPath,
+  });
 
-  if (planResult.status === "failed") {
+  if (planResult.status === "failed" || !planResult.graph) {
     return { status: "failed", nodeStatuses };
   }
 
-  // 初始化节点状态
+  currentGraph = planResult.graph;
+
   for (const nodeId of planResult.nodeIds) {
     nodeStatuses[nodeId] = "pending";
   }
 
-  // Step 2: 逐节点执行（Phase 1 串行，Phase 3 改并发）
+  // Step 2: 串行执行各节点（Phase 3 改并发）
   for (const nodeId of planResult.nodeIds) {
     if (cancelled) break;
 
     nodeStatuses[nodeId] = "running";
 
-    const result = await executeNode({
-      nodeId,
-      spec: input.spec,
-      sessionId: input.sessionId,
-      projectId: input.projectId,
-    });
+    try {
+      const result: Awaited<ReturnType<typeof executeNode>> = await executeNode({
+        nodeId,
+        workDir: input.workDir,
+        projectId: input.projectId,
+        sessionId: input.sessionId,
+        graph: currentGraph!,
+      });
 
-    nodeStatuses[nodeId] = result.status;
+      nodeStatuses[nodeId] = result.status;
+      currentGraph = result.updatedGraph;
 
-    if (result.status === "failed") {
-      return {
-        status: "failed",
-        nodeStatuses,
-        completedAt: new Date().toISOString(),
-      };
+      if (result.status === "failed") {
+        await persistGraph({
+          workDir: input.workDir,
+          projectId: input.projectId,
+          sessionId: input.sessionId,
+          graph: currentGraph!,
+        });
+        return { status: "failed", nodeStatuses };
+      }
+    } catch (e) {
+      // Activity exhausted retries
+      nodeStatuses[nodeId] = "failed";
+      return { status: "failed", nodeStatuses };
     }
   }
 
   const finalStatus = cancelled ? "cancelled" : "done";
+
+  if (currentGraph) {
+    await persistGraph({
+      workDir: input.workDir,
+      projectId: input.projectId,
+      sessionId: input.sessionId,
+      graph: currentGraph,
+    });
+  }
+
   return {
     status: finalStatus,
     nodeStatuses,

@@ -47,7 +47,7 @@ function makeLLMConfig(model: string, config: ShipyardConfig): LLMClientConfig {
 
 // ---- Phase 1: 规划 → 构建执行图 ----
 
-async function buildGraph(spec: string, config: ShipyardConfig, agentRunner: AgentRunner = defaultRunAgent): Promise<ExecutionGraph | null> {
+export async function buildGraph(spec: string, config: ShipyardConfig, agentRunner: AgentRunner = defaultRunAgent): Promise<ExecutionGraph | null> {
   console.log("\n[PLANNING] Building execution graph...");
 
   // outputDir：session 模式下用独立目录，否则用默认 output/
@@ -149,7 +149,7 @@ async function buildGraph(spec: string, config: ShipyardConfig, agentRunner: Age
 
 // ---- Phase 2: 执行单个节点 ----
 
-async function executeNode(
+export async function executeNode(
   node: GraphNode,
   graph: ExecutionGraph,
   config: ShipyardConfig,
@@ -257,7 +257,7 @@ ${prevFileContent ? `Previous code that failed:\n\`\`\`\n${prevFileContent}\n\`\
 
 // ---- Code Review ----
 
-async function runCodeReview(
+export async function runCodeReview(
   node: GraphNode,
   outputFiles: string[],
   config: ShipyardConfig,
