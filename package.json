@@ -15,7 +15,10 @@
     "web:build": "pnpm --filter @shipyard/web build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "cli:dev": "ts-node apps/cli/src/index.ts",
-    "build": "turbo run build --filter=@shipyard/web --filter=@shipyard/server"
+    "build": "turbo run build --filter=@shipyard/web --filter=@shipyard/server",
+    "temporal:server": "temporal server start-dev",
+    "temporal:worker": "tsx packages/orchestrator-temporal/src/worker/worker.ts",
+    "temporal:all": "concurrently \"pnpm temporal:server\" \"sleep 2 && pnpm temporal:worker\""
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.119",
