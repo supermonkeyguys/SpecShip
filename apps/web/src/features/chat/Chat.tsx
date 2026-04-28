@@ -2,56 +2,78 @@
  * Chat.tsx — 右侧面板（白底主题）
  */
 
-import { useEffect, useRef, useState } from "react";
-import { useGraphStore } from "../../store/graph";
-import type { ChatResponse } from "../../types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { useExecutionStore } from "../../domains/execution/store";
+import type { SessionExecutionState } from "../../domains/execution/types";
+import type { ChatResponse, RunResponse } from "../../types";
 import type { ClarifyQuestion } from "../../types";
+import type { ActiveSession } from "../session/types";
 import { fetchJSON } from "../../utils/fetchJSON";
 import { ClarificationCard } from "./ClarificationCard";
 
 type Tab = "chat" | "log";
 
 interface Props {
-  sessionId?: string;  // 当前 session，切换时重置聊天历史
+  sessionId?: string;
+  onRunStarted?: (session: ActiveSession) => Promise<void> | void;
+  onResumeRequested?: () => Promise<void> | void;
 }
 
-export function Chat({ sessionId }: Props) {
+export function Chat({ sessionId, onRunStarted, onResumeRequested }: Props) {
   const [tab, setTab] = useState<Tab>("chat");
 
   return (
-    <div className="h-full bg-white border-l border-gray-200 flex flex-col">
-      <div className="flex border-b border-gray-200">
+    <Tabs
+      value={tab}
+      onValueChange={(value) => setTab(value as Tab)}
+      className="h-full bg-white border-l border-gray-200"
+    >
+      <TabsList aria-label="Chat views" className="w-full border-b border-gray-200">
         {(["chat", "log"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-xs font-medium uppercase tracking-wider transition-colors ${
-              tab === t
-                ? "text-blue-600 border-b-2 border-blue-500"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
+          <TabsTrigger key={t} value={t} className="hover:text-gray-600">
             {t}
-          </button>
+          </TabsTrigger>
         ))}
-      </div>
-      {tab === "log" ? <LogPanel /> : <ChatPanel sessionId={sessionId} />}
-    </div>
+      </TabsList>
+      <TabsContent value="chat" className="mt-0 flex-1 overflow-hidden">
+        <ChatPanel
+          sessionId={sessionId}
+          onRunStarted={onRunStarted}
+          onResumeRequested={onResumeRequested}
+        />
+      </TabsContent>
+      <TabsContent value="log" className="mt-0 flex-1 overflow-hidden">
+        <LogPanel />
+      </TabsContent>
+    </Tabs>
   );
 }
 
+function useActiveExecution(): SessionExecutionState | null {
+  return useExecutionStore((state) => {
+    if (!state.activeSessionId) return null;
+    return state.sessions[state.activeSessionId] ?? null;
+  });
+}
+
 function LogPanel() {
-  const logs = useGraphStore((s) => s.logs);
-  const nodes = useGraphStore((s) => s.nodes);
+  const execution = useActiveExecution();
+  const logs = execution?.logs ?? EMPTY_LOGS;
+  const nodes = execution?.nodes ?? EMPTY_NODES;
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs, nodes]);
 
+  const nodeList = useMemo(() => Object.values(nodes), [nodes]);
+
   return (
     <div className="flex-1 overflow-y-auto p-3 font-mono text-xs space-y-2">
-      {Object.values(nodes).map((n) => (
+      {nodeList.map((n) => (
         <div key={n.id} className="space-y-0.5">
           <div className={`flex items-center gap-2 ${statusColor(n.status)}`}>
             <span className="font-semibold">[{n.status.toUpperCase()}]</span>
@@ -89,25 +111,34 @@ type ClarificationMessage = {
   answers?: Record<string, string>;
 };
 type Message = TextMessage | ClarificationMessage;
+const EMPTY_NODES: SessionExecutionState["nodes"] = {};
+const EMPTY_LOGS: string[] = [];
 const INITIAL_MESSAGES: Message[] = [{ role: "system", text: "Hi! Tell me what to build, or ask me to retry a failed node." }];
 
-function ChatPanel({ sessionId }: { sessionId?: string }) {
+function ChatPanel({
+  sessionId,
+  onRunStarted,
+  onResumeRequested,
+}: {
+  sessionId?: string;
+  onRunStarted?: (session: ActiveSession) => Promise<void> | void;
+  onResumeRequested?: () => Promise<void> | void;
+}) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingSpec, setPendingSpec] = useState<{ spec: string; repoPath?: string } | null>(null);
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
 
-  // session 切换时重置聊天历史
   useEffect(() => {
     setMessages(INITIAL_MESSAGES);
     setInput("");
     setPendingSpec(null);
   }, [sessionId]);
 
-  const nodes = useGraphStore((s) => s.nodes);
-  const summary = useGraphStore((s) => s.summary);
-  const runStatus = useGraphStore((s) => s.runStatus);
-  const reset = useGraphStore((s) => s.reset);
+  const execution = useActiveExecution();
+  const nodes = execution?.nodes ?? EMPTY_NODES;
+  const summary = execution?.summary;
+  const runStatus = execution?.runStatus ?? "idle";
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -115,14 +146,20 @@ function ChatPanel({ sessionId }: { sessionId?: string }) {
   }, [messages]);
 
   const runSpec = async (spec: string, repoPath?: string) => {
-    reset();
     try {
-      const d = await fetchJSON<{ ok: boolean; error?: string }>("/api/run", {
+      const d = await fetchJSON<RunResponse>("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ spec, repoPath }),
       });
-      if (!d.ok) setMessages((m) => [...m, { role: "system", text: `Failed: ${d.error}` }]);
+      if (!d.ok) {
+        setMessages((m) => [...m, { role: "system", text: `Failed: ${d.error}` }]);
+        return;
+      }
+
+      if (d.projectId && d.sessionId) {
+        await onRunStarted?.({ projectId: d.projectId, sessionId: d.sessionId, spec });
+      }
     } catch (e) {
       setMessages((m) => [...m, { role: "system", text: `Failed: ${(e as Error).message}` }]);
     }
@@ -143,8 +180,11 @@ function ChatPanel({ sessionId }: { sessionId?: string }) {
     );
     setPendingSpec(null);
     setLoading(true);
-    try { await runSpec(enrichedSpec, pendingSpec.repoPath); }
-    finally { setLoading(false); }
+    try {
+      await runSpec(enrichedSpec, pendingSpec.repoPath);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleClarificationSkip = async () => {
@@ -158,8 +198,11 @@ function ChatPanel({ sessionId }: { sessionId?: string }) {
     );
     setPendingSpec(null);
     setLoading(true);
-    try { await runSpec(pendingSpec.spec, pendingSpec.repoPath); }
-    finally { setLoading(false); }
+    try {
+      await runSpec(pendingSpec.spec, pendingSpec.repoPath);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const send = async () => {
@@ -174,7 +217,7 @@ function ChatPanel({ sessionId }: { sessionId?: string }) {
       const currentNodes = Object.values(nodes).map((n) => ({
         id: n.id, title: n.title, status: n.status,
       }));
-      const currentSpec = summary?.title ?? undefined;
+      const currentSpec = summary?.title ?? execution?.title ?? undefined;
 
       const data = await fetchJSON<ChatResponse>("/api/chat", {
         method: "POST",
@@ -218,13 +261,11 @@ function ChatPanel({ sessionId }: { sessionId?: string }) {
             await runSpec(intent.spec, intent.repoPath);
           }
         } catch {
-          // clarify 失败直接跑
           await runSpec(intent.spec, intent.repoPath);
         }
       } else if (intent.type === "resume") {
         try {
-          const d = await fetchJSON<{ ok: boolean; error?: string }>("/api/resume", { method: "POST" });
-          if (!d.ok) setMessages((m) => [...m, { role: "system", text: `Resume failed: ${d.error}` }]);
+          await onResumeRequested?.();
         } catch (e) {
           setMessages((m) => [...m, { role: "system", text: `Resume failed: ${(e as Error).message}` }]);
         }
@@ -302,21 +343,22 @@ function ChatPanel({ sessionId }: { sessionId?: string }) {
       )}
 
       <div className="border-t border-gray-200 p-3 flex gap-2">
-        <input
+        <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
           placeholder="Build something, retry a node..."
           disabled={loading}
-          className="flex-1 bg-gray-50 text-gray-800 text-xs px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-400 font-mono disabled:opacity-50"
+          className="h-auto flex-1 rounded-lg bg-gray-50 py-2 text-xs font-mono shadow-none"
         />
-        <button
+        <Button
+          type="button"
           onClick={send}
           disabled={loading}
-          className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs px-3 py-2 rounded-lg transition-colors font-medium"
+          className="h-auto rounded-lg px-3 py-2 text-xs font-medium"
         >
           Send
-        </button>
+        </Button>
       </div>
     </div>
   );

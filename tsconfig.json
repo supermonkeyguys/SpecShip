@@ -1,15 +1,19 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "commonjs",
-    "lib": ["ES2022"],
-    "strict": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "skipLibCheck": true
+    "baseUrl": ".",
+    "noEmit": true,
+    "paths": {
+      "@shipyard/orchestrator-temporal": ["./packages/orchestrator-temporal/src/client/run-workflow.ts"]
+    }
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "output"]
+  "include": [
+    "apps/cli/src/**/*.ts",
+    "apps/server/src/**/*.ts",
+    "packages/core/src/**/*.ts",
+    "packages/shared/src/**/*.ts",
+    "packages/orchestrator-temporal/src/**/*.ts",
+    "test/**/*.ts"
+  ],
+  "exclude": ["node_modules", "apps/web/node_modules", "output", "apps/web/dist"]
 }

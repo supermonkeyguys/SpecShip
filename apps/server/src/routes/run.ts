@@ -16,14 +16,14 @@ import { GraphNode } from "../graph";
 import { getIsRunning, setIsRunning } from "./resume";
 import {
   createProject, createSession, updateSession,
-  getSessionOutputDir, getSessionGraphPath,
+  getSessionOutputDir,
 } from "../project";
 
 const ORCHESTRATOR_MODE = process.env.ORCHESTRATOR_MODE ?? "legacy";
 
 export const runRouter = Router();
 
-// 记录当前活跃的 session，供 SSE/files 使用
+// 记录当前活跃的 session，供 SSE / resume / files 使用
 export let activeSession: { projectId: string; sessionId: string } | null = null;
 
 runRouter.post("/run", async (req: Request, res: Response) => {
@@ -41,12 +41,10 @@ runRouter.post("/run", async (req: Request, res: Response) => {
 
   const workDir = process.cwd();
 
-  // 创建 project + session
   const proj = createProject(workDir, spec.slice(0, 40), repoPath);
   const sess = createSession(workDir, proj.id, spec);
 
   const outputDir = path.relative(workDir, getSessionOutputDir(workDir, proj.id, sess.id));
-  const sessionGraphPath = getSessionGraphPath(workDir, proj.id, sess.id);
 
   const config = {
     ...DEFAULT_CONFIG,
@@ -69,8 +67,6 @@ runRouter.post("/run", async (req: Request, res: Response) => {
   }
 });
 
-// ---- Legacy 路径 ----
-
 async function runWithLegacy(
   spec: string,
   config: ReturnType<typeof Object.assign>,
@@ -88,7 +84,7 @@ async function runWithLegacy(
         const prev = prevNodeStatus.get(node.id);
         if (prev !== node.status) {
           prevNodeStatus.set(node.id, node.status);
-          sseManager.push({ type: "node_update", payload: toNodeStatus(node) });
+          sseManager.push({ type: "node_update", payload: toNodeStatus(node), projectId, sessionId });
         }
       }
     });
@@ -112,16 +108,19 @@ async function runWithLegacy(
       durationMs: Date.now() - startTime,
     };
 
-    sseManager.push({ type: graph.status === "done" ? "graph_done" : "graph_failed", payload: summary });
+    sseManager.push({
+      type: graph.status === "done" ? "graph_done" : "graph_failed",
+      payload: summary,
+      projectId,
+      sessionId,
+    });
   } catch (e) {
     updateSession(workDir, projectId, sessionId, { status: "failed" });
-    sseManager.push({ type: "log", payload: `Fatal error: ${(e as Error).message}` });
+    sseManager.push({ type: "log", payload: `Fatal error: ${(e as Error).message}`, projectId, sessionId });
   } finally {
     setIsRunning(false);
   }
 }
-
-// ---- Temporal 路径 ----
 
 async function runWithTemporal(
   spec: string,
@@ -132,11 +131,9 @@ async function runWithTemporal(
 ): Promise<void> {
   setIsRunning(true);
 
-  // 监听 projection 文件变化，推 SSE
-  watchSession(workDir, sessionId);
+  watchSession(workDir, projectId, sessionId);
 
   try {
-    // 动态 import，避免 legacy 模式下未安装 Temporal SDK 时报错
     const { startSpecRunWorkflow } = await import("@shipyard/orchestrator-temporal") as typeof import("@shipyard/orchestrator-temporal");
 
     const workflowId = `specship:${projectId}:${sessionId}`;
@@ -148,6 +145,8 @@ async function runWithTemporal(
 
     sseManager.push({
       type: summary.status === "done" ? "graph_done" : "graph_failed",
+      projectId,
+      sessionId,
       payload: {
         id: workflowId,
         title: spec.slice(0, 60),
@@ -165,7 +164,7 @@ async function runWithTemporal(
     });
   } catch (e) {
     updateSession(workDir, projectId, sessionId, { status: "failed" });
-    sseManager.push({ type: "log", payload: `Temporal error: ${(e as Error).message}` });
+    sseManager.push({ type: "log", payload: `Temporal error: ${(e as Error).message}`, projectId, sessionId });
   } finally {
     stopWatch();
     setIsRunning(false);

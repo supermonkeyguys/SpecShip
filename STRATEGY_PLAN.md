@@ -104,7 +104,7 @@ src/
     → strategy.preview(output)      // Strategy 专属预览
 ```
 
-### 前端层（client/）
+### 前端层（apps/web/）
 
 新增 Preview Panel，根据 Strategy 渲染不同预览组件：
 

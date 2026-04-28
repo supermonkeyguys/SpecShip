@@ -27,6 +27,8 @@ export type SSEEventType = "node_update" | "graph_done" | "graph_failed" | "log"
 export interface SSEEvent {
   type: SSEEventType;
   payload: NodeStatus | GraphSummary | string;
+  projectId?: string;
+  sessionId?: string;
 }
 
 // ---- 图摘要（graph_done / graph_failed 时推送）----
@@ -50,7 +52,7 @@ export interface GraphSummary {
 
 export interface RunRequest {
   spec: string;
-  repoPath?: string;  // 已有仓库路径（可选）
+  repoPath?: string;
 }
 
 export interface RunResponse {
@@ -97,16 +99,16 @@ export interface FilesResponse {
 // ---- Clarify API ----
 
 export interface ClarifyOption {
-  id: string;         // "a" | "b" | "c" (frontend always appends "other")
+  id: string;
   label: string;
   description: string;
 }
 
 export interface ClarifyQuestion {
-  id: string;               // "q1" | "q2" ...
+  id: string;
   text: string;
   mode: "options" | "free";
-  options?: ClarifyOption[]; // present when mode=options, AI generates 3-4
+  options?: ClarifyOption[];
 }
 
 export interface ClarifyRequest {
@@ -131,17 +133,20 @@ export interface StatusResponse {
   spec?: string;
   nodeCount?: number;
   doneCount?: number;
+  projectId?: string;
+  sessionId?: string;
 }
 
 export interface ResumeResponse {
   ok: boolean;
   graphId?: string;
+  projectId?: string;
+  sessionId?: string;
   error?: string;
 }
 
 export interface ChatRequest {
   message: string;
-  // 当前图状态（供 LLM 理解上下文）
   currentNodes?: Array<{ id: string; title: string; status: string }>;
   currentSpec?: string;
 }

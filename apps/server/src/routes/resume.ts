@@ -12,16 +12,15 @@ import { loadGraphCheckpoint, prepareGraphForResume, saveGraphCheckpoint } from 
 import { sseManager } from "../sse";
 import { GraphNode } from "../graph";
 import { NodeStatus, GraphSummary, StatusResponse, ResumeResponse } from "../types";
+import { activeSession } from "./run";
 
 export const resumeRouter = Router();
 
-// 共享 isRunning 状态（与 run.ts 解耦，通过导入共享）
 let isRunning = false;
 
 export function setIsRunning(v: boolean) { isRunning = v; }
 export function getIsRunning() { return isRunning; }
 
-// GET /api/status
 resumeRouter.get("/status", (req: Request, res: Response) => {
   try {
     const config = { ...DEFAULT_CONFIG, workDir: process.cwd() };
@@ -37,16 +36,19 @@ resumeRouter.get("/status", (req: Request, res: Response) => {
       spec: graph.originalSpec,
       nodeCount: total,
       doneCount,
+      projectId: activeSession?.projectId,
+      sessionId: activeSession?.sessionId,
     } satisfies StatusResponse);
   } catch {
     res.json({
       isRunning,
       canResume: false,
+      projectId: activeSession?.projectId,
+      sessionId: activeSession?.sessionId,
     } satisfies StatusResponse);
   }
 });
 
-// POST /api/resume
 resumeRouter.post("/resume", async (req: Request, res: Response) => {
   if (isRunning) {
     res.status(409).json({ ok: false, error: "A task is already running" } satisfies ResumeResponse);
@@ -66,8 +68,11 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
   }
 
   const graphId = graph.id;
+  const projectId = activeSession?.projectId;
+  const sessionId = activeSession?.sessionId;
+
   sseManager.reset();
-  res.json({ ok: true, graphId } satisfies ResumeResponse);
+  res.json({ ok: true, graphId, projectId, sessionId } satisfies ResumeResponse);
 
   isRunning = true;
   const startTime = Date.now();
@@ -79,7 +84,12 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
         const prev = prevNodeStatus.get(node.id);
         if (prev !== node.status) {
           prevNodeStatus.set(node.id, node.status);
-          sseManager.push({ type: "node_update", payload: toNodeStatus(node) });
+          sseManager.push({
+            type: "node_update",
+            payload: toNodeStatus(node),
+            projectId,
+            sessionId,
+          });
         }
       }
     });
@@ -99,9 +109,14 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
       durationMs: Date.now() - startTime,
     };
 
-    sseManager.push({ type: finalGraph.status === "done" ? "graph_done" : "graph_failed", payload: summary });
+    sseManager.push({
+      type: finalGraph.status === "done" ? "graph_done" : "graph_failed",
+      payload: summary,
+      projectId,
+      sessionId,
+    });
   } catch (e) {
-    sseManager.push({ type: "log", payload: `Fatal error: ${(e as Error).message}` });
+    sseManager.push({ type: "log", payload: `Fatal error: ${(e as Error).message}`, projectId, sessionId });
   } finally {
     isRunning = false;
   }

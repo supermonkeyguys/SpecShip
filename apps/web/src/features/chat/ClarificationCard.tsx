@@ -6,6 +6,10 @@
  */
 
 import { useState } from "react";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Separator } from "../../components/ui/separator";
+import { Textarea } from "../../components/ui/textarea";
 import type { ClarifyQuestion } from "../../types";
 
 interface Props {
@@ -16,7 +20,7 @@ interface Props {
 
 export function ClarificationCard({ questions, onConfirm, onSkip }: Props) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
-const [otherText, setOtherText] = useState<Record<string, string>>({});
+  const [otherText, setOtherText] = useState<Record<string, string>>({});
 
   const setAnswer = (qid: string, value: string) => {
     setAnswers((prev) => ({ ...prev, [qid]: value }));
@@ -54,7 +58,7 @@ const [otherText, setOtherText] = useState<Record<string, string>>({});
       <div className="bg-white px-4 py-3 flex flex-col gap-4">
         {questions.map((q, idx) => (
           <div key={q.id} className="flex flex-col gap-2">
-            {idx > 0 && <div className="h-px bg-gray-100 -mx-4" />}
+            {idx > 0 && <Separator className="-mx-4 w-auto bg-gray-100" />}
             <div className="font-semibold text-gray-800 pt-1">
               {idx + 1}. {q.text}
             </div>
@@ -65,15 +69,17 @@ const [otherText, setOtherText] = useState<Record<string, string>>({});
                   {(q.options ?? []).map((opt) => {
                     const selected = answers[q.id] === opt.id;
                     return (
-                      <button
+                      <Button
                         key={opt.id}
+                        type="button"
+                        variant="outline"
                         onClick={() => {
                           setAnswer(q.id, opt.id);
                         }}
-                        className={`text-left rounded-xl border px-3 py-2 flex flex-col gap-0.5 transition-all ${
+                        className={`h-auto flex-col items-start justify-start gap-0.5 rounded-xl px-3 py-2 text-left text-xs whitespace-normal shadow-none ${
                           selected
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-200 bg-gray-50 hover:bg-gray-100"
+                            ? "border-blue-500 bg-blue-50 hover:bg-blue-50"
+                            : "bg-gray-50 hover:bg-gray-100"
                         }`}
                       >
                         <span className={`font-semibold ${selected ? "text-blue-600" : "text-gray-800"}`}>
@@ -82,29 +88,31 @@ const [otherText, setOtherText] = useState<Record<string, string>>({});
                         <span className={`text-[10.5px] leading-tight ${selected ? "text-blue-400" : "text-gray-400"}`}>
                           {opt.description}
                         </span>
-                      </button>
+                      </Button>
                     );
                   })}
                   {/* Fixed "other" option — always present for options-mode questions */}
-                  <button
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => {
                       setAnswer(q.id, "__other__");
                     }}
-                    className={`text-left rounded-xl border px-3 py-2 flex flex-col gap-0.5 transition-all ${
+                    className={`h-auto flex-col items-start justify-start gap-0.5 rounded-xl px-3 py-2 text-left text-xs whitespace-normal shadow-none ${
                       answers[q.id] === "__other__"
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-200 bg-gray-50 hover:bg-gray-100"
+                        ? "border-blue-500 bg-blue-50 hover:bg-blue-50"
+                        : "bg-gray-50 hover:bg-gray-100"
                     }`}
                   >
                     <span className={`font-semibold ${answers[q.id] === "__other__" ? "text-blue-600" : "text-gray-800"}`}>
                       其他...
                     </span>
                     <span className="text-[10.5px] text-gray-400">自由描述</span>
-                  </button>
+                  </Button>
                 </div>
                 {answers[q.id] === "__other__" && (
-                  <textarea
-                    className="w-full border border-blue-400 rounded-lg px-3 py-2 text-xs bg-blue-50 outline-none resize-none h-14 font-mono"
+                  <Textarea
+                    className="h-14 min-h-[3.5rem] resize-none border-blue-400 bg-blue-50 text-xs font-mono shadow-none"
                     placeholder="描述你的需求..."
                     value={otherText[q.id] ?? ""}
                     onChange={(e) => setOtherText((t) => ({ ...t, [q.id]: e.target.value }))}
@@ -112,9 +120,9 @@ const [otherText, setOtherText] = useState<Record<string, string>>({});
                 )}
               </>
             ) : (
-              <input
+              <Input
                 type="text"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs bg-gray-50 outline-none focus:border-blue-400 focus:bg-white font-mono transition-colors"
+                className="h-auto rounded-lg bg-gray-50 py-2 text-xs font-mono shadow-none"
                 placeholder="请输入..."
                 value={answers[q.id] ?? ""}
                 onChange={(e) => setAnswer(q.id, e.target.value)}
@@ -126,23 +134,24 @@ const [otherText, setOtherText] = useState<Record<string, string>>({});
 
       {/* Footer */}
       <div className="bg-gray-50 border-t border-gray-200 px-4 py-2.5 flex justify-end items-center gap-2">
-        <button
+        <Button
+          type="button"
+          variant="ghost"
           onClick={onSkip}
-          className="text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+          className="h-auto rounded-lg px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-200 hover:text-gray-600"
         >
           跳过，直接开始
-        </button>
-        <button
+        </Button>
+        <Button
+          type="button"
           onClick={handleConfirm}
           disabled={!isReady}
-          className={`px-4 py-1.5 rounded-lg font-semibold transition-colors ${
-            isReady
-              ? "bg-blue-600 text-white hover:bg-blue-500"
-              : "bg-blue-200 text-white cursor-not-allowed"
+          className={`h-auto rounded-lg px-4 py-1.5 text-xs font-semibold ${
+            isReady ? "" : "bg-blue-200 hover:bg-blue-200"
           }`}
         >
           确认
-        </button>
+        </Button>
       </div>
     </div>
   );

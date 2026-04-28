@@ -1,0 +1,9 @@
+{
+  "name": "@shipyard/cli",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "start": "ts-node src/index.ts"
+  }
+}

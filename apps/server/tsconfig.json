@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "paths": {
+      "@shipyard/orchestrator-temporal": ["../../packages/orchestrator-temporal/src/client/run-workflow.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

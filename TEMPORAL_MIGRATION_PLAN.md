@@ -168,6 +168,187 @@ Queries（读操作）：
 Workflow 代码中不得直接做不确定性副作用（如随机数、当前时间、IO、网络、文件写入等），这类操作必须放到 Activity。  
 否则重放时可能导致 Non-Deterministic Error。
 
+现有代码中已知违规点（迁移时必须处理）：
+
+| 位置 | 违规操作 | 处理方式 |
+|---|---|---|
+| `shipyard.ts executeNode()` L140 | `fs.unlinkSync` 删旧文件 | 下沉到 `ImplementNodeActivity` |
+| `shipyard.ts executeNode()` L155 | `fs.readFileSync` 读依赖文件 | 下沉到 `ImplementNodeActivity` |
+| `shipyard.ts executeNode()` L218 | `new Date().toISOString()` | 改用 `workflow.now()` 或在 Activity 内记录 |
+| `verify.ts runCompileCheck()` L34 | `execSync("npx tsc ...")` | 下沉到 `VerifyNodeActivity` |
+| `verify.ts runBehaviorVerification()` L211 | `execSync("ts-node ...")` | 下沉到 `VerifyNodeActivity` |
+| `shipyard.ts runCodeReview()` L252 | `runAgent(REVIEWER_PROMPT)` 网络调用 | 下沉到 `ReviewNodeActivity` |
+
+---
+
+### 6.6 【争议点 A】implement → verify → review 的 Activity 粒度
+
+**背景**：现有代码中 `executeNode()` + `verifyNode()` + `runCodeReview()` 是顺序调用的，形成一个节点的完整生命周期。迁移时有两种拆法。
+
+#### 选项 A1：三合一（单 Activity `ExecuteNodeActivity`）
+
+将 implement → verify → review 整体包装为一个 Activity，内部逻辑与现有 `shipyard.ts` 的流程基本一致。
+
+```
+ExecuteNodeActivity(nodeInput) {
+  implement()  →  verify()  →  review()
+  失败 → 抛出 ApplicationError → Temporal RetryPolicy 触发
+}
+```
+
+**如果选了这个选项：**
+
+优点：
+- 迁移成本最低，现有 `executeNode + verifyNode + runCodeReview` 近乎平移。
+- 重试语义清晰：整个节点从头重试，与现有行为一致，回归测试通过率高。
+- Temporal UI 里每个节点是一个 Activity，历史简洁，易读。
+
+缺点：
+- verify 失败重试时会重新跑 implement（即使 implement 本身没问题），浪费 LLM Token。
+- Activity 超时难以设置：implement 可能很慢，review 很快，单一超时值不好配置。
+- 错误类型无法区分：compile 失败和 review 失败使用同一个重试策略，精细化控制困难。
+- 未来想单独重跑 verify（例如环境问题导致 tsc 超时）时，整个节点必须重跑。
+
+**建议场景**：Phase 2 起步使用，快速跑通端到端。
+
+---
+
+#### 选项 A2：三分离（三个独立 Activity）
+
+```
+ImplementNodeActivity  →  VerifyNodeActivity  →  ReviewNodeActivity
+各自独立的 RetryPolicy     短间隔重试              指数退避重试
+```
+
+**如果选了这个选项：**
+
+优点：
+- 每步失败只重试自身：verify 超时只重跑 verify，不浪费 implement 的 LLM 调用。
+- 不同 Activity 可以配置不同的超时和重试策略（compile 错误 vs LLM 调用 vs review）。
+- Temporal UI 可以精确看到是哪一步失败，可观测性更好。
+- 为未来"人工确认 verify 后继续"预留了自然插入点（在 Verify 和 Review 之间加 Signal 等待）。
+
+缺点：
+- implement 产出的文件路径需要作为返回值传给 VerifyNodeActivity，Activity 间存在数据传递耦合。
+- 当 verify 失败需要重新 implement（如编译错误暴露了逻辑问题）时，需要在 Workflow 层写回退逻辑，复杂度上升。
+- 现有代码里 `executeNode` 内的"重试时注入 lastError 到 prompt"的逻辑需要显式在 Workflow 层维护。
+- Temporal UI 中一个节点对应三条 Activity 历史，需要约定命名规范才不会混乱。
+
+**建议场景**：Phase 3 重构时引入，以 A1 为基础逐步拆分。
+
+---
+
+#### 当前推荐路径
+
+> Phase 2 用 A1，Phase 3 末期将 verify/review 从 `ExecuteNodeActivity` 中拆出，形成 A2。  
+> 拆分时机：当重试日志中出现"因 verify 超时导致 implement 重跑"的情况超过一定比例时触发。
+
+---
+
+### 6.7 【争议点 B】DAG 状态（ExecutionGraph）存在哪里
+
+**背景**：现有代码用 `Map<string, GraphNode>` 在内存中维护整个 DAG 状态，并通过 checkpoint 文件持久化。Temporal Workflow 有自己的状态模型，但 `ExecutionGraph` 包含 `Map` 类型，序列化存在问题。
+
+#### 选项 B1：DAG 状态完全存 Workflow State
+
+将 `ExecutionGraph` 作为 Workflow 的内部状态变量，完全依赖 Temporal Event History 持久化。
+
+**如果选了这个选项：**
+
+优点：
+- 单一事实来源：DAG 状态只在 Temporal 里，不存在状态漂移。
+- 不需要维护额外的 DB 表或投影逻辑。
+- 进程重启后 Temporal 自动 Replay，DAG 状态自动恢复。
+
+缺点：
+- `ExecutionGraph` 使用了 `Map<string, GraphNode>`，Temporal 序列化要求纯 JSON 对象，**需要将 `Map` 改为 `Record<string, GraphNode>`**，有改造成本。
+- DAG 节点很多时（50+ 节点），每次状态变更都写入 Event History，历史会快速膨胀，需要提前规划 Continue-As-New 阈值。
+- 前端读状态只能通过 Query（或投影缓存），Query 有一定延迟，无法做到真正实时推送。
+
+---
+
+#### 选项 B2：Workflow 只存 nodeId → status 的轻量映射，完整数据存 DB
+
+Workflow 内部只维护 `Record<string, NodeStatus>`，完整的 `GraphNode`（含 evidence、fileRecords 等）写入 Postgres 投影表。
+
+**如果选了这个选项：**
+
+优点：
+- Workflow State 轻量，Event History 膨胀速度慢，Continue-As-New 压力小。
+- 前端可以直接查 DB，不必等 Query 响应，读性能好。
+- `GraphNode` 的大字段（evidence、toolCalls 等）天然落库，便于后续审计查询。
+
+缺点：
+- 引入了两个状态源（Temporal + DB），需要保证最终一致性，否则出现状态漂移。
+- 每个 Activity 完成后需要额外调用 `WriteProjectionActivity` 写 DB，增加一次 Activity 调用开销。
+- 故障恢复时，如果 DB 写入失败但 Temporal 状态已推进，需要有补偿机制。
+
+---
+
+#### 当前推荐路径
+
+> 采用 **B2 轻量映射**，理由：
+> 1. 现有 `Evidence` 字段（`toolCalls`、`filesWritten` 等）数据量大，不适合全量放 Workflow State。
+> 2. 前端 SSE 推送依赖低延迟状态读取，DB 投影比 Query 更适合高频读场景。
+> 3. `Map → Record` 的改造可以推迟，不阻塞 Phase 2。
+
+---
+
+### 6.8 【争议点 C】verify 失败的重试语义
+
+**背景**：现有代码区分了两类 verify 失败（`verify.ts` 第 247 行有编译失败短路逻辑），但重试策略都一样——将失败信息注入 prompt 后重新 implement。迁移后 Temporal 的 RetryPolicy 是 Activity 级别的，需要明确哪类错误触发哪种策略。
+
+#### 选项 C1：所有 verify 失败统一重试策略
+
+不区分错误类型，统一使用指数退避，`maxAttempts` 由配置决定。
+
+**如果选了这个选项：**
+
+优点：
+- 配置简单，与现有 `maxRetries` 逻辑对齐，迁移成本低。
+- Temporal 原生的 RetryPolicy 直接覆盖，无需额外判断逻辑。
+
+缺点：
+- compile 错误（确定性失败，重试有意义）和 LLM 调用超时（随机性失败，短间隔重试更合适）使用同一策略，资源浪费。
+- verify 里的"确定性逻辑错误"（如代码语义错误）会被无意义地重试多次，消耗 Token。
+
+---
+
+#### 选项 C2：按错误类型区分重试策略
+
+通过 Temporal 的 `ApplicationFailure.nonRetryable()` 标记不可重试错误，其余走正常重试。
+
+```typescript
+// VerifyNodeActivity 内部
+if (compileResult.type === 'deterministic_logic_error') {
+  throw ApplicationFailure.nonRetryable('Logic error requires human intervention');
+}
+// 其他失败正常抛出，由 RetryPolicy 重试
+throw new Error(compileResult.output);
+```
+
+**如果选了这个选项：**
+
+优点：
+- 精确控制哪类错误值得重试，避免无效 Token 消耗。
+- 不可重试错误直接进入 `failed` 状态，触发人工介入 Signal 流程，更清晰。
+- 与 Temporal 的错误分类机制完全对齐，是 Temporal 推荐的最佳实践。
+
+缺点：
+- 需要对现有 `VerificationRecord` 的错误类型做分类标注（`compile` / `behavior` / `timeout` 等），有额外改造工作量。
+- 错误分类本身有歧义（"这个 compile 错误是确定性的吗？"），分类逻辑需要仔细设计。
+
+---
+
+#### 当前推荐路径
+
+> Phase 2 用 C1（简单统一），Phase 3 引入 C2 的分类逻辑。  
+> 具体分类建议：
+> - `compile` 错误 → 可重试（LLM 可能修复）
+> - `behavior` hard 测试失败 → 可重试（LLM 可能修复）
+> - `behavior` 失败超过 `maxRetries` → `ApplicationFailure.nonRetryable()`
+> - Activity 调用超时（LLM 网络问题）→ 短间隔重试，独立 `maxAttempts=3`
+
 ---
 
 ## 7. 实施计划（分阶段，可回滚）

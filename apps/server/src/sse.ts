@@ -8,10 +8,14 @@
 import { Response } from "express";
 import { SSEEvent, NodeStatus } from "./types";
 
+function getNodeCacheKey(event: SSEEvent, node: NodeStatus): string {
+  return `${event.projectId ?? ""}:${event.sessionId ?? ""}:${node.id}`;
+}
+
 class SSEManager {
   private clients = new Set<Response>();
-  // 缓存最新节点状态，新客户端连接时回放
-  private nodeCache = new Map<string, NodeStatus>();
+  // 缓存最新节点事件，新客户端连接时回放
+  private nodeCache = new Map<string, SSEEvent>();
   private lastSummary: SSEEvent | null = null;
 
   /** 注册新的 SSE 客户端连接，并回放当前状态 */
@@ -22,8 +26,8 @@ class SSEManager {
     res.flushHeaders();
 
     // 回放已有节点状态
-    for (const node of this.nodeCache.values()) {
-      res.write(`data: ${JSON.stringify({ type: "node_update", payload: node })}\n\n`);
+    for (const event of this.nodeCache.values()) {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
     }
     // 回放最终摘要（如果任务已完成）
     if (this.lastSummary) {
@@ -40,7 +44,7 @@ class SSEManager {
   push(event: SSEEvent): void {
     if (event.type === "node_update") {
       const node = event.payload as NodeStatus;
-      this.nodeCache.set(node.id, node);
+      this.nodeCache.set(getNodeCacheKey(event, node), event);
     } else if (event.type === "graph_done" || event.type === "graph_failed") {
       this.lastSummary = event;
     }

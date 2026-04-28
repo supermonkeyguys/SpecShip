@@ -26,7 +26,7 @@ interface ProjectionPayload {
 let activeWatcher: fs.FSWatcher | null = null;
 
 /** 开始监听 session 的 projection 目录 */
-export function watchSession(workDir: string, sessionId: string): void {
+export function watchSession(workDir: string, projectId: string, sessionId: string): void {
   stopWatch();
 
   const projDir = path.join(workDir, ".shipyard", "sse-projection", sessionId);
@@ -40,10 +40,9 @@ export function watchSession(workDir: string, sessionId: string): void {
       const raw = fs.readFileSync(filePath, "utf-8");
       const payload = JSON.parse(raw) as ProjectionPayload;
 
-      // 推送 SSE node_update 事件，格式与 legacy 路径一致
       const nodeStatus: NodeStatus = {
         id: payload.nodeId,
-        title: payload.nodeId,        // title 在 projection 里暂缺，以 id 代替
+        title: payload.nodeId,
         status: payload.status,
         specFragment: "",
         dependsOn: [],
@@ -53,7 +52,7 @@ export function watchSession(workDir: string, sessionId: string): void {
         error: payload.error,
       };
 
-      sseManager.push({ type: "node_update", payload: nodeStatus });
+      sseManager.push({ type: "node_update", payload: nodeStatus, projectId, sessionId });
     } catch {
       // 文件写入中途读到不完整 JSON，忽略，等下次写入
     }

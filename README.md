@@ -78,15 +78,15 @@ Verifier                           → 确定性验证（tsc）+ spec-derived �
 
 ```
 shipyard/
-├── src/
-│   ├── graph.ts       核心数据结构：ExecutionGraph、GraphNode、状态机、Evidence
-│   ├── verify.ts      验证系统：tsc 编译检查 + spec-derived 行为验证
-│   ├── shipyard.ts    调度引擎：buildGraph → executeNode → verifyNode → transitionNode
-│   ├── prompts.ts     System prompts：Implementer、Reviewer（Planner 见 shipyard.ts）
-│   ├── hooks.ts       Agent hooks：路径安全、审计日志、进度输出
-│   ├── config.ts      配置：模型路由、重试次数、工作目录
-│   └── index.ts       CLI 入口
-└── output/            生成的代码文件
+├── apps/
+│   ├── cli/src/index.ts      CLI 入口
+│   ├── server/src/           Express + SSE API
+│   └── web/                  Vite + React IDE
+├── packages/
+│   ├── core/src/             调度引擎、验证、项目/session 管理
+│   └── shared/src/types.ts   前后端共享 contract
+├── .shipyard/                project/session 数据
+└── output/                   生成的代码文件
 ```
 
 ### 数据流
@@ -120,7 +120,7 @@ buildHistory()         ← 人类可读的开发历史
 ```bash
 git clone <repo>
 cd shipyard
-npm install
+pnpm install
 ```
 
 ### 配置
@@ -149,10 +149,10 @@ export MODEL_REVIEW=gpt-5.1
 
 ```bash
 # 默认模式：每次运行前清空 output/
-npx ts-node src/index.ts "实现用户登录：接收 email 和 password，密码错误返回 INVALID_CREDENTIALS，成功返回 JWT token，24小时过期"
+pnpm start -- "实现用户登录：接收 email 和 password，密码错误返回 INVALID_CREDENTIALS，成功返回 JWT token，24小时过期"
 
 # resume 模式：保留已有 output/ 文件，再继续执行
-npx ts-node src/index.ts --resume "实现用户登录：接收 email 和 password，密码错误返回 INVALID_CREDENTIALS，成功返回 JWT token，24小时过期"
+pnpm start -- --resume "实现用户登录：接收 email 和 password，密码错误返回 INVALID_CREDENTIALS，成功返回 JWT token，24小时过期"
 ```
 
 ### output 与 resume 行为
