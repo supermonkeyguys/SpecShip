@@ -1,0 +1,19 @@
+{
+  "name": "@shipyard/orchestrator-temporal",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "test": "node --require tsx/cjs --test test/spec-run.smoke.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@temporalio/client": "^1.16.1",
+    "@temporalio/worker": "^1.16.1",
+    "@temporalio/workflow": "^1.16.1",
+    "@temporalio/activity": "^1.16.1",
+    "@shipyard/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@temporalio/testing": "^1.16.1"
+  }
+}

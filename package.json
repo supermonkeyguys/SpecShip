@@ -30,5 +30,10 @@
     "typescript": "^5.7.0",
     "turbo": "^2.5.3",
     "tsx": "^4.19.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "@emnapi/core": "1.9.2"
+    }
   }
 }
