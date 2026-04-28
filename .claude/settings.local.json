@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(git status*)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(npm test*)",
+      "Bash(npm run test*)",
+      "Bash(pnpm test*)",
+      "Bash(pnpm run test*)",
+      "Bash(npx vitest *)",
+      "Bash(pnpm lint*)",
+      "Bash(pnpm run lint*)",
+      "Bash(pnpm typecheck*)",
+      "Bash(pnpm run typecheck*)",
+      "Bash(pnpm config *)",
+      "Bash(npm config *)",
+      "Bash(pnpm install *)",
+      "Skill(update-config)",
+      "Bash(python *)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean -f*)",
+      "Bash(git checkout -- *)",
+      "Bash(rm -rf *)",
+      "Bash(curl * | sh*)",
+      "Bash(wget * | sh*)"
+    ],
+    "defaultMode": "dontAsk"
+  }
+}
