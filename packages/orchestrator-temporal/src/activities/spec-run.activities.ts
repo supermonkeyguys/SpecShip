@@ -120,6 +120,16 @@ export interface PersistGraphInput {
   graph: SerializedGraph;
 }
 
+export interface NotifyNodeUpdateInput {
+  workDir: string;
+  projectId: string;
+  sessionId: string;
+  nodeId: string;
+  status: "pending" | "running" | "done" | "failed" | "skipped";
+  filesWritten?: string[];
+  error?: string;
+}
+
 // ---- Activities ----
 
 export const specRunActivities = {
@@ -254,6 +264,28 @@ export const specRunActivities = {
     const sessionGraphPath = getSessionGraphPath(input.workDir, input.projectId, input.sessionId);
     const graph = rebuildGraphFromSerialized(input.graph);
     saveGraphCheckpoint(input.workDir, graph, sessionGraphPath);
+  },
+
+  /**
+   * notifyNodeUpdate — 写节点状态投影文件，供 server 层 SSE 轮询消费
+   *
+   * 写到 .shipyard/sse-projection/<sessionId>/<nodeId>.json
+   * server 侧用 fs.watch 或轮询读取，推 SSE 给前端。
+   */
+  async notifyNodeUpdate(input: NotifyNodeUpdateInput): Promise<void> {
+    const projDir = path.join(
+      input.workDir, ".shipyard", "sse-projection", input.sessionId
+    );
+    fs.mkdirSync(projDir, { recursive: true });
+    const projFile = path.join(projDir, `${input.nodeId}.json`);
+    const payload = {
+      nodeId: input.nodeId,
+      status: input.status,
+      filesWritten: input.filesWritten ?? [],
+      error: input.error,
+      updatedAt: new Date().toISOString(),
+    };
+    fs.writeFileSync(projFile, JSON.stringify(payload), "utf-8");
   },
 };
 

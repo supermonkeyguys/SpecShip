@@ -64,6 +64,10 @@ const mockActivities: SpecRunActivities = {
   async persistGraph(_input): Promise<void> {
     // no-op in tests
   },
+
+  async notifyNodeUpdate(_input): Promise<void> {
+    // no-op in tests
+  },
 };
 
 test("smoke: SpecRunWorkflow completes with mock activities", async () => {
@@ -116,6 +120,7 @@ test("smoke: executeNode failure propagates to workflow failed status", async ()
       const { ApplicationFailure } = await import("@temporalio/activity");
       throw ApplicationFailure.create({ message: "mock verify failed", nonRetryable: true });
     },
+  async notifyNodeUpdate(_input): Promise<void> {},
   };
 
   try {

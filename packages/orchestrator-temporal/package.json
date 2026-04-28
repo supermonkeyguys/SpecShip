@@ -2,6 +2,11 @@
   "name": "@shipyard/orchestrator-temporal",
   "private": true,
   "version": "0.1.0",
+  "main": "./src/client/run-workflow.ts",
+  "types": "./src/client/run-workflow.ts",
+  "exports": {
+    ".": "./src/client/run-workflow.ts"
+  },
   "scripts": {
     "test": "node --require tsx/cjs --test test/spec-run.smoke.test.ts",
     "typecheck": "tsc --noEmit"
