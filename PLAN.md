@@ -11,239 +11,182 @@
 
 ---
 
-## 当前状态（v0.4，已完成）
+## 当前状态（v0.4，2026-04-28 更新）
 
+### 已完成的核心能力
+
+**引擎层（packages/core/src/）**
 - 执行图数据结构（graph.ts）
-- OpenAI 兼容 LLM 客户端，支持任意中转（llm.ts）
+- OpenAI 兼容 LLM 客户端，/responses + /chat/completions 双端点，自动 fallback，SSE 流解析（llm.ts）
 - Spec-derived 行为验证（verify.ts）
-- 多 agent 并行调度，失败隔离，重试机制
+- 多 agent 并行调度，失败隔离，重试机制（shipyard.ts）
 - Evidence 完整记录（tool calls、文件 checksum、验证结果）
-- Express + SSE server（server/）
-- 三栏 IDE 界面（client/）：React Flow 画板 + 文件树 + 聊天框
+- AgentRunner / NodeVerifier 注入接口（供测试和 Temporal Activity 使用）
+
+**AI 流 bug 修复（2026-04-28）**
+- Planner dependsOn 死锁：构建图前校验所有 id 存在
+- blockDownstream 漏 ready 节点：条件加入 `|| node.status === "ready"`
+- 重试旧文件残留：executeNode 开头清理旧文件
+- Agent Loop 截断无告警：15 轮后加 warn
+- 依赖注入截断 600→2000 字符
+- Reviewer 失败原因不传 Implementer：runCodeReview 返回 blockingIssues 注入 lastError
+- testCase.input 代码注入：SAFE_INPUT_PATTERN 白名单正则
+- blocked 绕过状态机：VALID_TRANSITIONS.blocked = ["pending"]，改用 transitionNode
+
+**服务层（apps/server/）**
+- Express + SSE server，多路由（run/resume/retry/clarify/chat/stream/files/projects）
 - SSE 历史回放（刷新不丢状态）
-- 实时节点状态推送（diff 推送，节点逐步出现）
-- 验证系统修复（LLM 用实际代码生成正确函数名）
+- 实时节点状态推送（diff 推送）
+- ClarificationCard 完整功能（结构化澄清问题，AI 判断 options/free 模式）
+- ORCHESTRATOR_MODE 环境变量切换 legacy/temporal 路径
 
-## 待办（按功能性优先）
+**前端（apps/web/）**
+- 三栏 IDE：React Flow 画板 + 文件树 + 聊天框
+- ClarificationCard 组件（选项卡 + 自由输入 + 已回答锁定摘要）
 
-### A — 右侧聊天框接入 AI 对话 【最高优先级】
-用户输入意图 → LLM 判断是"从某节点重跑"还是"全部重来" → 触发对应 API。
-这是产品核心差异点。
-- [ ] POST /api/chat 端点，接收用户消息
-- [ ] LLM 判断意图（intent classification）
-- [ ] 意图 → 操作映射（retry node / new run）
-- [ ] 前端聊天框接入
-
-### B — 引擎断点恢复加固
-任务中断后能从最后一个完成的节点恢复，不用从头跑。
-- [ ] 完善 checkpoint resume 逻辑
-- [ ] 中断检测（running 状态节点重置为 ready）
-- [ ] 前端显示"可恢复"状态
-
-### C — 已有仓库接入
-让 Shipyard 能在真实项目上工作。
-- [ ] --repo 参数支持
-- [ ] 读取仓库文件树 + package.json
-- [ ] 注入 Planner prompt（控制 context 大小）
-
-### D — UI 打磨
-- [ ] 节点 running 状态脉冲动画
-- [ ] 文件树点击预览内容
-- [ ] 日志 tab 显示更多细节（每步 tool call）
-- CLI 入口，输出执行历史
-- 已端到端跑通
+**Temporal 迁移（packages/orchestrator-temporal/，2026-04-28）**
+- Phase 0：回归测试基线（15 条，零 LLM，AgentRunner/NodeVerifier 注入）
+- Phase 1：Temporal SDK 1.16.1 + Workflow/Activity 骨架
+- Phase 2：真实 core 逻辑接入（buildGraph/executeNode/verify/review）
+- Phase 3：DAG 并发调度（Promise.race 主循环）+ Signal（retryNode/skipNode/cancelRun）+ SSE projection 适配
+- Phase 4：Worker 脚本 + 双跑验证 + 真实 Temporal server 端到端验证通过
 
 ---
 
-## 阶段规划
+## Temporal 迁移现状
 
-### Phase 1 — 引擎稳固（v0.4）
+### 已完成
+- `packages/orchestrator-temporal/` 完整实现
+- `ORCHESTRATOR_MODE=temporal` 启动 Temporal 路径
+- `ORCHESTRATOR_MODE=legacy`（默认）保持原有行为不变
+- 21 条测试全绿（smoke × 3，signal × 2，dualrun × 1，core regression × 15）
 
-目标：让引擎在各种 spec 下都能可靠运行，为 UI 层提供稳定的数据基础。
+### 未接入 Temporal 的路由（仍走 legacy）
+- `POST /api/resume`：仍读 legacy checkpoint 文件，应改为 Temporal Query + Signal
+- `POST /api/node/:id/retry`：仍直接修改 checkpoint 文件，应改为发 `retryNode` Signal
+- `GET /api/status`：仍读 legacy checkpoint，应改为 Temporal Query
 
-**1.1 Checkpoint 持久化**
-- 每个节点完成后写 checkpoint 到 `.shipyard/checkpoints/`
-- 启动时检测未完成的 graph，从断点恢复
-- 实现原子写（tmp + rename），防止写到一半崩溃
-- 关键文件：`src/checkpoint.ts`
+### 启动方式（Temporal 路径）
+```bash
+# Terminal 1
+temporal server start-dev
 
-**1.2 已有仓库接入**
-- 接受 `--repo <path>` 参数
-- 启动时读取仓库结构（文件树、package.json、主要入口）
-- 将仓库上下文注入 Planner prompt，让规划基于现有代码
-- 关键挑战：context 大小控制，只注入相关文件
+# Terminal 2
+OPENAI_API_KEY=sk-xxx OPENAI_BASE_URL=https://... pnpm temporal:worker
 
-**1.3 验证系统加固**
-- 当前行为验证依赖 LLM 提取测试用例，质量不稳定
-- 加入：如果生成了测试文件（`*.test.ts`），直接运行它
-- 加入：lint 检查（eslint）
-- 区分"硬性失败"（编译错误）和"软性失败"（行为不符）
-
-**1.4 错误恢复策略**
-- compile_error：把 tsc 错误注入 prompt 重试
-- logic_error：触发重新规划（不只是重试当前节点）
-- api_error：指数退避重试
-
----
-
-### Phase 2 — 实时可观测（v0.5）
-
-目标：把引擎的内部状态暴露出来，让 UI 能订阅。
-
-**2.1 WebSocket 状态推送**
-- 启动一个本地 WebSocket server（端口 7700）
-- 每次 `transitionNode` 后推送图状态变更
-- 消息格式：`{ type: "node_update", nodeId, status, evidence? }`
-- 关键文件：`src/server.ts`
-
-**2.2 REST API**
-```
-GET  /api/graph          → 当前执行图完整状态
-GET  /api/graph/history  → buildHistory() 结果
-POST /api/run            → 启动新任务
-POST /api/pause          → 暂停当前执行
-POST /api/node/:id/retry → 手动重试某个节点
-POST /api/node/:id/skip  → 跳过某个节点
+# Terminal 3
+ORCHESTRATOR_MODE=temporal OPENAI_API_KEY=sk-xxx pnpm server:dev
 ```
 
-**2.3 文件系统监听**
-- 监听 `output/` 目录变化
-- 文件变更时推送 `file_changed` 事件
-- 供左侧文件树实时更新
+详见：`docs/temporal-phase4-runbook.md`
 
 ---
 
-### Phase 3 — IDE 界面（v1.0）
-
-目标：实现你描述的三栏 IDE 布局。
+## 项目结构（monorepo）
 
 ```
-┌──────────────┬──────────────────────────────┬──────────────┐
-│  左：文件树  │      中：任务画板             │  右：聊天框  │
-└──────────────┴──────────────────────────────┴──────────────┘
+packages/
+  core/                     引擎（graph/llm/verify/shipyard/checkpoint/prompts）
+  orchestrator-temporal/    Temporal 编排层（workflow/activities/worker/client）
+  shared/                   前后端共享类型
+apps/
+  server/                   Express API server
+  web/                      React 前端（Vite）
+  cli/                      CLI 入口
+test/
+  regression/               回归测试（run-basic/retry/resume/manual-retry）
+docs/
+  temporal-phase4-runbook.md  Temporal 操作手册
+  superpowers/specs/          设计文档
+  superpowers/plans/          实现计划
 ```
 
-**3.1 左侧：项目文件树**
-- 展示 `output/` 和仓库文件
-- 文件状态着色：生成中（蓝）/ 完成（绿）/ 失败（红）
-- 点击文件预览内容
-- 技术选型：Electron + React，或 Web（Vite + React）
-
-**3.2 中间：任务画板**
-- 每个 GraphNode 渲染为一个 Card
-  - 标题、状态图标、specFragment 摘要
-  - 展开后：evidence 详情、验证结果、文件列表
-- 节点间用虚线连接（依赖关系）
-- 状态实时更新（WebSocket 驱动）
-- 颜色编码：pending（灰）/ running（蓝动画）/ done（绿）/ failed（红）
-- 技术选型：React Flow（节点图渲染库）
-
-**3.3 右侧：CLI 风格聊天框**
-- 输入框：接收 spec 或指令
-- 指令系统：
-  ```
-  > run "实现登录功能"     → 启动新任务
-  > pause                  → 暂停执行
-  > retry impl-auth        → 重试指定节点
-  > skip test-auth         → 跳过指定节点
-  > status                 → 显示当前图状态
-  > history                → 显示执行历史
-  ```
-- 实时输出：agent 的每个操作滚动显示（类似 Claude Code 的输出）
-- 技术选型：xterm.js 或自定义 terminal 组件
-
-**3.4 Checkpoint 节点（人工确认点）**
-- Planner 可以在关键决策前插入 `checkpoint` 类型节点
-- 执行到 checkpoint 时暂停，右侧显示"等待确认"
-- 用户在聊天框输入 `approve` / `reject + 修改意见`
-- reject 时重新规划该分支
-
 ---
 
-### Phase 4 — 生产化（v1.x）
+## 下一步优先项
 
-**4.1 Git 集成**
-- 自动在隔离 branch 上工作（`shipyard/task-xxx`）
-- 完成后生成 PR，包含：执行历史、验证报告、文件 diff
-- 支持从 GitHub Issue / Linear ticket 直接启动任务
+### 1. Temporal 路由补全（resume/retry/status 接入 Signal/Query）
 
-**4.2 多项目管理**
-- 项目列表：多个 spec/仓库并行管理
-- 每个项目独立的 graph 和 checkpoint
-- 跨项目的执行历史和成本统计
+**resume 路由**（`apps/server/src/routes/resume.ts`）：
+- `POST /api/resume` 应改为：向 Workflow 发 `resumeRun` Signal（Workflow 内部处理中断恢复）
+- `GET /api/status` 应改为：用 Temporal Client Query `getRunSummary`
 
-**4.3 成本控制**
-- 每次 LLM 调用记录 token 消耗
-- 任务级别的成本上限（超出则暂停等待确认）
-- 模型路由优化：简单节点用便宜模型，规划用强模型
+**retry 路由**（`apps/server/src/routes/node.ts`）：
+- `POST /api/node/:id/retry` 应改为：向当前 Workflow 发 `retryNode(nodeId)` Signal
+- 需要在 server 层维护当前 workflowId（已有 `activeSession`，加 `activeWorkflowId` 即可）
 
-**4.4 分层 Agent 协作（完整版）**
-- 当前：Planner → 多个 Implementer（两层）
-- 目标：Planner → Module Manager → Implementer（三层）
-- Module Manager 负责模块内的文件级拆分
-- 每层 agent context 完全隔离
+### 2. 前端功能补全
 
----
+- Canvas 节点图：节点 running 状态脉冲动画
+- 文件树：点击预览文件内容
+- 日志 tab：显示 tool call 详情
 
-## 技术栈决策
+### 3. 多设备注意事项
 
-| 层 | 当前 | 目标 |
-|---|---|---|
-| 引擎 | TypeScript + Node.js | 保持 |
-| LLM 接入 | OpenAI 兼容 fetch | 保持，支持多 provider |
-| 状态推送 | 无 | WebSocket (ws 库) |
-| UI 框架 | 无 | Electron + React + Vite |
-| 节点图渲染 | 无 | React Flow |
-| 终端组件 | 无 | xterm.js |
+- `.gitattributes` 已配置 LF 换行，Windows 设备 git clone 后直接可用
+- Temporal CLI：macOS `brew install temporal`，Windows `winget install Temporal.TemporalCLI`
+- 首次运行 `@temporalio/testing` 会下载 ephemeral server 二进制（~30MB，需要网络）
 
 ---
 
 ## 关键设计原则（不能违背）
 
-1. **引擎和 UI 分离**：引擎是纯 Node.js，不依赖任何 UI 框架。UI 通过 WebSocket/REST 消费引擎状态。
-
-2. **每个节点原子执行**：要么完整完成，要么完整回滚。不存在"写了一半"的状态。
-
-3. **Evidence 不可篡改**：节点的执行记录只能追加，不能修改。这是"开发历史"可信赖的基础。
-
-4. **验证先于交付**：没有通过验证的节点不能标记为 done。验证标准从 spec 派生，不是人工写的。
-
-5. **人主导方向，AI 执行细节**：checkpoint 节点保证关键决策经过人确认。AI 不能自主做影响整体架构的决定。
+1. **引擎和 UI 分离**：`packages/core/` 是纯 Node.js，零 UI 依赖。
+2. **每个节点原子执行**：要么完整完成，要么完整回滚。
+3. **Evidence 不可篡改**：节点执行记录只能追加，不能修改。
+4. **验证先于交付**：没有通过验证的节点不能标记为 done。
+5. **人主导方向，AI 执行细节**：checkpoint 节点保证关键决策经过人确认。
+6. **Workflow 无副作用**：Temporal Workflow 代码不做任何 IO/网络/文件操作，全部下沉到 Activity。
 
 ---
 
 ## 给下一个 Agent 的上下文
+
+### 必读：加载项目技能
+```
+Use the Skill tool to load: shipyard-dev
+```
 
 ### 项目位置
 ```
 /Users/cookie/project/shipyard/
 ```
 
-### 核心文件
+### 核心文件索引
 ```
-src/graph.ts      执行图数据结构，所有类型定义在这里
-src/llm.ts        OpenAI 兼容 agent loop，tool use 实现
-src/verify.ts     spec-derived 验证，两层：编译 + 行为
-src/shipyard.ts   主调度引擎，run() 是入口
-src/config.ts     配置，读环境变量
-src/prompts.ts    所有 system prompts
+packages/core/src/graph.ts          所有类型定义（先读这里）
+packages/core/src/shipyard.ts       主调度引擎，run() 入口，buildGraph/executeNode/runCodeReview 已 export
+packages/core/src/llm.ts            LLM 客户端，AgentRunner 类型
+packages/core/src/verify.ts         验证层，NodeVerifier 类型
+packages/core/src/prompts.ts        所有 system prompts（CLARIFIER_PROMPT 已更新为结构化输出）
+
+packages/orchestrator-temporal/src/
+  workflows/spec-run.workflow.ts    SpecRunWorkflow（DAG 并发调度 + Signal/Query）
+  activities/spec-run.activities.ts  Activities（planGraph/executeNode/persistGraph/notifyNodeUpdate）
+  worker/worker.ts                  Worker 启动入口
+  client/run-workflow.ts            Client 封装（server 层调用此文件）
+
+apps/server/src/routes/
+  run.ts      POST /api/run（ORCHESTRATOR_MODE 切换）
+  resume.ts   POST /api/resume（仍 legacy，待接入 Temporal Signal）
+  node.ts     POST /api/node/:id/retry（仍 legacy，待接入 Temporal Signal）
+
+test/regression/helpers.ts          测试工具（makeMockAgentRunner/makeMockNodeVerifier/makeTestConfig）
 ```
 
-### 运行方式
+### 运行测试
 ```bash
-OPENAI_BASE_URL=https://aicodelink.top/v1 \
-OPENAI_API_KEY=sk-xxx \
-MODEL_PLANNING=gpt-5.4 \
-MODEL_IMPLEMENTATION=gpt-5.4 \
-npx ts-node src/index.ts "你的 spec"
+pnpm test                    # 全量（15 条 core + Temporal smoke/signal/dualrun）
+TEMPORAL_LIVE_TEST=1 node --require tsx/cjs --test packages/orchestrator-temporal/test/phase4-live.test.ts
 ```
 
-### 已知问题 / 待改进
-- 行为验证的测试文件生成逻辑较脆弱（依赖函数名匹配）
-- Planner 有时把 dependsOn 写成文件路径而不是节点 id（已有兼容处理）
-- 没有 checkpoint 持久化，中断后从头开始
-- 验证系统还不能运行生成的 `*.test.ts` 文件
+### 运行服务（legacy 模式，无需 Temporal）
+```bash
+OPENAI_API_KEY=sk-xxx OPENAI_BASE_URL=https://aicodelink.top/v1 pnpm server:dev
+pnpm web:dev
+```
 
-### 下一步优先做
-Phase 1.1（Checkpoint 持久化）和 Phase 1.3（验证加固）是最高优先级，
-这两个做完引擎才算真正可靠，之后再做 UI 层。
+### 已知 LLM 代理兼容性
+- 代理 `/chat/completions` 返回 SSE 流格式（不是标准 JSON）
+- `llm.ts` 已处理：检测 `content-type: text/event-stream` 或 `data:` 前缀，走 `assembleFromSseChunks`
+- 环境变量 `FORCE_CHAT_COMPLETIONS=1` 可跳过 `/responses` 端点直接用 `/chat/completions`
