@@ -95,6 +95,13 @@ projectsRouter.get("/projects/:pid/sessions/:sid/graph", (req: Request, res: Res
       error: node.error?.message,
       durationMs: node.evidence?.durationMs,
       filesWritten: node.evidence?.filesWritten.map((f) => f.path) ?? [],
+      toolCalls: node.evidence?.toolCalls.map((t) => ({
+        tool: t.tool,
+        input: t.input,
+        output: t.output,
+        success: t.success,
+        timestamp: t.timestamp,
+      })) ?? [],
       verifications: node.evidence?.verifications.map((v) => ({
         type: v.type,
         passed: v.passed,

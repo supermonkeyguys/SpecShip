@@ -1,22 +1,70 @@
 /**
  * routes/node.ts — POST /node/:id/retry
  *
- * 手动重试某个失败的节点。
- * MVP 阶段：重置节点状态为 ready，等待调度器重新拾取。
+ * legacy：重置 session graph 的 failed 节点为 ready。
+ * temporal：发送 retryNode signal 给当前 workflow。
  */
 
 import { Router, Request, Response } from "express";
 import { loadGraphCheckpoint, saveGraphCheckpoint } from "../checkpoint";
 import { transitionNode } from "../graph";
 import { RetryResponse } from "../types";
+import { getSessionGraphPath } from "../project";
+import { activeSession, activeWorkflowId } from "./run";
 
 export const nodeRouter = Router();
 
-nodeRouter.post("/node/:id/retry", (req: Request, res: Response) => {
+const ORCHESTRATOR_MODE = process.env.ORCHESTRATOR_MODE ?? "legacy";
+
+nodeRouter.post("/node/:id/retry", async (req: Request, res: Response) => {
   const id = req.params["id"] as string;
 
+  if (ORCHESTRATOR_MODE === "temporal") {
+    if (!activeSession) {
+      res.status(400).json({ ok: false, error: "No active session" } satisfies RetryResponse);
+      return;
+    }
+
+    try {
+      const { querySpecRunSummary, signalRetryNode, buildWorkflowId } = await import("@shipyard/orchestrator-temporal") as typeof import("@shipyard/orchestrator-temporal");
+      const workflowId = activeWorkflowId ?? buildWorkflowId(activeSession.projectId, activeSession.sessionId);
+
+      const summary = await querySpecRunSummary({ workflowId });
+      const status = summary.nodeStatuses[id];
+
+      if (!status) {
+        res.status(404).json({ ok: false, error: `Node not found: ${String(id)}` } satisfies RetryResponse);
+        return;
+      }
+
+      if (status !== "failed") {
+        res.status(400).json({
+          ok: false,
+          error: `Node ${String(id)} is not in failed state (current: ${status})`,
+        } satisfies RetryResponse);
+        return;
+      }
+
+      await signalRetryNode({ workflowId, nodeId: id });
+      res.json({ ok: true } satisfies RetryResponse);
+      return;
+    } catch (e) {
+      res.status(500).json({ ok: false, error: (e as Error).message } satisfies RetryResponse);
+      return;
+    }
+  }
+
+  const { projectId, sessionId } = req.body as { projectId?: string; sessionId?: string };
+
+  if (!projectId || !sessionId) {
+    res.status(400).json({ ok: false, error: "projectId and sessionId are required" } satisfies RetryResponse);
+    return;
+  }
+
+  const graphPath = getSessionGraphPath(process.cwd(), projectId, sessionId);
+
   try {
-    const graph = loadGraphCheckpoint(process.cwd());
+    const graph = loadGraphCheckpoint(process.cwd(), graphPath);
     const node = graph.nodes.get(id);
 
     if (!node) {
@@ -33,7 +81,7 @@ nodeRouter.post("/node/:id/retry", (req: Request, res: Response) => {
     }
 
     const updated = transitionNode(graph, id, "ready");
-    saveGraphCheckpoint(process.cwd(), updated);
+    saveGraphCheckpoint(process.cwd(), updated, graphPath);
 
     res.json({ ok: true } satisfies RetryResponse);
   } catch (e) {

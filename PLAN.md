@@ -61,10 +61,10 @@
 - `ORCHESTRATOR_MODE=legacy`（默认）保持原有行为不变
 - 21 条测试全绿（smoke × 3，signal × 2，dualrun × 1，core regression × 15）
 
-### 未接入 Temporal 的路由（仍走 legacy）
-- `POST /api/resume`：仍读 legacy checkpoint 文件，应改为 Temporal Query + Signal
-- `POST /api/node/:id/retry`：仍直接修改 checkpoint 文件，应改为发 `retryNode` Signal
-- `GET /api/status`：仍读 legacy checkpoint，应改为 Temporal Query
+### Temporal 路由接入状态（已完成）
+- `POST /api/resume`：Temporal 模式已接入 Query + `resumeRun` Signal
+- `POST /api/node/:id/retry`：Temporal 模式已接入 `retryNode` Signal
+- `GET /api/status`：Temporal 模式已改为 Query `getRunSummary`
 
 ### 启动方式（Temporal 路径）
 ```bash
@@ -103,25 +103,25 @@ docs/
 
 ---
 
-## 下一步优先项
+## 当前阶段收口结果（2026-04-29）
 
-### 1. Temporal 路由补全（resume/retry/status 接入 Signal/Query）
+### 1. Temporal 路由补全（已完成）
 
 **resume 路由**（`apps/server/src/routes/resume.ts`）：
-- `POST /api/resume` 应改为：向 Workflow 发 `resumeRun` Signal（Workflow 内部处理中断恢复）
-- `GET /api/status` 应改为：用 Temporal Client Query `getRunSummary`
+- `POST /api/resume`：Temporal 模式已接入 `resumeRun` Signal
+- `GET /api/status`：Temporal 模式已改为 Query `getRunSummary`
 
 **retry 路由**（`apps/server/src/routes/node.ts`）：
-- `POST /api/node/:id/retry` 应改为：向当前 Workflow 发 `retryNode(nodeId)` Signal
-- 需要在 server 层维护当前 workflowId（已有 `activeSession`，加 `activeWorkflowId` 即可）
+- `POST /api/node/:id/retry`：Temporal 模式已改为 `retryNode(nodeId)` Signal
+- server 已维护 `activeWorkflowId`（与 `activeSession` 配合）
 
-### 2. 前端功能补全
+### 2. 前端功能补全（已完成）
 
-- Canvas 节点图：节点 running 状态脉冲动画
-- 文件树：点击预览文件内容
-- 日志 tab：显示 tool call 详情
+- Canvas 节点图：节点 running 状态脉冲动画 ✅
+- 文件树：点击预览文件内容 ✅
+- 日志 tab：显示 tool call 详情 ✅
 
-### 3. 多设备注意事项
+### 3. 多设备注意事项（保持不变）
 
 - `.gitattributes` 已配置 LF 换行，Windows 设备 git clone 后直接可用
 - Temporal CLI：macOS `brew install temporal`，Windows `winget install Temporal.TemporalCLI`
@@ -168,8 +168,8 @@ packages/orchestrator-temporal/src/
 
 apps/server/src/routes/
   run.ts      POST /api/run（ORCHESTRATOR_MODE 切换）
-  resume.ts   POST /api/resume（仍 legacy，待接入 Temporal Signal）
-  node.ts     POST /api/node/:id/retry（仍 legacy，待接入 Temporal Signal）
+  resume.ts   POST /api/resume（Temporal 已接入 resumeRun Signal）
+  node.ts     POST /api/node/:id/retry（Temporal 已接入 retryNode Signal）
 
 test/regression/helpers.ts          测试工具（makeMockAgentRunner/makeMockNodeVerifier/makeTestConfig）
 ```

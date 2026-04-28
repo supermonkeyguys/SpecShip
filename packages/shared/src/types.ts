@@ -14,6 +14,13 @@ export interface NodeStatus {
   specFragment: string;
   dependsOn: string[];
   filesWritten: string[];
+  toolCalls?: Array<{
+    tool: string;
+    input: Record<string, unknown>;
+    output: string;
+    success: boolean;
+    timestamp: string;
+  }>;
   verifications: Array<{ type: string; passed: boolean; summary: string }>;
   retryCount: number;
   error?: string;

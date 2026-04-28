@@ -44,6 +44,7 @@ const activities = proxyActivities<SpecRunActivities>({
 export const retryNodeSignal   = defineSignal<[nodeId: string]>("retryNode");
 export const skipNodeSignal    = defineSignal<[nodeId: string]>("skipNode");
 export const cancelRunSignal   = defineSignal<[reason: string]>("cancelRun");
+export const resumeRunSignal   = defineSignal<[reason: string]>("resumeRun");
 
 // ---- Queries ----
 export const getRunSummaryQuery = defineQuery<RunSummary>("getRunSummary");
@@ -105,6 +106,10 @@ export async function SpecRunWorkflow(input: SpecRunInput): Promise<RunSummary> 
   setHandler(cancelRunSignal, (reason: string) => {
     console.log(`[workflow] cancel: ${reason}`);
     cancelled = true;
+  });
+
+  setHandler(resumeRunSignal, (reason: string) => {
+    console.log(`[workflow] resume: ${reason}`);
   });
 
   setHandler(retryNodeSignal, (nodeId: string) => {

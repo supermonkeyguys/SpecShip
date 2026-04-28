@@ -15,6 +15,7 @@ import "reactflow/dist/style.css";
 import {
   Dialog,
   DialogClose,
+  DialogDescription,
   DialogPortal,
   DialogTitle,
 } from "../../components/ui/dialog";
@@ -158,10 +159,12 @@ function NodeCard({ node }: { node: NodeStatus }) {
 }
 
 function NodeDetail({ node, container }: { node: NodeStatus; container: HTMLElement | null }) {
+  const descriptionId = `node-detail-description-${node.id}`;
+
   return (
     <DialogPortal container={container ?? undefined}>
       <DialogPrimitive.Content
-        aria-describedby={undefined}
+        aria-describedby={descriptionId}
         className="absolute right-4 top-4 z-50 w-80 rounded-xl border border-gray-200 bg-white p-4 shadow-lg focus:outline-none"
         onOpenAutoFocus={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
@@ -169,11 +172,19 @@ function NodeDetail({ node, container }: { node: NodeStatus; container: HTMLElem
         <div className="mb-3 flex items-start justify-between gap-3">
           <DialogTitle className="text-sm font-semibold text-gray-900">{node.title}</DialogTitle>
           <DialogClose asChild>
-            <button className="text-gray-400 transition-colors hover:text-gray-700 text-lg leading-none" type="button">
+            <button
+              className="text-gray-400 transition-colors hover:text-gray-700 text-lg leading-none"
+              type="button"
+              aria-label="Close node details"
+            >
               ×
             </button>
           </DialogClose>
         </div>
+
+        <DialogDescription id={descriptionId} className="sr-only">
+          Node details including status, files, verifications, and errors.
+        </DialogDescription>
 
         <div className="space-y-2 text-xs">
           <div className="flex items-center gap-2">

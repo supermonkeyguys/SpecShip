@@ -2,15 +2,15 @@
  * session/ProjectPanel.tsx — 左侧 Project/Session 列表
  */
 
-import { useEffect, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../components/ui/collapsible";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { Separator } from "../../components/ui/separator";
 import { cn } from "../../components/ui/utils";
-import type { ProjectsResponse, FileEntry } from "../../types";
-import { fetchJSON } from "../../utils/fetchJSON";
+import type { FileEntry } from "../../types";
 import type { ActiveSession } from "./types";
+import { useWorkspaceController } from "../../domains/workspace/controller";
+import { EmptyState } from "../../shared/ui/EmptyState";
 
 interface Props {
   activeSession: ActiveSession | null;
@@ -21,42 +21,15 @@ interface Props {
 }
 
 export function ProjectPanel({ activeSession, onSelectSession, onSelectFile, onNewSession, selectedFilePath }: Props) {
-  const [data, setData] = useState<ProjectsResponse["projects"]>([]);
-  const [expandedProject, setExpandedProject] = useState<string | null>(null);
-  const [sessionFiles, setSessionFiles] = useState<FileEntry[]>([]);
-
-  useEffect(() => {
-    const load = () =>
-      fetchJSON<ProjectsResponse>("/api/projects")
-        .then((d) => {
-          setData(d.projects ?? []);
-          if (!expandedProject && d.projects?.length) {
-            setExpandedProject(d.projects[0].id);
-          }
-        })
-        .catch(() => {});
-    load();
-    const t = setInterval(load, 3000);
-    return () => clearInterval(t);
-  }, []);
-
-  useEffect(() => {
-    if (!activeSession) {
-      setSessionFiles([]);
-      return;
-    }
-    const { projectId, sessionId } = activeSession;
-    const load = () =>
-      fetchJSON<{ files: FileEntry[] }>(`/api/projects/${projectId}/sessions/${sessionId}/files`)
-        .then((d) => setSessionFiles(d.files ?? []))
-        .catch(() => {});
-    load();
-    const t = setInterval(load, 3000);
-    return () => clearInterval(t);
-  }, [activeSession?.projectId, activeSession?.sessionId]);
+  const {
+    projects,
+    expandedProjectId,
+    sessionFiles,
+    setExpandedProjectId,
+  } = useWorkspaceController();
 
   return (
-    <div className="flex h-full flex-col border-r border-gray-200 bg-gray-50 text-xs">
+    <aside className="flex h-full flex-col border-r border-gray-200 bg-gray-50 text-xs" aria-label="Projects and sessions">
       <div className="flex items-center justify-between bg-white px-3 py-2">
         <span className="font-semibold uppercase tracking-wider text-gray-500">Projects</span>
         <Button type="button" size="sm" className="h-7 px-2 text-xs" onClick={onNewSession}>
@@ -68,17 +41,17 @@ export function ProjectPanel({ activeSession, onSelectSession, onSelectFile, onN
 
       <ScrollArea className="flex-1">
         <div className="py-1">
-          {data.length === 0 ? (
-            <div className="px-3 py-4 text-center text-gray-400">No projects yet</div>
+          {projects.length === 0 ? (
+            <EmptyState title="No projects yet" />
           ) : (
-            data.map((proj) => {
-              const isExpanded = expandedProject === proj.id;
+            projects.map((proj) => {
+              const isExpanded = expandedProjectId === proj.id;
 
               return (
                 <Collapsible
                   key={proj.id}
                   open={isExpanded}
-                  onOpenChange={(open) => setExpandedProject(open ? proj.id : null)}
+                  onOpenChange={(open) => setExpandedProjectId(open ? proj.id : null)}
                 >
                   <CollapsibleTrigger asChild>
                     <Button
@@ -149,7 +122,7 @@ export function ProjectPanel({ activeSession, onSelectSession, onSelectFile, onN
           )}
         </div>
       </ScrollArea>
-    </div>
+    </aside>
   );
 }
 

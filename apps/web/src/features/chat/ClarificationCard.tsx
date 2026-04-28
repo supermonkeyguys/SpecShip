@@ -1,8 +1,5 @@
 /**
  * ClarificationCard.tsx — 澄清问题交互卡片
- *
- * 渲染一组结构化问题（选项卡 + 自由输入），用户全部填写后才能确认。
- * 由 Chat.tsx 在 role="clarification" 消息时渲染。
  */
 
 import { useState } from "react";
@@ -48,13 +45,11 @@ export function ClarificationCard({ questions, onConfirm, onSkip }: Props) {
 
   return (
     <div className="rounded-2xl border border-gray-200 overflow-hidden shadow-sm text-xs">
-      {/* Header */}
       <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex items-center gap-2 font-semibold text-gray-800">
         <span>💬</span>
-        <span>开始之前，我需要确认几个问题</span>
+        <span>Before starting, I need to confirm a few details.</span>
       </div>
 
-      {/* Questions */}
       <div className="bg-white px-4 py-3 flex flex-col gap-4">
         {questions.map((q, idx) => (
           <div key={q.id} className="flex flex-col gap-2">
@@ -91,7 +86,6 @@ export function ClarificationCard({ questions, onConfirm, onSkip }: Props) {
                       </Button>
                     );
                   })}
-                  {/* Fixed "other" option — always present for options-mode questions */}
                   <Button
                     type="button"
                     variant="outline"
@@ -105,15 +99,15 @@ export function ClarificationCard({ questions, onConfirm, onSkip }: Props) {
                     }`}
                   >
                     <span className={`font-semibold ${answers[q.id] === "__other__" ? "text-blue-600" : "text-gray-800"}`}>
-                      其他...
+                      Other...
                     </span>
-                    <span className="text-[10.5px] text-gray-400">自由描述</span>
+                    <span className="text-[10.5px] text-gray-400">Describe freely</span>
                   </Button>
                 </div>
                 {answers[q.id] === "__other__" && (
                   <Textarea
                     className="h-14 min-h-[3.5rem] resize-none border-blue-400 bg-blue-50 text-xs font-mono shadow-none"
-                    placeholder="描述你的需求..."
+                    placeholder="Describe your needs..."
                     value={otherText[q.id] ?? ""}
                     onChange={(e) => setOtherText((t) => ({ ...t, [q.id]: e.target.value }))}
                   />
@@ -123,7 +117,7 @@ export function ClarificationCard({ questions, onConfirm, onSkip }: Props) {
               <Input
                 type="text"
                 className="h-auto rounded-lg bg-gray-50 py-2 text-xs font-mono shadow-none"
-                placeholder="请输入..."
+                placeholder="Type your answer..."
                 value={answers[q.id] ?? ""}
                 onChange={(e) => setAnswer(q.id, e.target.value)}
               />
@@ -132,7 +126,6 @@ export function ClarificationCard({ questions, onConfirm, onSkip }: Props) {
         ))}
       </div>
 
-      {/* Footer */}
       <div className="bg-gray-50 border-t border-gray-200 px-4 py-2.5 flex justify-end items-center gap-2">
         <Button
           type="button"
@@ -140,7 +133,7 @@ export function ClarificationCard({ questions, onConfirm, onSkip }: Props) {
           onClick={onSkip}
           className="h-auto rounded-lg px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-200 hover:text-gray-600"
         >
-          跳过，直接开始
+          Skip and continue
         </Button>
         <Button
           type="button"
@@ -150,7 +143,7 @@ export function ClarificationCard({ questions, onConfirm, onSkip }: Props) {
             isReady ? "" : "bg-blue-200 hover:bg-blue-200"
           }`}
         >
-          确认
+          Confirm
         </Button>
       </div>
     </div>

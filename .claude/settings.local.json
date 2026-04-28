@@ -21,7 +21,10 @@
       "Bash(npm config *)",
       "Bash(pnpm install *)",
       "Skill(update-config)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(pnpm *)",
+      "Bash(git check-ignore *)",
+      "Bash(node *)"
     ],
     "ask": [
       "Bash(git push *)",
@@ -32,6 +35,6 @@
       "Bash(curl * | sh*)",
       "Bash(wget * | sh*)"
     ],
-    "defaultMode": "dontAsk"
+    "defaultMode": "default"
   }
 }

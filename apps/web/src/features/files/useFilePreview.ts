@@ -3,37 +3,35 @@
  */
 
 import { useRef, useState } from "react";
-import { fetchJSON } from "../../utils/fetchJSON";
 import type { FileEntry } from "../../types";
-
-export interface SelectedFile {
-  file: FileEntry;
-  projectId: string;
-  sessionId: string;
-}
+import { fetchSessionFileContent } from "../../shared/api/fileClient";
+import { useWorkspaceStore } from "../../domains/workspace/store";
+import type { SelectedFileIdentity } from "../../domains/workspace/types";
 
 export interface UseFilePreviewReturn {
-  selectedFile: SelectedFile | null;
+  selectedFile: SelectedFileIdentity | null;
   fileContent: string | null;
+  fileError: string | null;
   handleFileSelect: (file: FileEntry, projectId: string, sessionId: string) => Promise<void>;
   handleClose: () => void;
 }
 
 export function useFilePreview(): UseFilePreviewReturn {
-  const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
+  const selectedFile = useWorkspaceStore((state) => state.selectedFile);
+  const setSelectedFile = useWorkspaceStore((state) => state.setSelectedFile);
   const [fileContent, setFileContent] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
   const handleFileSelect = async (file: FileEntry, projectId: string, sessionId: string) => {
     const requestId = ++requestIdRef.current;
 
-    setSelectedFile({ file, projectId, sessionId });
+    setSelectedFile({ projectId, sessionId, path: file.path });
     setFileContent(null);
+    setFileError(null);
 
     try {
-      const data = await fetchJSON<{ content: string }>(
-        `/api/projects/${projectId}/sessions/${sessionId}/file?path=${encodeURIComponent(file.path)}`
-      );
+      const data = await fetchSessionFileContent(projectId, sessionId, file.path);
 
       if (requestIdRef.current !== requestId) {
         return;
@@ -45,7 +43,7 @@ export function useFilePreview(): UseFilePreviewReturn {
         return;
       }
 
-      setFileContent("Failed to load file.");
+      setFileError("Failed to load file.");
     }
   };
 
@@ -53,7 +51,8 @@ export function useFilePreview(): UseFilePreviewReturn {
     requestIdRef.current += 1;
     setSelectedFile(null);
     setFileContent(null);
+    setFileError(null);
   };
 
-  return { selectedFile, fileContent, handleFileSelect, handleClose };
+  return { selectedFile, fileContent, fileError, handleFileSelect, handleClose };
 }

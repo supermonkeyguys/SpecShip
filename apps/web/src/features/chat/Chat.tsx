@@ -8,11 +8,11 @@ import { Input } from "../../components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { useExecutionStore } from "../../domains/execution/store";
 import type { SessionExecutionState } from "../../domains/execution/types";
-import type { ChatResponse, RunResponse } from "../../types";
 import type { ClarifyQuestion } from "../../types";
 import type { ActiveSession } from "../session/types";
-import { fetchJSON } from "../../utils/fetchJSON";
 import { ClarificationCard } from "./ClarificationCard";
+import { createChatRunController, type ClarificationPending } from "../../domains/execution/runController";
+import { LoadingState } from "../../shared/ui/LoadingState";
 
 type Tab = "chat" | "log";
 
@@ -32,9 +32,12 @@ export function Chat({ sessionId, onRunStarted, onResumeRequested }: Props) {
       className="h-full bg-white border-l border-gray-200"
     >
       <TabsList aria-label="Chat views" className="w-full border-b border-gray-200">
-        {(["chat", "log"] as Tab[]).map((t) => (
-          <TabsTrigger key={t} value={t} className="hover:text-gray-600">
-            {t}
+        {([
+          { key: "chat", label: "Chat" },
+          { key: "log", label: "Log" },
+        ] as const).map((t) => (
+          <TabsTrigger key={t.key} value={t.key} className="hover:text-gray-600">
+            {t.label}
           </TabsTrigger>
         ))}
       </TabsList>
@@ -90,6 +93,17 @@ function LogPanel() {
           {n.filesWritten.map((f, i) => (
             <div key={i} className="pl-4 text-gray-400">→ {f}</div>
           ))}
+          {(n.toolCalls ?? []).map((t, i) => (
+            <details key={`${n.id}-tool-${i}`} className="pl-4 text-gray-500">
+              <summary className="cursor-pointer select-none">
+                {t.success ? "🛠" : "⚠"} {t.tool} {t.success ? "ok" : "failed"}
+              </summary>
+              <div className="mt-1 space-y-1 text-[11px] text-gray-500">
+                <div className="break-all">input: {JSON.stringify(t.input)}</div>
+                <div className="break-all">output: {t.output}</div>
+              </div>
+            </details>
+          ))}
           {n.error && (
             <div className="pl-4 text-red-500 break-all">{n.error}</div>
           )}
@@ -126,7 +140,7 @@ function ChatPanel({
 }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [pendingSpec, setPendingSpec] = useState<{ spec: string; repoPath?: string } | null>(null);
+  const [pendingSpec, setPendingSpec] = useState<ClarificationPending | null>(null);
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
 
   useEffect(() => {
@@ -141,47 +155,42 @@ function ChatPanel({
   const runStatus = execution?.runStatus ?? "idle";
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const activeSession = useExecutionStore((state) => {
+    if (!state.activeSessionId) return null;
+    const session = state.sessions[state.activeSessionId];
+    if (!session) return null;
+    return {
+      projectId: session.projectId,
+      sessionId: session.sessionId,
+      spec: session.title,
+    } satisfies ActiveSession;
+  });
+
+  const controller = useMemo(
+    () => createChatRunController({ onRunStarted, onResumeRequested }),
+    [onRunStarted, onResumeRequested]
+  );
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const runSpec = async (spec: string, repoPath?: string) => {
-    try {
-      const d = await fetchJSON<RunResponse>("/api/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ spec, repoPath }),
-      });
-      if (!d.ok) {
-        setMessages((m) => [...m, { role: "system", text: `Failed: ${d.error}` }]);
-        return;
-      }
-
-      if (d.projectId && d.sessionId) {
-        await onRunStarted?.({ projectId: d.projectId, sessionId: d.sessionId, spec });
-      }
-    } catch (e) {
-      setMessages((m) => [...m, { role: "system", text: `Failed: ${(e as Error).message}` }]);
-    }
-  };
-
   const handleClarificationConfirm = async (answers: Record<string, string>) => {
     if (!pendingSpec) return;
-    const answerText = Object.entries(answers)
-      .map(([, v]) => v)
-      .join(", ");
-    const enrichedSpec = `${pendingSpec.spec}\n\nUser clarifications: ${answerText}`;
+
     setMessages((m) =>
       m.map((msg) =>
-        msg.role === "clarification" && !msg.answered
-          ? { ...msg, answered: true, answers }
-          : msg
+        msg.role === "clarification" && !msg.answered ? { ...msg, answered: true, answers } : msg
       )
     );
     setPendingSpec(null);
+
     setLoading(true);
     try {
-      await runSpec(enrichedSpec, pendingSpec.repoPath);
+      const result = await controller.confirmClarification(pendingSpec, answers);
+      if (!result.ok) {
+        setMessages((m) => [...m, { role: "system", text: `Failed: ${result.error}` }]);
+      }
     } finally {
       setLoading(false);
     }
@@ -189,17 +198,20 @@ function ChatPanel({
 
   const handleClarificationSkip = async () => {
     if (!pendingSpec) return;
+
     setMessages((m) =>
       m.map((msg) =>
-        msg.role === "clarification" && !msg.answered
-          ? { ...msg, answered: true }
-          : msg
+        msg.role === "clarification" && !msg.answered ? { ...msg, answered: true } : msg
       )
     );
     setPendingSpec(null);
+
     setLoading(true);
     try {
-      await runSpec(pendingSpec.spec, pendingSpec.repoPath);
+      const result = await controller.skipClarification(pendingSpec);
+      if (!result.ok) {
+        setMessages((m) => [...m, { role: "system", text: `Failed: ${result.error}` }]);
+      }
     } finally {
       setLoading(false);
     }
@@ -208,77 +220,40 @@ function ChatPanel({
   const send = async () => {
     const text = input.trim();
     if (!text || loading) return;
+
     setInput("");
     setMessages((m) => [...m, { role: "user", text }]);
-
     setLoading(true);
 
     try {
-      const currentNodes = Object.values(nodes).map((n) => ({
-        id: n.id, title: n.title, status: n.status,
-      }));
+      const currentNodes = Object.values(nodes).map((n) => ({ id: n.id, title: n.title, status: n.status }));
       const currentSpec = summary?.title ?? execution?.title ?? undefined;
 
-      const data = await fetchJSON<ChatResponse>("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, currentNodes, currentSpec }),
-      });
+      const result = await controller.send({ message: text, currentNodes, currentSpec, activeSession });
 
-      if (!data.ok) {
-        setMessages((m) => [...m, { role: "ai", text: data.intent.reply }]);
+      if (result.type === "clarification") {
+        setMessages((m) => [
+          ...m,
+          { role: "ai", text: result.text },
+          { role: "clarification", questions: result.questions, answered: false },
+        ]);
+        setPendingSpec(result.pending);
         return;
       }
 
-      const { intent } = data;
-      setMessages((m) => [...m, { role: "ai", text: intent.reply }]);
-
-      if (intent.type === "retry_node") {
-        try {
-          const d = await fetchJSON<{ ok: boolean; error?: string }>(`/api/node/${intent.nodeId}/retry`, { method: "POST" });
-          if (!d.ok) setMessages((m) => [...m, { role: "system", text: `Retry failed: ${d.error}` }]);
-        } catch (e) {
-          setMessages((m) => [...m, { role: "system", text: `Retry failed: ${(e as Error).message}` }]);
-        }
-      } else if (intent.type === "new_run") {
-        try {
-          const clarifyData = await fetchJSON<{ needsClarification: boolean; questions: ClarifyQuestion[] }>("/api/clarify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ spec: intent.spec }),
-          });
-          if (clarifyData.needsClarification && clarifyData.questions?.length) {
-            setMessages((m) => [
-              ...m,
-              {
-                role: "clarification" as const,
-                questions: clarifyData.questions,
-                answered: false,
-              },
-            ]);
-            setPendingSpec({ spec: intent.spec, repoPath: intent.repoPath });
-          } else {
-            await runSpec(intent.spec, intent.repoPath);
-          }
-        } catch {
-          await runSpec(intent.spec, intent.repoPath);
-        }
-      } else if (intent.type === "resume") {
-        try {
-          await onResumeRequested?.();
-        } catch (e) {
-          setMessages((m) => [...m, { role: "system", text: `Resume failed: ${(e as Error).message}` }]);
-        }
+      if (result.type === "reply") {
+        setMessages((m) => [...m, { role: "ai", text: result.text }]);
+        return;
       }
-    } catch (e) {
-      setMessages((m) => [...m, { role: "system", text: `Error: ${(e as Error).message}` }]);
+
+      setMessages((m) => [...m, { role: "system", text: result.text }]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <section className="flex-1 flex flex-col overflow-hidden" aria-label="Chat messages and composer">
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {messages.map((m, i) => {
           if (m.role === "clarification") {
@@ -287,7 +262,7 @@ function ChatPanel({
                 <div key={i} className="rounded-2xl border border-green-300 bg-green-50 overflow-hidden text-xs">
                   <div className="px-4 py-2.5 flex items-center gap-2 font-semibold text-green-700 bg-green-100 border-b border-green-200">
                     <span>✅</span>
-                    <span>已确认，开始执行</span>
+                    <span>Confirmed. Starting execution.</span>
                   </div>
                   {m.answers && (
                     <div className="px-4 py-2.5 flex flex-col gap-1.5">
@@ -328,22 +303,19 @@ function ChatPanel({
             </div>
           );
         })}
-        {loading && (
-          <div className="text-xs px-3 py-2 rounded-lg bg-gray-100 text-gray-400 font-mono animate-pulse border border-gray-200">
-            thinking...
-          </div>
-        )}
+        {loading && <LoadingState label="Thinking" className="px-3 py-2 rounded-lg bg-gray-100 border border-gray-200" />}
         <div ref={bottomRef} />
       </div>
 
       {runStatus === "running" && (
-        <div className="px-3 py-1.5 text-xs text-amber-600 border-t border-gray-100 font-mono bg-amber-50">
-          ● Running...
+        <div className="px-3 py-1.5 text-xs text-amber-600 border-t border-gray-100 font-mono bg-amber-50" role="status" aria-live="polite">
+          ● Running
         </div>
       )}
 
       <div className="border-t border-gray-200 p-3 flex gap-2">
         <Input
+          aria-label="Message input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
@@ -360,7 +332,7 @@ function ChatPanel({
           Send
         </Button>
       </div>
-    </div>
+    </section>
   );
 }
 

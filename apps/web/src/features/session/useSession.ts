@@ -11,6 +11,7 @@ import type { GraphRunStatus } from "../../domains/execution/types";
 import { fetchJSON } from "../../utils/fetchJSON";
 import type { StatusResponse, NodeStatus } from "../../types";
 import type { ActiveSession } from "./types";
+import { useWorkspaceStore } from "../../domains/workspace/store";
 
 export interface UseSessionReturn {
   activeSession: ActiveSession | null;
@@ -37,12 +38,16 @@ export function useSession(): UseSessionReturn {
   const [activeSession, setActiveSessionRaw] = useState<ActiveSession | null>(null);
   const [resumeInfo, setResumeInfo] = useState<StatusResponse | null>(null);
   const sessionRequestIdRef = useRef(0);
+  const workspace = useWorkspaceStore;
 
   // 启动时检查是否有可恢复的任务
   useEffect(() => {
     fetchJSON<StatusResponse>("/api/status")
       .then((data) => {
-        if (data.canResume) setResumeInfo(data);
+        if (data.canResume) {
+          setResumeInfo(data);
+          workspace.getState().setResumeInfo(data);
+        }
       })
       .catch(() => {});
   }, []);
@@ -55,6 +60,7 @@ export function useSession(): UseSessionReturn {
     const executionStore = useExecutionStore.getState();
 
     setActiveSessionRaw(session);
+    workspace.getState().setActiveSession(session);
     executionStore.activateSession(session);
 
     if (!session) return;
@@ -93,6 +99,7 @@ export function useSession(): UseSessionReturn {
   const activateStartedSession = async (session: ActiveSession) => {
     const executionStore = useExecutionStore.getState();
     setResumeInfo(null);
+    workspace.getState().setResumeInfo(null);
     executionStore.setLiveSession(session);
     executionStore.setSessionRunStatus(session.sessionId, "running");
     await loadSessionIntoStore(session, { optimisticRunStatus: "running" });
@@ -101,6 +108,7 @@ export function useSession(): UseSessionReturn {
   const handleResume = async () => {
     const executionStore = useExecutionStore.getState();
     setResumeInfo(null);
+    workspace.getState().setResumeInfo(null);
 
     const resumeTarget = activeSession ?? (resumeInfo?.projectId && resumeInfo?.sessionId
       ? {
@@ -115,11 +123,19 @@ export function useSession(): UseSessionReturn {
       executionStore.setSessionRunStatus(resumeTarget.sessionId, "running");
       if (!activeSession) {
         setActiveSessionRaw(resumeTarget);
+        workspace.getState().setActiveSession(resumeTarget);
         executionStore.activateSession(resumeTarget);
       }
     }
 
-    await fetchJSON("/api/resume", { method: "POST" }).catch(() => {
+    await fetchJSON("/api/resume", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: resumeTarget?.projectId,
+        sessionId: resumeTarget?.sessionId,
+      }),
+    }).catch(() => {
       if (resumeTarget) {
         executionStore.setSessionRunStatus(resumeTarget.sessionId, "failed");
       }
@@ -129,10 +145,14 @@ export function useSession(): UseSessionReturn {
   const handleNewSession = () => {
     sessionRequestIdRef.current += 1;
     setActiveSessionRaw(null);
+    workspace.getState().setActiveSession(null);
     useExecutionStore.getState().activateSession(null);
   };
 
-  const dismissResume = () => setResumeInfo(null);
+  const dismissResume = () => {
+    setResumeInfo(null);
+    workspace.getState().setResumeInfo(null);
+  };
 
   return {
     activeSession,

@@ -17,6 +17,7 @@ import { Canvas } from "./features/canvas/Canvas";
 import { FilePreview } from "./features/files/FilePreview";
 import { Chat } from "./features/chat/Chat";
 import { StatusBadge } from "./components/StatusBadge";
+import { useWorkspaceStore } from "./domains/workspace/store";
 
 export default function App() {
   useSSE();
@@ -26,32 +27,21 @@ export default function App() {
     activeSession, resumeInfo,
     setActiveSession, activateStartedSession, handleResume, handleNewSession, dismissResume,
   } = useSession();
-  const { selectedFile, fileContent, handleFileSelect, handleClose } = useFilePreview();
+  const { selectedFile, fileContent, fileError, handleFileSelect, handleClose } = useFilePreview();
+  const clearSelectedFileIfSessionMismatch = useWorkspaceStore(
+    (state) => state.clearSelectedFileIfSessionMismatch
+  );
 
   useEffect(() => {
-    if (!selectedFile) return;
-    if (!activeSession) {
-      handleClose();
-      return;
-    }
-    if (
-      selectedFile.projectId !== activeSession.projectId ||
-      selectedFile.sessionId !== activeSession.sessionId
-    ) {
-      handleClose();
-    }
+    clearSelectedFileIfSessionMismatch(activeSession);
   }, [
     activeSession?.projectId,
     activeSession?.sessionId,
-    selectedFile?.projectId,
-    selectedFile?.sessionId,
-    handleClose,
-    selectedFile,
+    clearSelectedFileIfSessionMismatch,
   ]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-white text-gray-900 overflow-hidden">
-      {/* 顶部状态栏 */}
       <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-sm">⚓ Shipyard</span>
@@ -60,7 +50,6 @@ export default function App() {
         <StatusBadge status={runStatus} />
       </header>
 
-      {/* 断点恢复提示 */}
       {resumeInfo && (
         <ResumeBar
           info={resumeInfo}
@@ -69,34 +58,31 @@ export default function App() {
         />
       )}
 
-      {/* 三栏主体 */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* 左：Project/Session 列表 */}
+      <main className="flex-1 flex overflow-hidden" aria-label="Workspace layout">
         <div className="w-52 flex-shrink-0">
           <ProjectPanel
             activeSession={activeSession}
             onSelectSession={setActiveSession}
             onSelectFile={handleFileSelect}
             onNewSession={handleNewSession}
-            selectedFilePath={selectedFile?.file.path}
+            selectedFilePath={selectedFile?.path}
           />
         </div>
 
-        {/* 中：画板 或 文件预览 */}
-        <div className="flex-1 overflow-hidden">
+        <section className="flex-1 overflow-hidden" aria-label="Canvas or file preview">
           {selectedFile ? (
             <FilePreview
-              file={selectedFile.file}
+              filePath={selectedFile.path}
               content={fileContent}
+              error={fileError}
               onClose={handleClose}
             />
           ) : (
             <Canvas />
           )}
-        </div>
+        </section>
 
-        {/* 右：Chat */}
-        <div className="w-80 flex-shrink-0">
+        <aside className="w-80 flex-shrink-0" aria-label="Chat and logs">
           <Chat
             sessionId={activeSession?.sessionId}
             onRunStarted={async (session) => {
@@ -105,8 +91,8 @@ export default function App() {
             }}
             onResumeRequested={handleResume}
           />
-        </div>
-      </div>
+        </aside>
+      </main>
     </div>
   );
 }

@@ -23,8 +23,18 @@ const ORCHESTRATOR_MODE = process.env.ORCHESTRATOR_MODE ?? "legacy";
 
 export const runRouter = Router();
 
-// 记录当前活跃的 session，供 SSE / resume / files 使用
+// 记录当前活跃的 session/workflow，供 SSE / resume / files 使用
 export let activeSession: { projectId: string; sessionId: string } | null = null;
+export let activeWorkflowId: string | null = null;
+
+export function setActiveRunContext(
+  session: { projectId: string; sessionId: string } | null,
+  workflowId: string | null
+): void {
+  activeSession = session;
+  activeWorkflowId = workflowId;
+}
+
 
 runRouter.post("/run", async (req: Request, res: Response) => {
   const { spec, repoPath } = req.body as RunRequest;
@@ -75,6 +85,7 @@ async function runWithLegacy(
   sessionId: string
 ): Promise<void> {
   setIsRunning(true);
+  activeWorkflowId = null;
   const startTime = Date.now();
   const prevNodeStatus = new Map<string, string>();
 
@@ -134,9 +145,11 @@ async function runWithTemporal(
   watchSession(workDir, projectId, sessionId);
 
   try {
-    const { startSpecRunWorkflow } = await import("@shipyard/orchestrator-temporal") as typeof import("@shipyard/orchestrator-temporal");
+    const { startSpecRunWorkflow, buildWorkflowId } = await import("@shipyard/orchestrator-temporal") as typeof import("@shipyard/orchestrator-temporal");
 
-    const workflowId = `specship:${projectId}:${sessionId}`;
+    const workflowId = buildWorkflowId(projectId, sessionId);
+    activeWorkflowId = workflowId;
+
     const summary = await startSpecRunWorkflow({ spec, projectId, sessionId, workDir, repoPath });
 
     updateSession(workDir, projectId, sessionId, {
@@ -179,6 +192,13 @@ export function toNodeStatus(node: GraphNode): NodeStatus {
     specFragment: node.specFragment,
     dependsOn: node.dependsOn,
     filesWritten: node.evidence?.filesWritten.map((f) => f.path) ?? [],
+    toolCalls: node.evidence?.toolCalls.map((t) => ({
+      tool: t.tool,
+      input: t.input,
+      output: t.output,
+      success: t.success,
+      timestamp: t.timestamp,
+    })) ?? [],
     verifications: node.evidence?.verifications.map((v) => ({
       type: v.type,
       passed: v.passed,
