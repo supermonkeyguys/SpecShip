@@ -536,3 +536,14 @@ Badge variant：
 - 补 `Toast / EmptyState / InlineError / LoadingState`
 - 在前端主线稳定后再做第二批 polish
 
+
+### 11.6 本次交接确认（当前会话补记）
+
+本次会话未继续推进新的组件迁移实现，仅确认这份计划的交接状态仍然有效。
+
+确认结论：
+
+- 第一批 UI 迁移已完成，状态保持不变
+- 这份计划继续处于“已完成并冻结”的定位
+- 下一位 AI 不应把组件库替换当作当前主线任务重新展开
+- 主线仍应回到 `FRONTEND_REFACTOR_PLAN.md` 中的 session / resume 架构收口

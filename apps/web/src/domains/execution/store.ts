@@ -1,12 +1,17 @@
 import { create } from "zustand";
 import type { SSEEvent } from "../../types";
 import type {
+  ChatMessage,
   GraphRunStatus,
   SessionExecutionState,
   SessionGraphSnapshot,
   SessionRef,
   StreamStatus,
 } from "./types";
+
+const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
+  { role: "system", text: "Hi! Tell me what to build, or ask me to retry a failed node." },
+];
 
 function createEmptySession(ref: SessionRef): SessionExecutionState {
   return {
@@ -19,6 +24,7 @@ function createEmptySession(ref: SessionRef): SessionExecutionState {
     runStatus: "idle",
     source: "snapshot",
     lastUpdatedAt: null,
+    chatMessages: [...INITIAL_CHAT_MESSAGES],
   };
 }
 
@@ -51,6 +57,8 @@ export interface ExecutionStoreState {
     options?: { optimisticRunStatus?: GraphRunStatus }
   ) => void;
   applyRealtimeEvent: (event: SSEEvent, targetSessionId?: string) => void;
+  appendChatMessage: (sessionId: string, message: ChatMessage) => void;
+  setChatMessages: (sessionId: string, messages: ChatMessage[]) => void;
 }
 
 export const useExecutionStore = create<ExecutionStoreState>((set) => ({
@@ -145,6 +153,7 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
             runStatus: resolveRunStatus(snapshot.status, options?.optimisticRunStatus),
             source: "snapshot",
             lastUpdatedAt: Date.now(),
+            chatMessages: existing.chatMessages.length > 0 ? existing.chatMessages : [...INITIAL_CHAT_MESSAGES],
           },
         },
       };
@@ -211,6 +220,33 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
         default:
           return state;
       }
+    }),
+  appendChatMessage: (sessionId, message) =>
+    set((state) => {
+      const existing = state.sessions[sessionId] ?? createEmptySession({ projectId: "", sessionId });
+      return {
+        sessions: {
+          ...state.sessions,
+          [sessionId]: {
+            ...existing,
+            chatMessages: [...existing.chatMessages, message],
+          },
+        },
+      };
+    }),
+
+  setChatMessages: (sessionId, messages) =>
+    set((state) => {
+      const existing = state.sessions[sessionId] ?? createEmptySession({ projectId: "", sessionId });
+      return {
+        sessions: {
+          ...state.sessions,
+          [sessionId]: {
+            ...existing,
+            chatMessages: messages,
+          },
+        },
+      };
     }),
 }));
 

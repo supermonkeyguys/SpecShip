@@ -7,8 +7,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { useExecutionStore } from "../../domains/execution/store";
-import type { SessionExecutionState } from "../../domains/execution/types";
-import type { ClarifyQuestion } from "../../types";
+import type { ChatMessage, ClarificationMessage, SessionExecutionState, TextMessage } from "../../domains/execution/types";
 import type { ActiveSession } from "../session/types";
 import { ClarificationCard } from "./ClarificationCard";
 import { createChatRunController, type ClarificationPending } from "../../domains/execution/runController";
@@ -117,17 +116,9 @@ function LogPanel() {
   );
 }
 
-type TextMessage = { role: "user" | "ai" | "system"; text: string };
-type ClarificationMessage = {
-  role: "clarification";
-  questions: ClarifyQuestion[];
-  answered: boolean;
-  answers?: Record<string, string>;
-};
-type Message = TextMessage | ClarificationMessage;
+type Message = ChatMessage;
 const EMPTY_NODES: SessionExecutionState["nodes"] = {};
 const EMPTY_LOGS: string[] = [];
-const INITIAL_MESSAGES: Message[] = [{ role: "system", text: "Hi! Tell me what to build, or ask me to retry a failed node." }];
 
 function ChatPanel({
   sessionId,
@@ -141,10 +132,36 @@ function ChatPanel({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingSpec, setPendingSpec] = useState<ClarificationPending | null>(null);
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+
+  // messages are stored in the execution store, keyed by sessionId
+  const storeMessages = useExecutionStore((state) =>
+    sessionId ? (state.sessions[sessionId]?.chatMessages ?? null) : null
+  );
+  const appendChatMessage = useExecutionStore((state) => state.appendChatMessage);
+  const setChatMessages = useExecutionStore((state) => state.setChatMessages);
+
+  // fallback for when session not yet in store (e.g. new session before first run)
+  const [localMessages, setLocalMessages] = useState<Message[]>(() => [
+    { role: "system", text: "Hi! Tell me what to build, or ask me to retry a failed node." },
+  ]);
+
+  const messages = storeMessages ?? localMessages;
+  const setMessages = useMemo(() => {
+    if (!sessionId) return setLocalMessages;
+    return (updater: Message[] | ((prev: Message[]) => Message[])) => {
+      const next = typeof updater === "function" ? updater(messages) : updater;
+      setChatMessages(sessionId, next);
+    };
+  }, [sessionId, messages, setChatMessages]);
+
+  const pushMessage = useMemo(() => {
+    if (!sessionId) {
+      return (msg: Message) => setLocalMessages((prev) => [...prev, msg]);
+    }
+    return (msg: Message) => appendChatMessage(sessionId, msg);
+  }, [sessionId, appendChatMessage]);
 
   useEffect(() => {
-    setMessages(INITIAL_MESSAGES);
     setInput("");
     setPendingSpec(null);
   }, [sessionId]);
@@ -155,16 +172,22 @@ function ChatPanel({
   const runStatus = execution?.runStatus ?? "idle";
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const activeSession = useExecutionStore((state) => {
-    if (!state.activeSessionId) return null;
-    const session = state.sessions[state.activeSessionId];
-    if (!session) return null;
+  const activeSessionId = useExecutionStore((state) => state.activeSessionId);
+  const activeSessionProjectId = useExecutionStore((state) =>
+    state.activeSessionId ? state.sessions[state.activeSessionId]?.projectId ?? null : null
+  );
+  const activeSessionTitle = useExecutionStore((state) =>
+    state.activeSessionId ? state.sessions[state.activeSessionId]?.title ?? "" : ""
+  );
+
+  const activeSession = useMemo<ActiveSession | null>(() => {
+    if (!activeSessionId || !activeSessionProjectId) return null;
     return {
-      projectId: session.projectId,
-      sessionId: session.sessionId,
-      spec: session.title,
-    } satisfies ActiveSession;
-  });
+      projectId: activeSessionProjectId,
+      sessionId: activeSessionId,
+      spec: activeSessionTitle,
+    };
+  }, [activeSessionId, activeSessionProjectId, activeSessionTitle]);
 
   const controller = useMemo(
     () => createChatRunController({ onRunStarted, onResumeRequested }),
@@ -179,7 +202,7 @@ function ChatPanel({
     if (!pendingSpec) return;
 
     setMessages((m) =>
-      m.map((msg) =>
+      m.map((msg): Message =>
         msg.role === "clarification" && !msg.answered ? { ...msg, answered: true, answers } : msg
       )
     );
@@ -189,7 +212,7 @@ function ChatPanel({
     try {
       const result = await controller.confirmClarification(pendingSpec, answers);
       if (!result.ok) {
-        setMessages((m) => [...m, { role: "system", text: `Failed: ${result.error}` }]);
+        pushMessage({ role: "system", text: `Failed: ${result.error}` });
       }
     } finally {
       setLoading(false);
@@ -200,7 +223,7 @@ function ChatPanel({
     if (!pendingSpec) return;
 
     setMessages((m) =>
-      m.map((msg) =>
+      m.map((msg): Message =>
         msg.role === "clarification" && !msg.answered ? { ...msg, answered: true } : msg
       )
     );
@@ -210,7 +233,7 @@ function ChatPanel({
     try {
       const result = await controller.skipClarification(pendingSpec);
       if (!result.ok) {
-        setMessages((m) => [...m, { role: "system", text: `Failed: ${result.error}` }]);
+        pushMessage({ role: "system", text: `Failed: ${result.error}` });
       }
     } finally {
       setLoading(false);
@@ -222,7 +245,7 @@ function ChatPanel({
     if (!text || loading) return;
 
     setInput("");
-    setMessages((m) => [...m, { role: "user", text }]);
+    pushMessage({ role: "user", text });
     setLoading(true);
 
     try {
@@ -232,21 +255,18 @@ function ChatPanel({
       const result = await controller.send({ message: text, currentNodes, currentSpec, activeSession });
 
       if (result.type === "clarification") {
-        setMessages((m) => [
-          ...m,
-          { role: "ai", text: result.text },
-          { role: "clarification", questions: result.questions, answered: false },
-        ]);
+        pushMessage({ role: "ai", text: result.text });
+        pushMessage({ role: "clarification", questions: result.questions, answered: false });
         setPendingSpec(result.pending);
         return;
       }
 
       if (result.type === "reply") {
-        setMessages((m) => [...m, { role: "ai", text: result.text }]);
+        pushMessage({ role: "ai", text: result.text });
         return;
       }
 
-      setMessages((m) => [...m, { role: "system", text: result.text }]);
+      pushMessage({ role: "system", text: result.text });
     } finally {
       setLoading(false);
     }

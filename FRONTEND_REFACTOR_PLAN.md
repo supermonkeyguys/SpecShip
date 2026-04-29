@@ -1105,3 +1105,21 @@ ExecutionState {
 2. **再：删除 `store/graph.ts` 兼容层**
 3. **再：进入 Phase 2（拆 Chat orchestration）**
 
+### 12.9 本次交接确认（当前会话补记）
+
+本次会话**未继续推进新的代码实现**，仅完成对当前状态的复核与交接确认。
+
+确认结论：
+
+- 上述 `12.1 ~ 12.8` 仍可视为当前仓库的最新有效进度描述
+- 当前主线任务没有变化，仍应优先处理 **resume 按 session 恢复**
+- UI 组件迁移计划不再是当前主线，不建议下一位 AI 再回头重做第一批替换
+- 本次交接时未新增需要特别说明的前端代码变更
+
+因此，下一位 AI 可直接从：
+
+- `FRONTEND_REFACTOR_PLAN.md` 的 **12.6 下一位 AI 的明确边界**
+- 以及相关代码中的 `apps/server/src/routes/resume.ts`、`apps/web/src/features/session/useSession.ts`
+
+开始继续执行。
+

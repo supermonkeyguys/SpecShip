@@ -13,6 +13,61 @@ import { ClarifyRequest, ClarifyResponse, ClarifyQuestion } from "../types";
 
 export const clarifyRouter = Router();
 
+function normalizeOption(option: unknown, index: number): NonNullable<ClarifyQuestion["options"]>[number] | null {
+  if (typeof option === "string") {
+    const label = option.trim();
+    if (!label) return null;
+    return { id: `opt-${index + 1}`, label, description: "" };
+  }
+
+  if (!option || typeof option !== "object") return null;
+
+  const raw = option as Record<string, unknown>;
+  const label = [raw.label, raw.text, raw.name, raw.value].find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  );
+  if (!label) return null;
+
+  const id = [raw.id, raw.value, raw.key].find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  ) ?? `opt-${index + 1}`;
+  const description = [raw.description, raw.desc, raw.hint].find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  ) ?? "";
+
+  return { id, label, description };
+}
+
+function normalizeQuestion(question: unknown, index: number): ClarifyQuestion | null {
+  if (typeof question === "string") {
+    const text = question.trim();
+    if (!text) return null;
+    return { id: `q${index + 1}`, text, mode: "free" };
+  }
+
+  if (!question || typeof question !== "object") return null;
+
+  const raw = question as Record<string, unknown>;
+  const text = [raw.text, raw.question, raw.prompt, raw.label, raw.title].find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  );
+  const rawOptions = [raw.options, raw.choices, raw.selections].find(Array.isArray) as unknown[] | undefined;
+  const options = rawOptions?.map(normalizeOption).filter((value): value is NonNullable<ClarifyQuestion["options"]>[number] => value !== null) ?? [];
+  const rawMode = [raw.mode, raw.type, raw.kind, raw.inputType].find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  );
+  const mode = options.length > 0 || ["options", "choice", "choices", "select"].includes(rawMode ?? "")
+    ? "options"
+    : "free";
+
+  return {
+    id: (typeof raw.id === "string" && raw.id.trim().length > 0 ? raw.id : `q${index + 1}`),
+    text: text ?? `Question ${index + 1}`,
+    mode,
+    options: mode === "options" ? options : undefined,
+  };
+}
+
 clarifyRouter.post("/clarify", async (req: Request, res: Response) => {
   const { spec } = req.body as ClarifyRequest;
 
@@ -42,19 +97,9 @@ clarifyRouter.post("/clarify", async (req: Request, res: Response) => {
       summary: string;
     };
 
-    // Fallback: handle both old string[] format and new ClarifyQuestion[] format
-    const questions: ClarifyQuestion[] = (parsed.questions ?? []).map((q, i) => {
-      if (typeof q === "string") {
-        return { id: `q${i + 1}`, text: q, mode: "free" as const };
-      }
-      const typed = q as Record<string, unknown>;
-      return {
-        id: typeof typed.id === "string" ? typed.id : `q${i + 1}`,
-        text: typeof typed.text === "string" ? typed.text : String(q),
-        mode: typed.mode === "options" ? "options" as const : "free" as const,
-        options: Array.isArray(typed.options) ? typed.options as ClarifyQuestion["options"] : undefined,
-      };
-    });
+    const questions: ClarifyQuestion[] = (parsed.questions ?? [])
+      .map((q, i) => normalizeQuestion(q, i))
+      .filter((value): value is ClarifyQuestion => value !== null);
 
     res.json({
       ok: true,

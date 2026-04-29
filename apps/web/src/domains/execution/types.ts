@@ -1,4 +1,4 @@
-import type { GraphSummary, NodeStatus } from "../../types";
+import type { ClarifyQuestion, GraphSummary, NodeStatus } from "../../types";
 
 export type GraphRunStatus = "idle" | "running" | "done" | "failed";
 export type ExecutionSource = "snapshot" | "realtime";
@@ -17,6 +17,17 @@ export interface SessionGraphSnapshot {
   status: string;
 }
 
+// ---- Chat message types ----
+
+export type TextMessage = { role: "user" | "ai" | "system"; text: string };
+export type ClarificationMessage = {
+  role: "clarification";
+  questions: ClarifyQuestion[];
+  answered: boolean;
+  answers?: Record<string, string>;
+};
+export type ChatMessage = TextMessage | ClarificationMessage;
+
 export interface SessionExecutionState {
   projectId: string;
   sessionId: string;
@@ -27,4 +38,6 @@ export interface SessionExecutionState {
   runStatus: GraphRunStatus;
   source: ExecutionSource;
   lastUpdatedAt: number | null;
+  // chat history persisted per session
+  chatMessages: ChatMessage[];
 }
