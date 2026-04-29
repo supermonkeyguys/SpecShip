@@ -2,11 +2,12 @@ import * as path from "path";
 import * as fs from "fs";
 import * as crypto from "crypto";
 import { ShipyardConfig } from "./config";
-import { GRAPH_PLANNER_PROMPT, IMPLEMENTER_PROMPT, REVIEWER_PROMPT } from "./prompts";
+import { GRAPH_PLANNER_PROMPT, IMPLEMENTER_PROMPT, REVIEWER_PROMPT, CLARIFIER_PROMPT } from "./prompts";
 import { extractRepoContext } from "./repo";
 import {
   ExecutionGraph, GraphNode, NodeStatus, Evidence,
   createGraph, addNode, transitionNode, getReadyNodes, buildHistory, isDependencySatisfied,
+  getCheckpointNodes,
 } from "./graph";
 import { verifyNode as defaultVerifyNode, NodeVerificationResult } from "./verify";
 import { runAgent as defaultRunAgent, AgentRunResult, LLMClientConfig } from "./llm";
@@ -45,10 +46,69 @@ function makeLLMConfig(model: string, config: ShipyardConfig): LLMClientConfig {
   };
 }
 
+// ---- Clarifier: 规划前歧义检测 ----
+
+export interface ClarificationQuestion {
+  id: string;
+  text: string;
+  mode: "options" | "free";
+  options?: Array<{ id: string; label: string; description: string }>;
+}
+
+export interface ClarificationResult {
+  needsClarification: boolean;
+  questions: ClarificationQuestion[];
+  confidence: "high" | "medium" | "low";
+  summary: string;
+}
+
+/**
+ * 在规划前检查 spec 是否有歧义，返回结构化问题列表。
+ * 调用方可根据结果决定是否向用户展示问题，并将答案 append 回 spec 再规划。
+ */
+export async function clarifySpec(
+  spec: string,
+  config: ShipyardConfig,
+  agentRunner: AgentRunner = defaultRunAgent
+): Promise<ClarificationResult> {
+  const llmConfig = makeLLMConfig(config.models.planning, config);
+  const { finalText } = await agentRunner(CLARIFIER_PROMPT, spec, config.workDir, llmConfig, false);
+
+  try {
+    const match = finalText.match(/\{[\s\S]*\}/);
+    if (!match) return { needsClarification: false, questions: [], confidence: "high", summary: "" };
+    return JSON.parse(match[0]) as ClarificationResult;
+  } catch {
+    return { needsClarification: false, questions: [], confidence: "high", summary: "" };
+  }
+}
+
 // ---- Phase 1: 规划 → 构建执行图 ----
 
-export async function buildGraph(spec: string, config: ShipyardConfig, agentRunner: AgentRunner = defaultRunAgent): Promise<ExecutionGraph | null> {
+export async function buildGraph(
+  spec: string,
+  config: ShipyardConfig,
+  agentRunner: AgentRunner = defaultRunAgent,
+  /** If provided, called when spec needs clarification. Resolve with amended spec to continue, or reject to abort. */
+  onClarify?: (result: ClarificationResult) => Promise<string>
+): Promise<ExecutionGraph | null> {
   console.log("\n[PLANNING] Building execution graph...");
+
+  // 歧义检测：在规划前先问 LLM 这个 spec 是否需要澄清
+  if (onClarify) {
+    try {
+      const clarification = await clarifySpec(spec, config, agentRunner);
+      if (clarification.needsClarification && clarification.questions.length > 0) {
+        console.log(`  ❓ Spec needs clarification (confidence: ${clarification.confidence})`);
+        clarification.questions.forEach((q, i) => console.log(`     Q${i + 1}: ${q.text}`));
+        // 调用方提供答案后返回增强后的 spec
+        spec = await onClarify(clarification);
+        console.log(`  ✅ Spec clarified, proceeding with planning`);
+      }
+    } catch (e) {
+      console.warn(`  ⚠️  Clarification step failed, proceeding anyway: ${(e as Error).message}`);
+    }
+  }
 
   // outputDir：session 模式下用独立目录，否则用默认 output/
   const outputDir = config.outputDir ?? "output";
@@ -302,15 +362,25 @@ export async function runCodeReview(
 
 // ---- 主调度循环 ----
 
+/**
+ * onCheckpoint: called when a checkpoint node is reached.
+ * The callback receives the checkpoint node and a `resume` function.
+ * Call `resume()` to continue execution, or let the process end if you want to pause.
+ * If no callback is provided, checkpoint nodes are skipped (marked done immediately).
+ */
+export type CheckpointHandler = (node: GraphNode, resume: () => void) => void;
+
 export async function run(
   spec: string,
   config: ShipyardConfig,
   initialGraph?: ExecutionGraph,
   onUpdate?: (graph: ExecutionGraph) => void,
   agentRunner: AgentRunner = defaultRunAgent,
-  nodeVerifier: NodeVerifier = defaultVerifyNode
+  nodeVerifier: NodeVerifier = defaultVerifyNode,
+  onCheckpoint?: CheckpointHandler,
+  onClarify?: (result: ClarificationResult) => Promise<string>
 ): Promise<ExecutionGraph> {
-  const graphOrNull = initialGraph ?? await buildGraph(spec, config, agentRunner);
+  const graphOrNull = initialGraph ?? await buildGraph(spec, config, agentRunner, onClarify);
   if (!graphOrNull) {
     const g = createGraph(spec);
     return { ...g, status: "failed" };
@@ -344,8 +414,29 @@ export async function run(
       }
     }
 
-    // 派发就绪节点
-    for (const node of getReadyNodes(graph)) {
+    // 处理 checkpoint 节点（人工确认后才继续）
+    for (const cpNode of getCheckpointNodes(graph)) {
+      if (onCheckpoint) {
+        // 暂停：告知调用方，等待 resume() 被调用后再标记为 done
+        console.log(`  ⏸  [${cpNode.id}] Checkpoint: ${cpNode.title} — waiting for confirmation`);
+        checkpoint();
+        await new Promise<void>((resolve) => onCheckpoint(cpNode, resolve));
+      } else {
+        // 无处理器：自动通过 checkpoint
+        console.log(`  ⏭  [${cpNode.id}] Checkpoint auto-approved (no handler): ${cpNode.title}`);
+      }
+      graph = transitionNode(graph, cpNode.id, "done");
+      // 解除下游 blocked 节点
+      for (const n of graph.nodes.values()) {
+        if (n.status === "blocked" && n.dependsOn.includes(cpNode.id)) {
+          graph = transitionNode(graph, n.id, "pending");
+        }
+      }
+      checkpoint();
+    }
+
+    // 派发就绪节点（跳过 checkpoint 类型，已在上方处理）
+    for (const node of getReadyNodes(graph).filter((n) => n.type !== "checkpoint")) {
       graph = transitionNode(graph, node.id, "running");
       checkpoint();
       console.log(`  ▶ [${node.id}] ${node.title}`);

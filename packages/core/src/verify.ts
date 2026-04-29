@@ -292,14 +292,56 @@ export async function verifyNode(
     console.log(`    ${result.passed ? "✅" : isHard ? "❌" : "⚠️ "} ${criterion.description}${!isHard ? " (soft)" : ""}`);
   }
 
+  // 5. 执行已有 *.test.ts 文件（如果存在）
+  const testFiles = outputFiles.flatMap((f) => {
+    const base = f.replace(/\.ts$/, "");
+    const candidates = [`${base}.test.ts`, `${base}.spec.ts`];
+    return candidates.filter((c) => fs.existsSync(c));
+  });
+
+  for (const testFile of testFiles) {
+    const start = Date.now();
+    const timestamp = new Date().toISOString();
+    try {
+      const compilerOptions = JSON.stringify({ module: "commonjs", esModuleInterop: true }).replace(/"/g, '\\"');
+      const out = execSync(
+        `npx ts-node --skipProject --compiler-options "${compilerOptions}" "${testFile}"`,
+        { cwd: workDir, encoding: "utf-8", timeout: 30_000, stdio: ["pipe", "pipe", "pipe"] }
+      );
+      const record: VerificationRecord = {
+        type: "test",
+        passed: true,
+        output: out.trim().slice(0, 300),
+        durationMs: Date.now() - start,
+        timestamp,
+      };
+      records.push(record);
+      console.log(`    ✅ ${path.basename(testFile)}`);
+    } catch (e: unknown) {
+      const err = e as { stdout?: string; stderr?: string };
+      const output = [err.stdout, err.stderr].filter(Boolean).join("\n").trim().slice(0, 400);
+      const record: VerificationRecord = {
+        type: "test",
+        passed: false,
+        output,
+        durationMs: Date.now() - start,
+        timestamp,
+      };
+      records.push(record);
+      console.log(`    ❌ ${path.basename(testFile)}: ${output.split("\n")[0]}`);
+    }
+  }
+
   // 只有 hard 验证失败才算节点失败
   const hardFailed = records.filter((r, i) => {
     if (r.passed) return false;
     const criterion = behaviorCriteria[i - 1]; // compile 在 records[0]
     return criterion?.hardness !== "soft";
   });
+  // test file failures are always hard failures
+  const testFileFailed = testFiles.length > 0 && records.slice(-testFiles.length).some((r) => !r.passed);
   const compileFailed = !records[0]?.passed;
-  const passed = !compileFailed && hardFailed.length === 0;
+  const passed = !compileFailed && hardFailed.length === 0 && !testFileFailed;
   const failCount = records.filter((r) => !r.passed).length;
 
   return {

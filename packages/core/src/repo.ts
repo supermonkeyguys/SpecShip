@@ -131,6 +131,59 @@ function buildFileTree(
   return lines.join("\n");
 }
 
+/**
+ * 从 TypeScript 文件中提取 export 签名（函数、类、接口、类型、常量）。
+ * 不依赖 tree-sitter，用正则匹配 export 语句，只返回签名行而非整个函数体。
+ * 这让 LLM 能看到完整的 API 地图，而不是被字符限制截断的残缺代码。
+ */
+function extractExportSignatures(content: string): string {
+  const lines = content.split("\n");
+  const signatures: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // 多行 export（export function / export class / export interface / export type / export const / export enum）
+    if (/^\s*export\s+(default\s+)?(async\s+)?function|^\s*export\s+(abstract\s+)?class|^\s*export\s+interface|^\s*export\s+type\s+\w|^\s*export\s+enum|^\s*export\s+const\s+\w/.test(line)) {
+      // 收集签名：取到第一个 { 或 = 或行尾
+      let sig = line.trimEnd();
+
+      // 如果是多行签名（参数跨行），最多追加 5 行
+      if (!/{|=>|=/.test(sig) || (sig.endsWith("(") || sig.endsWith(","))) {
+        let j = i + 1;
+        while (j < lines.length && j < i + 6) {
+          sig += " " + lines[j].trim();
+          if (/{|=>|=/.test(lines[j]) || lines[j].trim() === "") break;
+          j++;
+        }
+      }
+
+      // 截断到第一个 { 或 =（保留签名，不含实现）
+      const bodyStart = sig.search(/\{(?!.*\})|(?<!=)=>|^[^=]+=\s/);
+      if (bodyStart > 0) {
+        sig = sig.slice(0, bodyStart).trimEnd() + (sig.includes("{") ? " { … }" : " = …");
+      }
+
+      signatures.push(sig.trim());
+    }
+
+    // export { a, b, c } 重导出
+    if (/^\s*export\s+\{/.test(line)) {
+      signatures.push(line.trim());
+    }
+
+    // export * from 或 export { } from
+    if (/^\s*export\s+(\*|\{).*from/.test(line)) {
+      signatures.push(line.trim());
+    }
+
+    i++;
+  }
+
+  return signatures.length > 0 ? signatures.join("\n") : content.slice(0, 500);
+}
+
 function collectSourceFiles(
   srcDir: string,
   rootPath: string,
@@ -160,8 +213,8 @@ function collectSourceFiles(
         try {
           const content = fs.readFileSync(fullPath, "utf-8");
           const rel = path.relative(rootPath, fullPath);
-          // 只取前 1500 字符，避免大文件撑爆 context
-          result[rel] = content.slice(0, 1500);
+          // 提取 export 签名而非字符截断，让 LLM 看到完整 API 地图
+          result[rel] = extractExportSignatures(content);
           count++;
         } catch {}
       }

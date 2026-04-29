@@ -6,7 +6,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { execSync } from "child_process";
+import { execSync, spawnSync } from "child_process";
 import { isPathSafe, auditWrite } from "./hooks";
 
 // ---- 配置 ----
@@ -84,13 +84,42 @@ const TOOLS = [
     type: "function" as const,
     function: {
       name: "run_command",
-      description: "Run a shell command. Only tsc and node commands are allowed.",
+      description: "Run a shell command. Allowed: tsc, node, npm, npx commands.",
       parameters: {
         type: "object",
         properties: {
           command: { type: "string", description: "Command to run" },
         },
         required: ["command"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "search_files",
+      description: "Search for a pattern in files within the working directory. Returns matching lines with file paths and line numbers.",
+      parameters: {
+        type: "object",
+        properties: {
+          pattern: { type: "string", description: "Search pattern (regex or literal string)" },
+          glob: { type: "string", description: "File glob pattern to limit search, e.g. '**/*.ts'. Defaults to all files." },
+        },
+        required: ["pattern"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "list_dir",
+      description: "List files and directories at a given path within the working directory.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Directory path relative to working directory. Defaults to '.' (root)." },
+        },
+        required: [],
       },
     },
   },
@@ -132,17 +161,53 @@ function executeTool(
     }
 
     if (name === "run_command") {
-      const allowed = ["npx tsc", "tsc", "node "];
+      const allowed = ["npx tsc", "tsc", "node ", "npm install", "npm run", "npm test", "npm ci", "npx "];
       if (!allowed.some((a) => args.command.startsWith(a))) {
-        return { output: "Blocked: only tsc/node allowed", success: false };
+        return { output: "Blocked: only tsc/node/npm/npx commands allowed", success: false };
       }
       const out = execSync(args.command, {
         cwd: workDir,
         encoding: "utf-8",
-        timeout: 30_000,
+        timeout: 60_000,
         stdio: ["pipe", "pipe", "pipe"],
       });
       return { output: out.trim().slice(0, 1000), success: true };
+    }
+
+    if (name === "search_files") {
+      const pattern = args.pattern ?? "";
+      if (!pattern) return { output: "pattern is required", success: false };
+      const glob = args.glob ?? "";
+      // prefer ripgrep, fall back to grep
+      const rgAvailable = spawnSync("which", ["rg"], { encoding: "utf-8" }).status === 0;
+      let cmd: string;
+      if (rgAvailable) {
+        const globArg = glob ? `--glob '${glob}'` : "";
+        cmd = `rg --line-number --no-heading ${globArg} '${pattern.replace(/'/g, "'\\''")}' .`;
+      } else {
+        const includeArg = glob ? `--include='${glob}'` : "";
+        cmd = `grep -rn ${includeArg} '${pattern.replace(/'/g, "'\\''")}' .`;
+      }
+      try {
+        const out = execSync(cmd, { cwd: workDir, encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] });
+        return { output: out.trim().slice(0, 2000) || "(no matches)", success: true };
+      } catch (e: unknown) {
+        const err = e as { status?: number; stdout?: string; stderr?: string };
+        // exit code 1 means no matches (not an error)
+        if (err.status === 1) return { output: "(no matches)", success: true };
+        return { output: (err.stderr ?? "search error").slice(0, 300), success: false };
+      }
+    }
+
+    if (name === "list_dir") {
+      const dirPath = path.resolve(workDir, args.path ?? ".");
+      if (!dirPath.startsWith(path.resolve(workDir))) {
+        return { output: "Blocked: path outside workDir", success: false };
+      }
+      if (!fs.existsSync(dirPath)) return { output: `Directory not found: ${args.path ?? "."}`, success: false };
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      const lines = entries.map((e) => `${e.isDirectory() ? "d" : "f"}  ${e.name}`).join("\n");
+      return { output: lines.slice(0, 2000) || "(empty)", success: true };
     }
 
     return { output: `Unknown tool: ${name}`, success: false };
