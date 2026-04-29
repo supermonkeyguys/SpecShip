@@ -223,6 +223,81 @@ runTest().catch(e => { console.error(e); process.exit(1); });
 }
 
 // ─────────────────────────────────────────
+// 层 3：Lint 检查（软失败，仅警告）
+// ─────────────────────────────────────────
+
+/**
+ * 检测工作目录是否有 eslint/biome 配置，如有则对指定文件运行 lint。
+ * 返回 null 表示项目无 lint 工具，跳过。
+ * lint 失败永远是 soft — 记录警告但不阻塞节点。
+ */
+export function runLintCheck(files: string[], workDir: string): VerificationRecord | null {
+  if (files.length === 0) return null;
+
+  const start = Date.now();
+  const timestamp = new Date().toISOString();
+
+  // 检测可用的 lint 工具（按优先级）
+  const hasBiome = fs.existsSync(path.join(workDir, "biome.json")) ||
+                   fs.existsSync(path.join(workDir, "biome.jsonc"));
+  const hasEslint = fs.existsSync(path.join(workDir, ".eslintrc")) ||
+                    fs.existsSync(path.join(workDir, ".eslintrc.js")) ||
+                    fs.existsSync(path.join(workDir, ".eslintrc.cjs")) ||
+                    fs.existsSync(path.join(workDir, ".eslintrc.json")) ||
+                    fs.existsSync(path.join(workDir, ".eslintrc.yml")) ||
+                    fs.existsSync(path.join(workDir, "eslint.config.js")) ||
+                    fs.existsSync(path.join(workDir, "eslint.config.mjs")) ||
+                    fs.existsSync(path.join(workDir, "eslint.config.cjs"));
+
+  if (!hasBiome && !hasEslint) return null;
+
+  // 只 lint TypeScript 文件，跳过 test/spec 文件
+  const lintableFiles = files.filter((f) =>
+    (f.endsWith(".ts") || f.endsWith(".tsx")) &&
+    !f.endsWith(".test.ts") &&
+    !f.endsWith(".spec.ts") &&
+    fs.existsSync(f)
+  );
+  if (lintableFiles.length === 0) return null;
+
+  const relFiles = lintableFiles.map((f) => path.relative(workDir, f)).join(" ");
+
+  try {
+    let cmd: string;
+    if (hasBiome) {
+      cmd = `npx biome check --no-errors-on-unmatched ${relFiles}`;
+    } else {
+      cmd = `npx eslint --max-warnings=0 ${relFiles}`;
+    }
+
+    execSync(cmd, {
+      cwd: workDir,
+      encoding: "utf-8",
+      timeout: 30_000,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    return {
+      type: "lint",
+      passed: true,
+      output: `${hasBiome ? "biome" : "eslint"}: no issues`,
+      durationMs: Date.now() - start,
+      timestamp,
+    };
+  } catch (e: unknown) {
+    const err = e as { stdout?: string; stderr?: string };
+    const output = [err.stdout, err.stderr].filter(Boolean).join("\n").trim().slice(0, 500);
+    return {
+      type: "lint",
+      passed: false,
+      output,
+      durationMs: Date.now() - start,
+      timestamp,
+    };
+  }
+}
+
+// ─────────────────────────────────────────
 // 完整验证流程：对一个节点跑所有验证
 // ─────────────────────────────────────────
 
@@ -332,6 +407,13 @@ export async function verifyNode(
     }
   }
 
+  // 6. Lint 检查（如果项目有 eslint/biome 配置，软失败 — 不阻塞节点）
+  const lintResult = runLintCheck(outputFiles, workDir);
+  if (lintResult) {
+    records.push(lintResult);
+    console.log(`    ${lintResult.passed ? "✅" : "⚠️ "} lint${!lintResult.passed ? ` (soft): ${lintResult.output.split("\n")[0]}` : ""}`);
+  }
+
   // 只有 hard 验证失败才算节点失败
   const hardFailed = records.filter((r, i) => {
     if (r.passed) return false;
@@ -340,6 +422,7 @@ export async function verifyNode(
   });
   // test file failures are always hard failures
   const testFileFailed = testFiles.length > 0 && records.slice(-testFiles.length).some((r) => !r.passed);
+  // lint is always soft — logged but never blocks
   const compileFailed = !records[0]?.passed;
   const passed = !compileFailed && hardFailed.length === 0 && !testFileFailed;
   const failCount = records.filter((r) => !r.passed).length;

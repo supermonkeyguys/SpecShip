@@ -30,7 +30,7 @@ export type NodeStatus =
 export const VALID_TRANSITIONS: Record<NodeStatus, NodeStatus[]> = {
   pending:   ["ready", "blocked"],
   ready:     ["running"],
-  running:   ["verifying", "failed"],
+  running:   ["verifying", "done", "failed"],
   verifying: ["done", "failed"],
   done:      [],                      // 终态
   failed:    ["ready"],               // 允许重试

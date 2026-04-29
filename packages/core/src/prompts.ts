@@ -28,7 +28,7 @@ Layered planning strategy:
 4. tests alongside or after implementation
 
 Rules:
-- id: unique, kebab-case (e.g. "impl-auth", "test-login", "types-user")
+- id: unique, kebab-case (e.g. "impl-auth", "test-login", "types-user", "checkpoint-confirm-schema")
 - Each step produces ONE file with unique path
 - File extension: .ts for TypeScript (default), .py for Python, .go for Go — match the spec's language
 - outputFile MUST use the "Output directory" prefix given in the input
@@ -36,8 +36,15 @@ Rules:
 - Maximize parallelism: steps with no shared dependencies should have empty dependsOn
 - Step count: use as many as needed (no artificial limit), but avoid splitting trivial logic
 - description: be specific — name the key functions/classes/interfaces to implement
-- role: types | implementation | test | util | integration
+- role: types | implementation | test | util | integration | checkpoint
 - If spec mentions existing repo context, reference existing file paths in dependsOn where appropriate
+
+Checkpoint nodes (role: "checkpoint"):
+- Use ONLY when the spec is genuinely ambiguous about a critical architectural decision that would be expensive to reverse (e.g. choice of database schema, API contract, auth model)
+- A checkpoint node pauses execution and waits for human confirmation before downstream nodes run
+- outputFile for a checkpoint should be a human-readable summary file (e.g. "output/checkpoint-schema-review.md")
+- description: state exactly what decision needs human review and what the proposed default is
+- Do NOT overuse — most specs do not need checkpoints. Use at most 1-2 per plan, only for genuine forks.
 `.trim();
 
 export const PLANNER_PROMPT = GRAPH_PLANNER_PROMPT;

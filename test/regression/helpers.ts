@@ -26,6 +26,7 @@ export function makePlannerResponse(steps: Array<{
   title: string;
   outputFile: string;
   dependsOn?: string[];
+  role?: string;
 }>, outputDir = "output"): string {
   return JSON.stringify({
     title: "Test Plan",
@@ -37,7 +38,7 @@ export function makePlannerResponse(steps: Array<{
       description: `Write ${s.outputFile}`,
       outputFile: `${outputDir}/${s.outputFile}`,
       dependsOn: s.dependsOn ?? [],
-      role: "implementation",
+      role: s.role ?? "implementation",
     })),
   });
 }

@@ -179,20 +179,21 @@ export async function buildGraph(
   }
 
   for (const step of planData.steps) {
+    const isCheckpoint = step.role === "checkpoint";
     graph = addNode(graph, {
       id: step.id,
-      type: "implement",
+      type: isCheckpoint ? "checkpoint" : "implement",
       title: step.title,
       specFragment: step.specFragment,
       dependsOn: step.dependsOn,
       inputs: { description: step.description },
       outputs: {
-        description: `Write ${step.outputFile}`,
-        files: [step.outputFile],
+        description: isCheckpoint ? `Checkpoint: ${step.title}` : `Write ${step.outputFile}`,
+        files: isCheckpoint ? [] : [step.outputFile],
         verificationCriteria: [],
       },
       status: step.dependsOn.length === 0 ? "ready" : "pending",
-      maxRetries: config.maxRetries,
+      maxRetries: isCheckpoint ? 0 : config.maxRetries,
     });
   }
 
@@ -201,7 +202,8 @@ export async function buildGraph(
   console.log(`  → ${nodes.length} node(s)`);
   nodes.forEach((n) => {
     const deps = n.dependsOn.length ? ` ← ${n.dependsOn.join(", ")}` : " (start)";
-    console.log(`     [${n.id}] ${n.title}${deps}`);
+    const typeTag = n.type === "checkpoint" ? " ⏸ " : " ";
+    console.log(`     [${n.id}]${typeTag}${n.title}${deps}`);
   });
 
   return graph;
@@ -360,6 +362,44 @@ export async function runCodeReview(
   }
 }
 
+// ---- Checkpoint 摘要文件 ----
+
+/**
+ * 在 checkpoint 节点暂停前，将决策摘要写入 .md 文件，
+ * 供前端文件树展示。返回写入的绝对路径列表。
+ */
+function writeCheckpointSummary(node: GraphNode, config: ShipyardConfig): string[] {
+  const outputDir = config.outputDir ?? "output";
+  const dirPath = path.join(config.workDir, outputDir);
+  fs.mkdirSync(dirPath, { recursive: true });
+
+  const fileName = `${node.id}-review.md`;
+  const filePath = path.join(dirPath, fileName);
+
+  const content = [
+    `# Checkpoint: ${node.title}`,
+    "",
+    `> This is a human confirmation checkpoint. Execution is paused until you confirm.`,
+    "",
+    `## Decision Required`,
+    "",
+    node.inputs.description,
+    "",
+    `## Context`,
+    "",
+    node.specFragment ? `**Spec fragment:** ${node.specFragment}` : "",
+    "",
+    `**Node ID:** \`${node.id}\``,
+    `**Depends on:** ${node.dependsOn.length ? node.dependsOn.join(", ") : "none"}`,
+    "",
+    `---`,
+    `*Created at: ${new Date().toISOString()}*`,
+  ].filter((l) => l !== undefined).join("\n");
+
+  fs.writeFileSync(filePath, content, "utf-8");
+  return [filePath];
+}
+
 // ---- 主调度循环 ----
 
 /**
@@ -416,20 +456,56 @@ export async function run(
 
     // 处理 checkpoint 节点（人工确认后才继续）
     for (const cpNode of getCheckpointNodes(graph)) {
+      // ready → running（必须经过中间态，符合状态机规则）
+      graph = transitionNode(graph, cpNode.id, "running");
+
+      // 写摘要文件，让前端 Canvas 和文件树能展示决策点内容
+      const summaryFiles = writeCheckpointSummary(cpNode, config);
+
       if (onCheckpoint) {
         // 暂停：告知调用方，等待 resume() 被调用后再标记为 done
         console.log(`  ⏸  [${cpNode.id}] Checkpoint: ${cpNode.title} — waiting for confirmation`);
+        // 把摘要文件路径写入节点 evidence，便于前端展示
+        const cpEvidence: Evidence = {
+          reasoning: cpNode.inputs.description,
+          promptUsed: "",
+          modelUsed: "",
+          toolCalls: [],
+          filesWritten: summaryFiles.map((f) => ({
+            path: path.relative(config.workDir, f),
+            operation: "create" as const,
+            sizeBytes: fs.existsSync(f) ? fs.statSync(f).size : 0,
+            checksum: "",
+            timestamp: new Date().toISOString(),
+          })),
+          verifications: [],
+          startedAt: new Date().toISOString(),
+          completedAt: "",
+          durationMs: 0,
+        };
+        // Use the current node from graph (already "running"), not the stale cpNode snapshot
+        const currentCpNode = graph.nodes.get(cpNode.id)!;
+        const cpNodes = new Map(graph.nodes);
+        cpNodes.set(cpNode.id, { ...currentCpNode, evidence: cpEvidence });
+        graph = { ...graph, nodes: cpNodes };
         checkpoint();
         await new Promise<void>((resolve) => onCheckpoint(cpNode, resolve));
       } else {
         // 无处理器：自动通过 checkpoint
         console.log(`  ⏭  [${cpNode.id}] Checkpoint auto-approved (no handler): ${cpNode.title}`);
+        checkpoint();
       }
       graph = transitionNode(graph, cpNode.id, "done");
-      // 解除下游 blocked 节点
+      // 解除下游 blocked/pending 节点（checkpoint 完成后触发依赖解锁）
       for (const n of graph.nodes.values()) {
         if (n.status === "blocked" && n.dependsOn.includes(cpNode.id)) {
           graph = transitionNode(graph, n.id, "pending");
+        }
+        // pending 节点若所有依赖已满足，立即推进到 ready
+        if (n.status === "pending" && n.dependsOn.every((d) => isDependencySatisfied(graph, d))) {
+          const updatedNodes = new Map(graph.nodes);
+          updatedNodes.set(n.id, { ...graph.nodes.get(n.id)!, status: "ready" as NodeStatus });
+          graph = { ...graph, nodes: updatedNodes };
         }
       }
       checkpoint();
