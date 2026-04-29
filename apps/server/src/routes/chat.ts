@@ -7,7 +7,7 @@
 import { Router, Request, Response } from "express";
 import { DEFAULT_CONFIG } from "../config";
 import { runAgent } from "../llm";
-import { loadGraphCheckpoint } from "../checkpoint";
+import { routeIntentByPolicy } from "../ai/policy";
 import { ChatRequest, ChatResponse, ChatIntent } from "../types";
 
 export const chatRouter = Router();
@@ -53,7 +53,13 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
     workDir: process.cwd(),
   };
 
-  // 构建上下文：当前节点状态 + 当前 spec
+  const deterministicIntent = routeIntentByPolicy({ message, currentNodes: currentNodes as Parameters<typeof routeIntentByPolicy>[0]["currentNodes"], currentSpec });
+  if (deterministicIntent) {
+    res.json({ ok: true, intent: deterministicIntent } satisfies ChatResponse);
+    return;
+  }
+
+  // 仅使用前端显式传来的上下文；不要再隐式注入全局 checkpoint，避免污染路由判断
   const contextLines: string[] = [];
   if (currentSpec) {
     contextLines.push(`Current spec: ${currentSpec}`);
@@ -63,22 +69,6 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
     for (const n of currentNodes) {
       contextLines.push(`  - ${n.id} (${n.title}): ${n.status}`);
     }
-  }
-
-  // 尝试从 checkpoint 补充上下文
-  try {
-    const graph = loadGraphCheckpoint(config.workDir);
-    if (!currentSpec && graph.originalSpec) {
-      contextLines.unshift(`Current spec: ${graph.originalSpec}`);
-    }
-    if (!currentNodes?.length) {
-      contextLines.push("Current nodes:");
-      for (const [id, node] of graph.nodes.entries()) {
-        contextLines.push(`  - ${id} (${node.title}): ${node.status}`);
-      }
-    }
-  } catch {
-    // 没有 checkpoint，用前端传来的上下文
   }
 
   const userMessage = contextLines.length
@@ -116,6 +106,9 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
         break;
       case "status":
         intent = { type: "status", reply: parsed.reply };
+        break;
+      case "resume":
+        intent = { type: "resume", reply: parsed.reply };
         break;
       default:
         intent = { type: "unknown", reply: parsed.reply ?? "I'm not sure what you mean. Try: retry a node, start a new task, or ask for status." };

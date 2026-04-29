@@ -8,6 +8,7 @@
 import { Router, Request, Response } from "express";
 import { DEFAULT_CONFIG } from "../config";
 import { runAgent } from "../llm";
+import { decideClarificationByPolicy } from "../ai/policy";
 import { CLARIFIER_PROMPT } from "../prompts";
 import { ClarifyRequest, ClarifyResponse, ClarifyQuestion } from "../types";
 
@@ -77,6 +78,18 @@ clarifyRouter.post("/clarify", async (req: Request, res: Response) => {
   }
 
   const config = { ...DEFAULT_CONFIG, workDir: process.cwd() };
+
+  const policyDecision = decideClarificationByPolicy(spec);
+  if (policyDecision) {
+    res.json({
+      ok: true,
+      needsClarification: policyDecision.needsClarification,
+      questions: policyDecision.questions,
+      confidence: policyDecision.confidence,
+      summary: policyDecision.summary,
+    } satisfies ClarifyResponse);
+    return;
+  }
 
   try {
     const { finalText } = await runAgent(

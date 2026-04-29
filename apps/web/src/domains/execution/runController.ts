@@ -13,7 +13,8 @@ interface SendContext {
 }
 
 export interface ClarificationPending {
-  spec: string;
+  rawMessage: string;
+  questions: ClarifyQuestion[];
   repoPath?: string;
 }
 
@@ -69,19 +70,19 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
 
       if (intent.type === "new_run") {
         try {
-          const clarify = await clarifySpec(intent.spec);
+          const clarify = await clarifySpec(input.message);
           if (clarify.needsClarification && clarify.questions?.length) {
             return {
               type: "clarification",
               text,
-              pending: { spec: intent.spec, repoPath: intent.repoPath },
+              pending: { rawMessage: input.message, questions: clarify.questions, repoPath: intent.repoPath },
               questions: clarify.questions,
             };
           }
         } catch {
         }
 
-        const runResult = await runSpecAndActivate(intent.spec, intent.repoPath);
+        const runResult = await runSpecAndActivate(input.message, intent.repoPath);
         if (!runResult.ok) return { type: "error", text: `Failed: ${runResult.error}` };
         return { type: "reply", text };
       }
@@ -102,13 +103,22 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
   }
 
   async function confirmClarification(pending: ClarificationPending, answers: Record<string, string>) {
-    const answerText = Object.entries(answers).map(([, v]) => v).join(", ");
-    const enrichedSpec = `${pending.spec}\n\nUser clarifications: ${answerText}`;
+    const clarificationLines = pending.questions
+      .map((question) => {
+        const answer = answers[question.id];
+        return answer ? `- ${question.text}: ${answer}` : null;
+      })
+      .filter((line): line is string => line !== null);
+
+    const enrichedSpec = clarificationLines.length
+      ? `${pending.rawMessage}\n\nClarifications:\n${clarificationLines.join("\n")}`
+      : pending.rawMessage;
+
     return runSpecAndActivate(enrichedSpec, pending.repoPath);
   }
 
   async function skipClarification(pending: ClarificationPending) {
-    return runSpecAndActivate(pending.spec, pending.repoPath);
+    return runSpecAndActivate(pending.rawMessage, pending.repoPath);
   }
 
   return {
