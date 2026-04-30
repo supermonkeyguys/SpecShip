@@ -12,32 +12,38 @@ import { ChatRequest, ChatResponse, ChatIntent } from "../types";
 
 export const chatRouter = Router();
 
+const DEBUG_PREFIX = "[shipyard:server:chat]";
+
 const INTENT_PROMPT = `
 You are the AI assistant for Shipyard, an AI development IDE.
+You help users build software by understanding their intent and responding helpfully.
 
-Given the user's message and the current task state, determine the user's intent and respond naturally.
+Given the user's message and current task context, determine intent AND write a genuinely helpful reply.
 
 Output ONLY a JSON object:
 {
   "type": "retry_node" | "new_run" | "resume" | "status" | "unknown",
   "nodeId": "<node id if retry_node, else null>",
-  "spec": "<new or modified spec if new_run, else null>",
+  "spec": "<full spec string if new_run, else null>",
   "repoPath": "<absolute repo path if user mentions a repo/project directory, else null>",
-  "reply": "<friendly reply to show the user>"
+  "reply": "<your actual response to the user — answer their question, explain errors, give advice, etc.>"
 }
 
 Intent definitions:
 - retry_node: user wants to re-run a specific failed node (e.g. "retry impl-auth", "重跑 impl-auth")
-- new_run: user wants to start a new task or modify the current spec (e.g. "add error handling", "重新规划", "in repo /path/to/project, add login")
-- resume: user wants to resume an interrupted task (e.g. "resume", "继续", "恢复")
-- status: user is asking about current progress (e.g. "how is it going?", "状态")
-- unknown: anything else
+- new_run: user wants to start a NEW task or clearly modify the current spec to trigger a new run (e.g. "build a blog", "帮我做一个登录页", "重新规划加上错误处理")
+- resume: user wants to resume an interrupted/paused task (e.g. "resume", "继续", "恢复")
+- status: user is asking about current progress (e.g. "how is it going?", "状态", "现在到哪了")
+- unknown: general questions, asking about errors, chatting, seeking advice — reply conversationally and helpfully
 
 Rules:
-- reply must be in the same language as the user's message
-- If retry_node, nodeId must match one of the node IDs in the current state
-- If new_run and user modified the spec, incorporate their changes into the new spec
-- Keep replies concise (1-2 sentences)
+- reply MUST be in the same language as the user's message
+- reply should ACTUALLY answer the user's question — if they ask about an error, explain it; if they ask for advice, give it
+- Do NOT use generic replies like "收到" for unknown intent — have a real conversation
+- new_run ONLY when user clearly wants to START or RESTART execution, not for casual questions
+- If new_run, spec must be the complete task description (incorporate any modifications the user mentioned)
+- If retry_node, nodeId must exactly match one of the node IDs provided in context
+- Keep replies concise but genuinely useful (2-4 sentences for complex questions, 1-2 for simple ones)
 `.trim();
 
 chatRouter.post("/chat", async (req: Request, res: Response) => {
@@ -50,11 +56,14 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
 
   const config = {
     ...DEFAULT_CONFIG,
-    workDir: process.cwd(),
+    workDir: process.env.WORK_DIR ?? process.cwd(),
   };
+
+  console.log(DEBUG_PREFIX, "request", { message, currentSpec, currentNodesCount: currentNodes?.length ?? 0 });
 
   const deterministicIntent = routeIntentByPolicy({ message, currentNodes: currentNodes as Parameters<typeof routeIntentByPolicy>[0]["currentNodes"], currentSpec });
   if (deterministicIntent) {
+    console.log(DEBUG_PREFIX, "route=policy", deterministicIntent);
     res.json({ ok: true, intent: deterministicIntent } satisfies ChatResponse);
     return;
   }
@@ -114,6 +123,7 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
         intent = { type: "unknown", reply: parsed.reply ?? "I'm not sure what you mean. Try: retry a node, start a new task, or ask for status." };
     }
 
+    console.log(DEBUG_PREFIX, "route=llm", { parsed, finalIntent: intent });
     res.json({ ok: true, intent } satisfies ChatResponse);
   } catch (e) {
     res.status(500).json({

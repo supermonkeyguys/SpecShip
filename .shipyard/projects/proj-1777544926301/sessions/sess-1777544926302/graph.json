@@ -1,0 +1,769 @@
+{
+  "id": "graph-1777545018794",
+  "title": "Apple风格静态博客展示站",
+  "originalSpec": "实现一个 Apple 风格的网站：整体采用简洁高级的视觉设计，大量留白、精致排版、柔和渐变/阴影、现代响应式布局，包含适合产品展示的首页结构（如 Hero 区、产品亮点、功能介绍、展示图区域、行动按钮等），并保证在桌面端和移动端都有良好体验。\n\nClarifications:\n- 你希望这个博客网站的范围到哪一层？: 展示型博客\n- 你说的 Apple 风格更偏向哪种视觉方向？: 轻玻璃拟态\n- 内容管理方式你希望采用哪种？: 先做静态内容",
+  "nodes": [
+    [
+      "types-site-content",
+      {
+        "id": "types-site-content",
+        "type": "implement",
+        "title": "定义站点内容类型",
+        "specFragment": "展示型博客；先做静态内容；包含适合产品展示的首页结构（如 Hero 区、产品亮点、功能介绍、展示图区域、行动按钮等）",
+        "nodeRole": "types",
+        "task": "Define and export TypeScript interfaces in output/types.ts: NavItem { label: string; href: string }, HeroContent { eyebrow: string; title: string; subtitle: string; primaryCta: CtaLink; secondaryCta: CtaLink }, CtaLink { label: string; href: string; variant: 'primary' | 'secondary' }, Highlight { id: string; title: string; description: string; metric?: string }, Feature { id: string; title: string; description: string; icon: string }, ShowcaseItem { id: string; title: string; description: string; imageAlt: string; gradient: string }, BlogPost { id: string; title: string; excerpt: string; category: string; date: string; readTime: string; href: string }, SiteContent { nav: NavItem[]; hero: HeroContent; highlights: Highlight[]; features: Feature[]; showcase: ShowcaseItem[]; posts: BlogPost[]; finalCta: { title: string; description: string; cta: CtaLink } }.",
+        "acceptanceCriteria": "types.ts exports NavItem, HeroContent, CtaLink, Highlight, Feature, ShowcaseItem, BlogPost, and SiteContent interfaces. CtaLink.variant is exactly 'primary' | 'secondary'. File contains only type/interface exports and compiles without implementation logic.",
+        "skills": [
+          "ts-strict"
+        ],
+        "dependsOn": [],
+        "inputs": {
+          "description": "Create shared TypeScript contracts for all static content and UI sections. These interfaces will be imported by the static content module and React components to keep the Apple-style blog/product landing page structure consistent."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/types.ts",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/types.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:30:49.716Z",
+        "evidence": {
+          "reasoning": "Implementing: Create shared TypeScript contracts for all static content and UI sections. These interfaces will be imported by the static content module and React components to keep the Apple-style blog/product landing page structure consistent.",
+          "promptUsed": "Role: types\nTask: Define and export TypeScript interfaces in output/types.ts: NavItem { label: string; href: string }, HeroContent { eyebrow: string; title: string; subtitle: string; primaryCta: CtaLink; secondaryCta: CtaLink }, CtaLink { label: string; href: string; variant: 'primary' | 'secondary'",
+          "modelUsed": "gpt-5.3-codex",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "/**\n * A navigation item displayed in the site's primary navigation.\n */\nexport interface NavItem {\n  /**\n   * The visible label for the navigation link.\n   */\n  label: string;\n  /**\n   * The URL or path the navigation item points to.\n   */\n  href: string;\n}\n\n/**\n * A call-to-action link used throughout the site.\n */\nexport interface CtaLink {\n  /**\n   * The visible text for the call-to-action.\n   */\n  label: string;\n  /**\n   * The URL or path the call-to-action points to.\n   */\n  href: string;\n  /**\n   * The visual style variant for the call-to-action.\n   */\n  variant: 'primary' | 'secondary';\n}\n\n/**\n * Content for the hero section of the site.\n */\nexport interface HeroContent {\n  /**\n   * A short introductory text shown above the main title.\n   */\n  eyebrow: string;\n  /**\n   * The main headline of the hero section.\n   */\n  title: string;\n  /**\n   * Supporting descriptive text under the main title.\n   */\n  subtitle: string;\n  /**\n   * The primary hero call-to-action.\n   */\n  primaryCta: CtaLink;\n  /**\n   * The secondary hero call-to-action.\n   */\n  secondaryCta: CtaLink;\n}\n\n/**\n * A highlighted stat or key point shown on the page.\n */\nexport interface Highlight {\n  /**\n   * Unique identifier for the highlight.\n   */\n  id: string;\n  /**\n   * Title of the highlight.\n   */\n  title: string;\n  /**\n   * Description providing detail for the highlight.\n   */\n  description: string;\n  /**\n   * Optional metric associated with the highlight.\n   */\n  metric?: string;\n}\n\n/**\n * A feature entry describing product capabilities.\n */\nexport interface Feature {\n  /**\n   * Unique identifier for the feature.\n   */\n  id: string;\n  /**\n   * Title of the feature.\n   */\n  title: string;\n  /**\n   * Description of the feature.\n   */\n  description: string;\n  /**\n   * Icon name or key representing the feature.\n   */\n  icon: string;\n}\n\n/**\n * A showcase item representing a highlighted example.\n */\nexport interface ShowcaseItem {\n  /**\n   * Unique identifier for the showcase item.\n   */\n  id: string;\n  /**\n   * Title of the showcase item.\n   */\n  title: string;\n  /**\n   * Description of the showcase item.\n   */\n  description: string;\n  /**\n   * Accessible alt text for the showcase image.\n   */\n  imageAlt: string;\n  /**\n   * Gradient token or CSS value used for visual styling.\n   */\n  gradient: string;\n}\n\n/**\n * A blog post preview item.\n */\nexport interface BlogPost {\n  /**\n   * Unique identifier for the blog post.\n   */\n  id: string;\n  /**\n   * Title of the blog post.\n   */\n  title: string;\n  /**\n   * Short excerpt summarizing the post.\n   */\n  excerpt: string;\n  /**\n   * Category label for the post.\n   */\n  category: string;\n  /**\n   * Published date as a display-ready string.\n   */\n  date: string;\n  /**\n   * Estimated reading time as a display-ready string.\n   */\n  readTime: string;\n  /**\n   * URL or path to the full blog post.\n   */\n  href: string;\n}\n\n/**\n * Complete structured content model for the site.\n */\nexport interface SiteContent {\n  /**\n   * Primary navigation items.\n   */\n  nav: NavItem[];\n  /**\n   * Hero section content.\n   */\n  hero: HeroContent;\n  /**\n   * Highlighted points or metrics.\n   */\n  highlights: Highlight[];\n  /**\n   * Product or service features.\n   */\n  features: Feature[];\n  /**\n   * Showcase entries.\n   */\n  showcase: ShowcaseItem[];\n  /**\n   * Recent or featured blog posts.\n   */\n  posts: BlogPost[];\n  /**\n   * Final call-to-action section content.\n   */\n  finalCta: {\n    /**\n     * Title for the final call-to-action section.\n     */\n    title: string;\n    /**\n     * Description for the final call-to-action section.\n     */\n    description: string;\n    /**\n     * Call-to-action link for the final section.\n     */\n    cta: CtaLink;\n  };\n}\n",
+                "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/types.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/types.ts (209 lines)",
+              "success": true,
+              "timestamp": "2026-04-30T10:30:47.148Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/types.ts",
+              "operation": "create",
+              "sizeBytes": 3709,
+              "checksum": "7ac43456d80d1990",
+              "timestamp": "2026-04-30T10:30:47.147Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 740,
+              "timestamp": "2026-04-30T10:30:47.149Z"
+            }
+          ],
+          "startedAt": "2026-04-30T10:30:18.801Z",
+          "completedAt": "2026-04-30T10:30:47.148Z",
+          "durationMs": 28347
+        }
+      }
+    ],
+    [
+      "impl-static-content",
+      {
+        "id": "impl-static-content",
+        "type": "implement",
+        "title": "编写静态首页内容",
+        "specFragment": "内容管理方式你希望采用哪种？: 先做静态内容；Clarifications: 展示型博客",
+        "nodeRole": "implementer",
+        "task": "Implement output/content.ts. Import type SiteContent from output/types.ts. Export const siteContent: SiteContent with nav, hero, highlights, features, showcase, posts, and finalCta populated with static Chinese copy suitable for a light glassmorphism Apple-style showcase blog.",
+        "acceptanceCriteria": "content.ts exports siteContent typed as SiteContent. siteContent.nav has at least 4 items. siteContent.highlights has at least 3 items. siteContent.features has at least 4 items. siteContent.showcase has at least 2 items. siteContent.posts has at least 3 blog posts. All href fields are non-empty strings.",
+        "skills": [
+          "ts-strict",
+          "content-design"
+        ],
+        "dependsOn": [
+          "types-site-content"
+        ],
+        "inputs": {
+          "description": "Provide polished static Chinese content for a showcase blog landing page, including product-like messaging, design highlights, feature descriptions, blog previews, and call-to-action text. Keep content premium, concise, and aligned with clean Apple-inspired presentation."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.ts",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 5,
+        "retryCount": 2,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:32:42.970Z",
+        "evidence": {
+          "reasoning": "Implementing: Provide polished static Chinese content for a showcase blog landing page, including product-like messaging, design highlights, feature descriptions, blog previews, and call-to-action text. Keep content premium, concise, and aligned with clean Apple-inspired presentation.",
+          "promptUsed": "Role: implementer\nTask: Implement output/content.ts. Import type SiteContent from output/types.ts. Export const siteContent: SiteContent with nav, hero, highlights, features, showcase, posts, and finalCta populated with static Chinese copy suitable for a light glassmorphism Apple-style showcase blog",
+          "modelUsed": "gpt-5.3-codex",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import type { SiteContent } from './types';\n\n/**\n * Static Chinese content for a light glassmorphism Apple-style showcase blog.\n */\nexport const siteContent: SiteContent = {\n  nav: [\n    { label: '首页', href: '/' },\n    { label: '灵感', href: '/inspiration' },\n    { label: '专题', href: '/features' },\n    { label: '博客', href: '/posts' },\n    { label: '关于', href: '/about' },\n  ],\n  hero: {\n    eyebrow: '轻透设计志',\n    title: '以玻璃质感，呈现更安静的数字美学',\n    subtitle:\n      '我们记录 Apple 风格的界面语言、产品叙事与创意实践，用清晰、克制与层次感，帮助你构建更有温度的体验。',\n    primaryCta: {\n      label: '开始浏览',\n      href: '/posts',\n      variant: 'primary',\n    },\n    secondaryCta: {\n      label: '查看精选专题',\n      href: '/features',\n      variant: 'secondary',\n    },\n  },\n  highlights: [\n    {\n      id: 'h-clarity',\n      title: '清晰层级',\n      description: '通过轻薄卡片与柔和阴影组织信息，让阅读动线自然、专注。',\n      metric: '12+ 设计模板',\n    },\n    {\n      id: 'h-speed',\n      title: '轻快体验',\n      description: '内容优先与简洁排版并重，在视觉精致与访问效率之间取得平衡。',\n      metric: '95% 页面可读性评分',\n    },\n    {\n      id: 'h-consistency',\n      title: '一致语言',\n      description: '从配色、间距到组件语气，保持全站统一的 Apple 风格表达。',\n      metric: '6 大内容栏目',\n    },\n  ],\n  features: [\n    {\n      id: 'f-editorial',\n      title: '编辑精选',\n      description: '每周整理值得反复阅读的设计与产品文章，聚焦可落地的方法。',\n      icon: 'sparkles',\n    },\n    {\n      id: 'f-case-study',\n      title: '案例拆解',\n      description: '深度解析优秀作品的信息架构、交互动效与视觉策略。',\n      icon: 'layers',\n    },\n    {\n      id: 'f-toolkit',\n      title: '创作工具集',\n      description: '提供可直接复用的文案框架、版式建议与设计清单。',\n      icon: 'tool',\n    },\n    {\n      id: 'f-community',\n      title: '创作者社群',\n      description: '与设计师、开发者和内容创作者交流，持续获得反馈与灵感。',\n      icon: 'users',\n    },\n  ],\n  showcase: [\n    {\n      id: 's-macos-notes',\n      title: '像 macOS 一样组织阅读面板',\n      description: '用三段式布局呈现目录、正文与附注，提升长文浏览效率。',\n      imageAlt: 'macOS 风格三栏阅读界面展示图',\n      gradient: 'linear-gradient(135deg, #dbeafe 0%, #e0e7ff 45%, #f5f3ff 100%)',\n    },\n    {\n      id: 's-frosted-cards',\n      title: '磨砂卡片在内容站点中的应用',\n      description: '探索毛玻璃背景、边框高光与低对比文本的最佳平衡点。',\n      imageAlt: '浅色玻璃拟态卡片系统示例图',\n      gradient: 'linear-gradient(135deg, #ecfeff 0%, #dbeafe 50%, #e9d5ff 100%)',\n    },\n    {\n      id: 's-motion-tone',\n      title: '克制动效如何提升高级感',\n      description: '通过细腻过渡与微反馈，让页面在安静中保持生命力。',\n      imageAlt: '轻量过渡动效与微交互演示图',\n      gradient: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 48%, #ede9fe 100%)',\n    },\n  ],\n  posts: [\n    {\n      id: 'p-001',\n      title: '从留白开始：构建舒适阅读节奏',\n      excerpt: '留白并非空白，而是帮助内容呼吸的结构工具。',\n      href: '/posts/reading-rhythm-with-whitespace',\n      date: '2026-03-08',\n      readTime: '8 分钟',\n      category: '排版',\n    },\n    {\n      id: 'p-002',\n      title: '玻璃拟态不“花哨”的 5 个原则',\n      excerpt: '控制透明度、模糊半径与边缘高光，打造更耐看的界面。',\n      href: '/posts/5-principles-of-glassmorphism',\n      date: '2026-03-15',\n      readTime: '10 分钟',\n      category: '视觉',\n    },\n    {\n      id: 'p-003',\n      title: '内容站的 Apple 风格配色方法',\n      excerpt: '以中性色为底，辅以低饱和强调色，建立长期可扩展的色彩系统。',\n      href: '/posts/apple-style-color-system-for-content-sites',\n      date: '2026-03-22',\n      readTime: '9 分钟',\n      category: '色彩',\n    },\n  ],\n  finalCta: {\n    title: '准备好发布你的下一篇灵感了吗？',\n    description: '订阅轻透设计志，获取每周更新的精选文章、案例拆解与创作指南。',\n    cta: {\n      label: '立即订阅',\n      href: '/subscribe',\n      variant: 'primary',\n    },\n  },\n};\n",
+                "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.ts (138 lines)",
+              "success": true,
+              "timestamp": "2026-04-30T10:32:39.542Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.ts",
+              "operation": "create",
+              "sizeBytes": 4600,
+              "checksum": "46c770f50ff6eb61",
+              "timestamp": "2026-04-30T10:32:39.542Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 590,
+              "timestamp": "2026-04-30T10:32:39.635Z"
+            }
+          ],
+          "startedAt": "2026-04-30T10:32:04.724Z",
+          "completedAt": "2026-04-30T10:32:39.542Z",
+          "durationMs": 34818
+        },
+        "lastError": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.ts(131,5): error TS2353: Object literal may only specify known properties, and 'primaryCta' does not exist in type '{ title: string; description: string; cta: CtaLink; }'.\n\nnpm warn Unknown env config \"recursive\". This will stop working in the next major version of npm.",
+        "lastErrorKind": "verify"
+      }
+    ],
+    [
+      "impl-style-tokens",
+      {
+        "id": "impl-style-tokens",
+        "type": "implement",
+        "title": "实现视觉样式系统",
+        "specFragment": "整体采用简洁高级的视觉设计，大量留白、精致排版、柔和渐变/阴影、现代响应式布局；Apple 风格更偏向哪种视觉方向？: 轻玻璃拟态",
+        "nodeRole": "implementer",
+        "task": "Implement output/styles.css with global CSS variables and classes: :root design tokens, body reset styles, .site-shell, .glass-nav, .hero, .hero-card, .section, .section-heading, .highlight-grid, .highlight-card, .feature-grid, .feature-card, .showcase-grid, .showcase-card, .blog-grid, .blog-card, .cta-panel, .button, .button.primary, .button.secondary, responsive @media rules for max-width 900px and 640px.",
+        "acceptanceCriteria": "styles.css defines all listed class selectors. It includes light glassmorphism via backdrop-filter or -webkit-backdrop-filter, translucent backgrounds, soft gradients, and box-shadow. It includes responsive @media rules for max-width: 900px and max-width: 640px. No JavaScript or TypeScript is included.",
+        "skills": [
+          "responsive-css",
+          "glassmorphism",
+          "apple-inspired-visual"
+        ],
+        "dependsOn": [],
+        "inputs": {
+          "description": "Create the visual foundation for the site: premium typography, generous spacing, white/near-white background, subtle gradients, glass panels, soft shadows, rounded corners, responsive grids, and mobile-friendly spacing. This file should be independent and reusable by all components."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/styles.css",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/styles.css"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:39:13.915Z",
+        "evidence": {
+          "reasoning": "Implementing: Create the visual foundation for the site: premium typography, generous spacing, white/near-white background, subtle gradients, glass panels, soft shadows, rounded corners, responsive grids, and mobile-friendly spacing. This file should be independent and reusable by all components.",
+          "promptUsed": "Role: implementer\nTask: Implement output/styles.css with global CSS variables and classes: :root design tokens, body reset styles, .site-shell, .glass-nav, .hero, .hero-card, .section, .section-heading, .highlight-grid, .highlight-card, .feature-grid, .feature-card, .showcase-grid, .showcase-card, .",
+          "modelUsed": "gpt-5.3-codex",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": ":root {\n  --color-bg: #eef3fb;\n  --color-bg-alt: #f8fbff;\n  --color-surface: rgba(255, 255, 255, 0.62);\n  --color-surface-strong: rgba(255, 255, 255, 0.82);\n  --color-border: rgba(255, 255, 255, 0.58);\n  --color-text: #0f172a;\n  --color-text-muted: #4b5563;\n  --color-primary: #2563eb;\n  --color-primary-strong: #1d4ed8;\n  --color-secondary: #0ea5e9;\n  --color-shadow: rgba(15, 23, 42, 0.14);\n\n  --gradient-page:\n    radial-gradient(circle at 12% 10%, rgba(37, 99, 235, 0.16), transparent 46%),\n    radial-gradient(circle at 86% 18%, rgba(14, 165, 233, 0.13), transparent 42%),\n    linear-gradient(180deg, #fbfdff 0%, var(--color-bg) 52%, #e7eff9 100%);\n\n  --radius-sm: 12px;\n  --radius-md: 18px;\n  --radius-lg: 28px;\n\n  --blur-sm: 14px;\n  --blur-md: 22px;\n\n  --shadow-sm: 0 10px 24px rgba(15, 23, 42, 0.09);\n  --shadow-md: 0 20px 44px rgba(15, 23, 42, 0.12);\n\n  --space-1: 0.5rem;\n  --space-2: 0.75rem;\n  --space-3: 1rem;\n  --space-4: 1.5rem;\n  --space-5: 2rem;\n  --space-6: 3rem;\n  --space-7: 4rem;\n  --space-8: 6rem;\n\n  --container: 1120px;\n\n  --transition-fast: 180ms ease;\n  --transition-base: 280ms ease;\n}\n\n* {\n  box-sizing: border-box;\n}\n\nhtml,\nbody {\n  margin: 0;\n  padding: 0;\n}\n\nbody {\n  min-height: 100vh;\n  font-family: -apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;\n  color: var(--color-text);\n  background: var(--gradient-page);\n  line-height: 1.55;\n  text-rendering: optimizeLegibility;\n  -webkit-font-smoothing: antialiased;\n}\n\nimg {\n  display: block;\n  max-width: 100%;\n}\n\n.site-shell {\n  width: min(calc(100% - 3rem), var(--container));\n  margin: 0 auto;\n  padding: var(--space-5) 0 var(--space-8);\n}\n\n.glass-nav {\n  position: sticky;\n  top: var(--space-3);\n  z-index: 30;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: var(--space-3);\n  margin-bottom: var(--space-6);\n  padding: 0.9rem 1.15rem;\n  border: 1px solid var(--color-border);\n  border-radius: var(--radius-md);\n  background: var(--color-surface);\n  backdrop-filter: blur(var(--blur-sm)) saturate(155%);\n  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(155%);\n  box-shadow: var(--shadow-sm);\n}\n\n.hero {\n  display: grid;\n  grid-template-columns: 1.1fr 0.9fr;\n  align-items: center;\n  gap: var(--space-5);\n  margin-bottom: var(--space-7);\n}\n\n.hero-card {\n  padding: clamp(1.5rem, 2.4vw, 2.5rem);\n  border: 1px solid var(--color-border);\n  border-radius: var(--radius-lg);\n  background: linear-gradient(145deg, var(--color-surface-strong), var(--color-surface));\n  backdrop-filter: blur(var(--blur-md)) saturate(155%);\n  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(155%);\n  box-shadow: var(--shadow-md);\n}\n\n.section {\n  margin-bottom: var(--space-7);\n}\n\n.section-heading {\n  margin: 0 0 var(--space-4);\n  font-size: clamp(1.35rem, 2.4vw, 2rem);\n  line-height: 1.2;\n  letter-spacing: -0.015em;\n}\n\n.highlight-grid,\n.feature-grid,\n.showcase-grid,\n.blog-grid {\n  display: grid;\n  gap: var(--space-4);\n}\n\n.highlight-grid {\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n}\n\n.feature-grid {\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n}\n\n.showcase-grid {\n  grid-template-columns: repeat(2, minmax(0, 1fr));\n}\n\n.blog-grid {\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n}\n\n.highlight-card,\n.feature-card,\n.showcase-card,\n.blog-card,\n.cta-panel {\n  border: 1px solid var(--color-border);\n  border-radius: var(--radius-md);\n  background: var(--color-surface);\n  backdrop-filter: blur(var(--blur-sm)) saturate(145%);\n  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(145%);\n  box-shadow: var(--shadow-sm);\n}\n\n.highlight-card,\n.feature-card,\n.showcase-card,\n.blog-card {\n  padding: 1.2rem 1.15rem;\n  transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-fast);\n}\n\n.highlight-card:hover,\n.feature-card:hover,\n.showcase-card:hover,\n.blog-card:hover {\n  transform: translateY(-3px);\n  border-color: rgba(37, 99, 235, 0.28);\n  box-shadow: var(--shadow-md);\n}\n\n.cta-panel {\n  margin-top: var(--space-6);\n  padding: clamp(1.25rem, 2vw, 2rem);\n  background: linear-gradient(150deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.58));\n}\n\n.button {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  gap: 0.4rem;\n  padding: 0.7rem 1.15rem;\n  border: 1px solid transparent;\n  border-radius: 999px;\n  font-size: 0.95rem;\n  font-weight: 600;\n  line-height: 1;\n  text-decoration: none;\n  cursor: pointer;\n  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);\n}\n\n.button:hover {\n  transform: translateY(-1px);\n}\n\n.button:active {\n  transform: translateY(0);\n}\n\n.button.primary {\n  color: #ffffff;\n  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));\n  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.28);\n}\n\n.button.primary:hover {\n  box-shadow: 0 14px 26px rgba(37, 99, 235, 0.35);\n}\n\n.button.secondary {\n  color: var(--color-text);\n  border-color: rgba(15, 23, 42, 0.12);\n  background: rgba(255, 255, 255, 0.7);\n}\n\n.button.secondary:hover {\n  border-color: rgba(15, 23, 42, 0.22);\n  background: rgba(255, 255, 255, 0.9);\n}\n\n@media (max-width: 900px) {\n  .site-shell {\n    width: min(calc(100% - 2rem), var(--container));\n    padding: var(--space-4) 0 var(--space-7);\n  }\n\n  .hero {\n    grid-template-columns: 1fr;\n    gap: var(--space-4);\n  }\n\n  .highlight-grid,\n  .feature-grid,\n  .blog-grid {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }\n\n  .showcase-grid {\n    grid-template-columns: 1fr;\n  }\n}\n\n@media (max-width: 640px) {\n  .site-shell {\n    width: min(calc(100% - 1.25rem), var(--container));\n    padding: var(--space-3) 0 var(--space-6);\n  }\n\n  .glass-nav {\n    position: static;\n    margin-bottom: var(--space-5);\n    flex-wrap: wrap;\n    padding: 0.8rem 0.9rem;\n  }\n\n  .section {\n    margin-bottom: var(--space-6);\n  }\n\n  .highlight-grid,\n  .feature-grid,\n  .showcase-grid,\n  .blog-grid {\n    grid-template-columns: 1fr;\n    gap: var(--space-3);\n  }\n\n  .hero-card,\n  .highlight-card,\n  .feature-card,\n  .showcase-card,\n  .blog-card,\n  .cta-panel {\n    border-radius: var(--radius-sm);\n  }\n\n  .button {\n    width: 100%;\n  }\n}\n",
+                "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/styles.css"
+              },
+              "output": "Written: .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/styles.css (287 lines)",
+              "success": true,
+              "timestamp": "2026-04-30T10:39:13.183Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/styles.css",
+              "operation": "create",
+              "sizeBytes": 6304,
+              "checksum": "ab6e669de2ba1aaa",
+              "timestamp": "2026-04-30T10:39:13.183Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": false,
+              "output": "error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/styles.css' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.\n  The file is in the program because:\n    Root file specified for compilation\n\nnpm warn Unknown env config \"recursive\". This will stop working in the next major version of npm.",
+              "durationMs": 732,
+              "timestamp": "2026-04-30T10:39:13.183Z"
+            }
+          ],
+          "startedAt": "2026-04-30T10:37:34.101Z",
+          "completedAt": "2026-04-30T10:39:13.183Z",
+          "durationMs": 99082
+        },
+        "lastError": "error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/styles.css' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.\n  The file is in the program because:\n    Root file specified for compilation\n\nnpm warn Unknown env config \"recursive\". This will stop working in the next major version of npm.",
+        "lastErrorKind": "verify",
+        "error": {
+          "message": "Compile failed: error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/styles.css' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.",
+          "category": "compile",
+          "recoverable": false
+        }
+      }
+    ],
+    [
+      "impl-ui-primitives",
+      {
+        "id": "impl-ui-primitives",
+        "type": "implement",
+        "title": "实现通用UI原语",
+        "specFragment": "行动按钮；简洁高级的视觉设计；现代响应式布局",
+        "nodeRole": "implementer",
+        "task": "Implement output/ui.tsx. Import type CtaLink from output/types.ts. Export function ButtonLink(props: { cta: CtaLink; className?: string }): JSX.Element. Export function SectionHeading(props: { eyebrow?: string; title: string; description?: string }): JSX.Element. Export function VisualOrb(props: { label: string; tone?: 'blue' | 'purple' | 'silver' }): JSX.Element.",
+        "acceptanceCriteria": "ui.tsx exports ButtonLink, SectionHeading, and VisualOrb. ButtonLink renders an anchor using cta.href, cta.label, and class names button plus cta.variant. SectionHeading renders optional eyebrow, required title, and optional description. VisualOrb renders a decorative accessible element with aria-label from label.",
+        "skills": [
+          "react",
+          "ts-strict",
+          "accessibility"
+        ],
+        "dependsOn": [
+          "types-site-content"
+        ],
+        "inputs": {
+          "description": "Build small reusable React components used across the landing page. Keep them presentation-focused and typed. ButtonLink standardizes primary/secondary CTAs, SectionHeading standardizes section typography, and VisualOrb provides a lightweight abstract product visual consistent with Apple-like glass aesthetics."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:55:09.815Z",
+        "evidence": {
+          "reasoning": "Implementing: Build small reusable React components used across the landing page. Keep them presentation-focused and typed. ButtonLink standardizes primary/secondary CTAs, SectionHeading standardizes section typography, and VisualOrb provides a lightweight abstract product visual consistent with Apple-like glass aesthetics.",
+          "promptUsed": "Role: implementer\nTask: Implement output/ui.tsx. Import type CtaLink from output/types.ts. Export function ButtonLink(props: { cta: CtaLink; className?: string }): JSX.Element. Export function SectionHeading(props: { eyebrow?: string; title: string; description?: string }): JSX.Element. Export funct",
+          "modelUsed": "gpt-5.3-codex",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import React from 'react';\nimport type { CtaLink } from './types';\n\n/**\n * Supported visual tone variants for the orb.\n */\ntype OrbTone = 'blue' | 'purple' | 'silver';\n\n/**\n * Props for the section heading component.\n */\ninterface SectionHeadingProps {\n  /**\n   * Optional short text shown above the section title.\n   */\n  eyebrow?: string;\n  /**\n   * Primary heading text for the section.\n   */\n  title: string;\n  /**\n   * Optional supporting text displayed below the title.\n   */\n  description?: string;\n}\n\n/**\n * Props for the visual orb component.\n */\ninterface VisualOrbProps {\n  /**\n   * Accessible label describing the orb.\n   */\n  label: string;\n  /**\n   * Optional visual tone variant for the orb.\n   */\n  tone?: OrbTone;\n}\n\n/**\n * Joins class names while removing empty values.\n *\n * @param values - Potential class name values.\n * @returns A space-delimited class name string.\n */\nfunction joinClasses(...values: Array<string | undefined>): string {\n  return values\n    .filter((value: string | undefined): value is string => typeof value === 'string' && value.trim().length > 0)\n    .join(' ');\n}\n\n/**\n * Returns classes for the visual orb tone.\n *\n * @param tone - The selected orb tone.\n * @returns Utility classes for the given tone.\n */\nfunction getToneClasses(tone: OrbTone): string {\n  if (tone === 'purple') {\n    return 'bg-gradient-to-br from-violet-300 via-purple-500 to-fuchsia-600';\n  }\n\n  if (tone === 'silver') {\n    return 'bg-gradient-to-br from-slate-100 via-slate-300 to-slate-500';\n  }\n\n  return 'bg-gradient-to-br from-cyan-300 via-blue-500 to-indigo-600';\n}\n\n/**\n * Renders a call-to-action link styled as a button.\n *\n * @param props - Component props containing CTA data and optional class names.\n * @returns A styled anchor element.\n */\nexport function ButtonLink(props: { cta: CtaLink; className?: string }): React.JSX.Element {\n  const { cta, className } = props;\n\n  const baseClasses: string =\n    'inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2';\n  const variantClasses: string =\n    cta.variant === 'primary'\n      ? 'bg-blue-600 text-white hover:bg-blue-500 focus-visible:ring-blue-600'\n      : 'bg-transparent text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-100 focus-visible:ring-slate-500';\n\n  return (\n    <a className={joinClasses(baseClasses, variantClasses, className)} href={cta.href}>\n      {cta.label}\n    </a>\n  );\n}\n\n/**\n * Renders a reusable section heading block.\n *\n * @param props - Component props containing heading content.\n * @returns A semantic header with optional eyebrow and description.\n */\nexport function SectionHeading(props: SectionHeadingProps): React.JSX.Element {\n  const { eyebrow, title, description } = props;\n  const hasEyebrow: boolean = typeof eyebrow === 'string' && eyebrow.trim().length > 0;\n  const hasDescription: boolean = typeof description === 'string' && description.trim().length > 0;\n\n  return (\n    <header className=\"space-y-3\">\n      {hasEyebrow ? <p className=\"text-sm font-semibold uppercase tracking-wide text-blue-600\">{eyebrow}</p> : null}\n      <h2 className=\"text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl\">{title}</h2>\n      {hasDescription ? <p className=\"max-w-2xl text-base text-slate-600 sm:text-lg\">{description}</p> : null}\n    </header>\n  );\n}\n\n/**\n * Renders a decorative orb with an accessible label.\n *\n * @param props - Component props containing label and optional tone.\n * @returns A styled visual element with screen-reader text.\n */\nexport function VisualOrb(props: VisualOrbProps): React.JSX.Element {\n  const { label, tone = 'blue' } = props;\n\n  return (\n    <div className=\"relative inline-flex h-24 w-24 items-center justify-center\" role=\"img\" aria-label={label}>\n      <span\n        aria-hidden=\"true\"\n        className={joinClasses(\n          'absolute inset-0 rounded-full opacity-80 blur-xl',\n          getToneClasses(tone),\n        )}\n      />\n      <span\n        aria-hidden=\"true\"\n        className={joinClasses('relative block h-16 w-16 rounded-full shadow-lg', getToneClasses(tone))}\n      />\n    </div>\n  );\n}\n",
+                "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx"
+              },
+              "output": "Written: .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx (139 lines)",
+              "success": true,
+              "timestamp": "2026-04-30T10:55:09.056Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx",
+              "operation": "create",
+              "sizeBytes": 4200,
+              "checksum": "851daf9b646c55a8",
+              "timestamp": "2026-04-30T10:55:09.056Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": false,
+              "output": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx(88,5): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.\n.shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx(106,5): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.\n.shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx(107,21): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.\n.shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx(108,7): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.\n.shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx(109,25): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.\n.shipyard/projects/proj-",
+              "durationMs": 758,
+              "timestamp": "2026-04-30T10:55:09.057Z"
+            }
+          ],
+          "startedAt": "2026-04-30T10:54:29.689Z",
+          "completedAt": "2026-04-30T10:55:09.056Z",
+          "durationMs": 39367
+        },
+        "lastError": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx(56,5): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.\n.shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx(79,5): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.\n.shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx(81,9): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.\n.shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx(83,7): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.\n.shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx(84,25): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.\n.shipyard/projects/proj-17775",
+        "lastErrorKind": "verify",
+        "error": {
+          "message": "Compile failed: .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ui.tsx(88,5): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.",
+          "category": "compile",
+          "recoverable": false
+        }
+      }
+    ],
+    [
+      "impl-navigation",
+      {
+        "id": "impl-navigation",
+        "type": "implement",
+        "title": "实现顶部导航",
+        "specFragment": "现代响应式布局；在桌面端和移动端都有良好体验",
+        "nodeRole": "implementer",
+        "task": "Implement output/Navigation.tsx. Import type NavItem from output/types.ts. Export function Navigation(props: { items: NavItem[] }): JSX.Element.",
+        "acceptanceCriteria": "Navigation.tsx exports Navigation. Navigation renders a semantic header/nav with brand text, all items from props.items as anchors, and a compact CTA anchor. It uses class names site-nav, glass-nav, nav-links, nav-brand, and nav-cta. It does not own static content.",
+        "skills": [
+          "react",
+          "accessibility",
+          "responsive-layout"
+        ],
+        "dependsOn": [
+          "types-site-content"
+        ],
+        "inputs": {
+          "description": "Create a responsive glass-style navigation bar that can sit above the hero. The component should be stateless, receive nav items via props, and use semantic navigation markup suitable for desktop and mobile layouts."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/Navigation.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/Navigation.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:32:39.633Z",
+        "evidence": {
+          "reasoning": "Implementing: Create a responsive glass-style navigation bar that can sit above the hero. The component should be stateless, receive nav items via props, and use semantic navigation markup suitable for desktop and mobile layouts.",
+          "promptUsed": "Role: implementer\nTask: Implement output/Navigation.tsx. Import type NavItem from output/types.ts. Export function Navigation(props: { items: NavItem[] }): JSX.Element.\nOutput file: .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/Navigation.tsx\nFollow these conventions: reac",
+          "modelUsed": "gpt-5.3-codex",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import { createElement, type JSX } from 'react';\nimport type { NavItem } from './types';\n\n/**\n * Renders the site's primary navigation from provided navigation items.\n */\nexport function Navigation(props: { items: NavItem[] }): JSX.Element {\n  const safeItems: NavItem[] = Array.isArray(props.items)\n    ? props.items.filter((item: NavItem): boolean => {\n        const hasLabel: boolean = typeof item.label === 'string' && item.label.trim().length > 0;\n        const hasHref: boolean = typeof item.href === 'string' && item.href.trim().length > 0;\n        return hasLabel && hasHref;\n      })\n    : [];\n\n  return createElement(\n    'header',\n    { className: 'site-nav' },\n    createElement(\n      'nav',\n      {\n        'aria-label': 'Primary',\n      },\n      createElement(\n        'ul',\n        {\n          className: 'nav-links',\n        },\n        ...safeItems.map((item: NavItem, index: number): JSX.Element => {\n          const label: string = item.label.trim();\n          const href: string = item.href.trim();\n          const key: string = `${href}-${label}-${index}`;\n\n          return createElement(\n            'li',\n            { key },\n            createElement(\n              'a',\n              {\n                href,\n              },\n              label,\n            ),\n          );\n        }),\n      ),\n    ),\n  );\n}\n",
+                "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/Navigation.tsx"
+              },
+              "output": "Written: .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/Navigation.tsx (50 lines)",
+              "success": true,
+              "timestamp": "2026-04-30T10:32:34.497Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/Navigation.tsx",
+              "operation": "create",
+              "sizeBytes": 1335,
+              "checksum": "0cf3c0ed3bd1a273",
+              "timestamp": "2026-04-30T10:32:34.497Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 811,
+              "timestamp": "2026-04-30T10:32:34.497Z"
+            }
+          ],
+          "startedAt": "2026-04-30T10:32:20.595Z",
+          "completedAt": "2026-04-30T10:32:34.497Z",
+          "durationMs": 13902
+        },
+        "lastError": "Code review failed: critical issue: Navigation owns static fallback content ('Brand', 'Get Started', '/','/get-started') even though the criteria require it to not own static content; critical issue: Navigation does not render all items from props.items as anchors; it repurposes the first item as brand and the last item as CTA, so those items are not rendered within the full items list",
+        "lastErrorKind": "review",
+        "error": {
+          "message": "Code review failed: critical issue: missing required class names glass-nav, nav-brand, and nav-cta in the rendered output; critical issue: Navigation does not render brand text as required; critical issue: Navigation does not render a compact CTA anchor as required",
+          "category": "logic",
+          "recoverable": false
+        }
+      }
+    ],
+    [
+      "impl-hero-section",
+      {
+        "id": "impl-hero-section",
+        "type": "implement",
+        "title": "实现Hero区域",
+        "specFragment": "包含适合产品展示的首页结构（如 Hero 区、产品亮点、功能介绍、展示图区域、行动按钮等）",
+        "nodeRole": "implementer",
+        "task": "Implement output/HeroSection.tsx. Import type HeroContent from output/types.ts. Import ButtonLink and VisualOrb from output/ui.tsx. Export function HeroSection(props: { content: HeroContent }): JSX.Element.",
+        "acceptanceCriteria": "HeroSection.tsx exports HeroSection. HeroSection renders content.eyebrow, content.title, content.subtitle, content.primaryCta via ButtonLink, content.secondaryCta via ButtonLink, and at least one VisualOrb. It uses class names hero, hero-copy, hero-actions, hero-card, and hero-visual.",
+        "skills": [
+          "react",
+          "landing-page"
+        ],
+        "dependsOn": [
+          "types-site-content",
+          "impl-ui-primitives"
+        ],
+        "inputs": {
+          "description": "Implement the high-impact top section with polished copy, two calls to action, and an abstract glass product visual. Keep the structure responsive and content-driven."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/HeroSection.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/HeroSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:31:22.448Z"
+      }
+    ],
+    [
+      "impl-highlights-section",
+      {
+        "id": "impl-highlights-section",
+        "type": "implement",
+        "title": "实现产品亮点区域",
+        "specFragment": "产品亮点",
+        "nodeRole": "implementer",
+        "task": "Implement output/HighlightsSection.tsx. Import type Highlight from output/types.ts. Import SectionHeading from output/ui.tsx. Export function HighlightsSection(props: { highlights: Highlight[] }): JSX.Element.",
+        "acceptanceCriteria": "HighlightsSection.tsx exports HighlightsSection. It renders a section with id=\"highlights\", a SectionHeading, and one card per Highlight. Each card renders title, description, and optional metric. It uses class names section, highlight-grid, and highlight-card.",
+        "skills": [
+          "react",
+          "content-layout"
+        ],
+        "dependsOn": [
+          "types-site-content",
+          "impl-ui-primitives"
+        ],
+        "inputs": {
+          "description": "Create a premium product highlights section using spacious cards and concise benefit-led copy. This component remains stateless and receives all highlights through props."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/HighlightsSection.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/HighlightsSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:31:22.448Z"
+      }
+    ],
+    [
+      "impl-features-section",
+      {
+        "id": "impl-features-section",
+        "type": "implement",
+        "title": "实现功能介绍区域",
+        "specFragment": "功能介绍",
+        "nodeRole": "implementer",
+        "task": "Implement output/FeaturesSection.tsx. Import type Feature from output/types.ts. Import SectionHeading from output/ui.tsx. Export function FeaturesSection(props: { features: Feature[] }): JSX.Element.",
+        "acceptanceCriteria": "FeaturesSection.tsx exports FeaturesSection. It renders a section with id=\"features\", a SectionHeading, and one feature card per Feature. Each card renders icon, title, and description. It uses class names section, feature-grid, feature-card, and feature-icon.",
+        "skills": [
+          "react",
+          "responsive-layout"
+        ],
+        "dependsOn": [
+          "types-site-content",
+          "impl-ui-primitives"
+        ],
+        "inputs": {
+          "description": "Build a responsive feature grid that communicates the key capabilities of the static showcase blog/product experience, using subtle icon treatment and glass cards."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/FeaturesSection.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/FeaturesSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:31:22.448Z"
+      }
+    ],
+    [
+      "impl-showcase-section",
+      {
+        "id": "impl-showcase-section",
+        "type": "implement",
+        "title": "实现展示图区域",
+        "specFragment": "展示图区域；轻玻璃拟态",
+        "nodeRole": "implementer",
+        "task": "Implement output/ShowcaseSection.tsx. Import type ShowcaseItem from output/types.ts. Import SectionHeading from output/ui.tsx. Export function ShowcaseSection(props: { items: ShowcaseItem[] }): JSX.Element.",
+        "acceptanceCriteria": "ShowcaseSection.tsx exports ShowcaseSection. It renders a section with id=\"showcase\", a SectionHeading, and one showcase card per ShowcaseItem. Each card includes a decorative visual area with role=\"img\" and aria-label from imageAlt, plus title and description. It uses class names section, showcase-grid, showcase-card, and showcase-visual.",
+        "skills": [
+          "react",
+          "accessibility",
+          "visual-design"
+        ],
+        "dependsOn": [
+          "types-site-content",
+          "impl-ui-primitives"
+        ],
+        "inputs": {
+          "description": "Create a product-display area without external image dependencies by rendering abstract gradient/glass mockups. The section should feel suitable for portfolio, product, or editorial blog presentation."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ShowcaseSection.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/ShowcaseSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:31:22.448Z"
+      }
+    ],
+    [
+      "impl-blog-section",
+      {
+        "id": "impl-blog-section",
+        "type": "implement",
+        "title": "实现博客预览区域",
+        "specFragment": "Clarifications: 展示型博客",
+        "nodeRole": "implementer",
+        "task": "Implement output/BlogPreviewSection.tsx. Import type BlogPost from output/types.ts. Import SectionHeading from output/ui.tsx. Export function BlogPreviewSection(props: { posts: BlogPost[] }): JSX.Element.",
+        "acceptanceCriteria": "BlogPreviewSection.tsx exports BlogPreviewSection. It renders a section with id=\"journal\", a SectionHeading, and one article card per BlogPost. Each article renders category, date, title, excerpt, readTime, and href anchor. It uses class names section, blog-grid, blog-card, blog-meta, and blog-link.",
+        "skills": [
+          "react",
+          "semantic-html"
+        ],
+        "dependsOn": [
+          "types-site-content",
+          "impl-ui-primitives"
+        ],
+        "inputs": {
+          "description": "Implement the static blog showcase portion using semantic article cards. It should support editorial previews while remaining visually consistent with the product landing sections."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/BlogPreviewSection.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/BlogPreviewSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:31:22.448Z"
+      }
+    ],
+    [
+      "impl-final-cta-section",
+      {
+        "id": "impl-final-cta-section",
+        "type": "implement",
+        "title": "实现最终行动区域",
+        "specFragment": "行动按钮",
+        "nodeRole": "implementer",
+        "task": "Implement output/FinalCtaSection.tsx. Import type SiteContent from output/types.ts. Import ButtonLink from output/ui.tsx. Export function FinalCtaSection(props: { cta: SiteContent['finalCta'] }): JSX.Element.",
+        "acceptanceCriteria": "FinalCtaSection.tsx exports FinalCtaSection. It renders cta.title, cta.description, and cta.cta through ButtonLink. It uses class names section and cta-panel.",
+        "skills": [
+          "react",
+          "conversion-ui"
+        ],
+        "dependsOn": [
+          "types-site-content",
+          "impl-ui-primitives"
+        ],
+        "inputs": {
+          "description": "Create the closing conversion section with glass panel styling hooks and a single clear call to action. This reinforces the product-showcase homepage flow."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/FinalCtaSection.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/FinalCtaSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:31:22.448Z"
+      }
+    ],
+    [
+      "integrate-home-page",
+      {
+        "id": "integrate-home-page",
+        "type": "implement",
+        "title": "集成首页页面",
+        "specFragment": "实现一个 Apple 风格的网站；包含适合产品展示的首页结构（如 Hero 区、产品亮点、功能介绍、展示图区域、行动按钮等），并保证在桌面端和移动端都有良好体验。",
+        "nodeRole": "integrator",
+        "task": "Implement output/App.tsx. Import './styles.css'. Import siteContent from output/content.ts. Import Navigation from output/Navigation.tsx, HeroSection from output/HeroSection.tsx, HighlightsSection from output/HighlightsSection.tsx, FeaturesSection from output/FeaturesSection.tsx, ShowcaseSection from output/ShowcaseSection.tsx, BlogPreviewSection from output/BlogPreviewSection.tsx, and FinalCtaSection from output/FinalCtaSection.tsx. Export default function App(): JSX.Element.",
+        "acceptanceCriteria": "App.tsx exports default function App. App renders Navigation with siteContent.nav, HeroSection with siteContent.hero, HighlightsSection with siteContent.highlights, FeaturesSection with siteContent.features, ShowcaseSection with siteContent.showcase, BlogPreviewSection with siteContent.posts, and FinalCtaSection with siteContent.finalCta. App imports './styles.css'.",
+        "skills": [
+          "react",
+          "page-composition"
+        ],
+        "dependsOn": [
+          "impl-static-content",
+          "impl-style-tokens",
+          "impl-navigation",
+          "impl-hero-section",
+          "impl-highlights-section",
+          "impl-features-section",
+          "impl-showcase-section",
+          "impl-blog-section",
+          "impl-final-cta-section"
+        ],
+        "inputs": {
+          "description": "Compose all sections into a complete static Apple-inspired showcase blog homepage. Ensure the page order supports a strong landing flow: navigation, hero, highlights, features, showcase visuals, blog previews, and final CTA."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/App.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/App.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:32:47.382Z"
+      }
+    ],
+    [
+      "test-content-contract",
+      {
+        "id": "test-content-contract",
+        "type": "implement",
+        "title": "测试静态内容契约",
+        "specFragment": "展示型博客；先做静态内容",
+        "nodeRole": "tester",
+        "task": "Implement output/content.test.ts. Import siteContent from output/content.ts. Define tests that assert siteContent.nav.length >= 4, siteContent.highlights.length >= 3, siteContent.features.length >= 4, siteContent.showcase.length >= 2, siteContent.posts.length >= 3, and every href field in nav, hero CTAs, posts, and finalCta.cta is a non-empty string.",
+        "acceptanceCriteria": "content.test.ts imports siteContent and contains assertions for nav, highlights, features, showcase, posts, and non-empty href fields. The test file does not render React components and only validates static content shape and minimum content counts.",
+        "skills": [
+          "unit-testing",
+          "ts-strict"
+        ],
+        "dependsOn": [
+          "impl-static-content"
+        ],
+        "inputs": {
+          "description": "Add lightweight unit coverage to prevent accidental removal of required static homepage content. This test focuses only on the content module contract and can run independently from React rendering tests."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.test.ts",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.test.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 5,
+        "retryCount": 1,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:33:17.398Z",
+        "evidence": {
+          "reasoning": "Implementing: Add lightweight unit coverage to prevent accidental removal of required static homepage content. This test focuses only on the content module contract and can run independently from React rendering tests.",
+          "promptUsed": "Role: tester\nTask: Implement output/content.test.ts. Import siteContent from output/content.ts. Define tests that assert siteContent.nav.length >= 4, siteContent.highlights.length >= 3, siteContent.features.length >= 4, siteContent.showcase.length >= 2, siteContent.posts.length >= 3, and every href ",
+          "modelUsed": "gpt-5.3-codex",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import test from 'node:test';\nimport assert from 'node:assert/strict';\n\nimport { siteContent } from './content';\n\n/**\n * Returns true when the provided value is a non-empty string after trimming.\n *\n * @param value - The value to validate.\n * @returns Whether the value is a non-empty string.\n */\nfunction isNonEmptyString(value: unknown): value is string {\n  return typeof value === 'string' && value.trim().length > 0;\n}\n\ntest('siteContent has minimum collection sizes', () => {\n  assert.ok(siteContent.nav.length >= 4);\n  assert.ok(siteContent.highlights.length >= 3);\n  assert.ok(siteContent.features.length >= 4);\n  assert.ok(siteContent.showcase.length >= 2);\n  assert.ok(siteContent.posts.length >= 3);\n});\n\ntest('every nav href is a non-empty string', () => {\n  for (const item of siteContent.nav) {\n    assert.ok(isNonEmptyString(item.href));\n  }\n});\n\ntest('hero CTA href fields are non-empty strings', () => {\n  assert.ok(isNonEmptyString(siteContent.hero.primaryCta.href));\n  assert.ok(isNonEmptyString(siteContent.hero.secondaryCta.href));\n});\n\ntest('every post href is a non-empty string', () => {\n  for (const post of siteContent.posts) {\n    assert.ok(isNonEmptyString(post.href));\n  }\n});\n\ntest('finalCta.cta href is a non-empty string', () => {\n  assert.ok(isNonEmptyString(siteContent.finalCta.cta.href));\n});\n",
+                "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.test.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.test.ts (44 lines)",
+              "success": true,
+              "timestamp": "2026-04-30T10:33:13.388Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.test.ts",
+              "operation": "create",
+              "sizeBytes": 1328,
+              "checksum": "c88406f9e10dd3c7",
+              "timestamp": "2026-04-30T10:33:13.388Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 695,
+              "timestamp": "2026-04-30T10:33:13.388Z"
+            }
+          ],
+          "startedAt": "2026-04-30T10:32:58.367Z",
+          "completedAt": "2026-04-30T10:33:13.388Z",
+          "durationMs": 15021
+        },
+        "lastError": ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/content.test.ts(1,38): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.\n\nnpm warn Unknown env config \"recursive\". This will stop working in the next major version of npm.",
+        "lastErrorKind": "verify"
+      }
+    ],
+    [
+      "test-app-render",
+      {
+        "id": "test-app-render",
+        "type": "implement",
+        "title": "测试首页渲染结构",
+        "specFragment": "包含适合产品展示的首页结构（如 Hero 区、产品亮点、功能介绍、展示图区域、行动按钮等）",
+        "nodeRole": "tester",
+        "task": "Implement output/App.test.tsx. Import App from output/App.tsx. Use React Testing Library to render <App /> and assert that navigation exists, hero title text exists, sections with ids highlights, features, showcase, and journal exist, and at least one primary CTA link exists.",
+        "acceptanceCriteria": "App.test.tsx imports App and renders it. Tests assert presence of nav landmark, hero content, #highlights, #features, #showcase, #journal, and a link with class containing primary. The test file does not duplicate component implementation logic.",
+        "skills": [
+          "react-testing-library",
+          "accessibility-testing"
+        ],
+        "dependsOn": [
+          "integrate-home-page"
+        ],
+        "inputs": {
+          "description": "Verify the integrated page exposes the required homepage structure and key landmarks. This gives confidence that the Apple-style showcase blog page remains complete after composition changes."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/App.test.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777544926301/sessions/sess-1777544926302/output/App.test.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "pending",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-04-30T10:30:18.795Z",
+        "updatedAt": "2026-04-30T10:30:18.795Z"
+      }
+    ]
+  ],
+  "status": "failed",
+  "stats": {
+    "total": 14,
+    "byStatus": {
+      "pending": 1,
+      "ready": 0,
+      "running": 0,
+      "verifying": 0,
+      "done": 3,
+      "failed": 3,
+      "blocked": 7,
+      "skipped": 0
+    },
+    "filesGenerated": 6,
+    "verificationsRun": 6,
+    "verificationsPassed": 4
+  },
+  "createdAt": "2026-04-30T10:30:18.794Z",
+  "updatedAt": "2026-04-30T10:55:09.815Z",
+  "completedAt": "2026-04-30T10:55:09.817Z"
+}

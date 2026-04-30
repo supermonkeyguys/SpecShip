@@ -1,1 +1,1 @@
-export * from "../../../packages/core/src/prompts";
+export * from "../../../packages/core/src/ai/prompts";

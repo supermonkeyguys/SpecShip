@@ -164,10 +164,17 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
       const resolvedSessionId = targetSessionId ?? state.liveSessionId ?? state.activeSessionId;
       if (!resolvedSessionId) return state;
 
+      // 优先从 SSE 事件里取 projectId，其次从已有 session 取，最后才留空
+      const existingProjectId = state.sessions[resolvedSessionId]?.projectId;
+      const resolvedProjectId = (event as { projectId?: string }).projectId ?? existingProjectId ?? "";
       const existing = state.sessions[resolvedSessionId] ?? createEmptySession({
-        projectId: "",
+        projectId: resolvedProjectId,
         sessionId: resolvedSessionId,
       });
+      // 如果已有 session 的 projectId 是空的但现在有了，补上
+      const patchedExisting = !existingProjectId && resolvedProjectId
+        ? { ...existing, projectId: resolvedProjectId }
+        : existing;
 
       switch (event.type) {
         case "node_update": {
@@ -176,11 +183,11 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
             sessions: {
               ...state.sessions,
               [resolvedSessionId]: {
-                ...existing,
-                nodes: { ...existing.nodes, [node.id]: node },
+                ...patchedExisting,
+                nodes: { ...patchedExisting.nodes, [node.id]: node },
                 runStatus:
-                  existing.runStatus === "done" || existing.runStatus === "failed"
-                    ? existing.runStatus
+                  patchedExisting.runStatus === "done" || patchedExisting.runStatus === "failed"
+                    ? patchedExisting.runStatus
                     : "running",
                 source: "realtime",
                 lastUpdatedAt: Date.now(),
@@ -195,7 +202,7 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
             sessions: {
               ...state.sessions,
               [resolvedSessionId]: {
-                ...existing,
+                ...patchedExisting,
                 summary: event.payload as SessionExecutionState["summary"],
                 runStatus: event.type === "graph_done" ? "done" : "failed",
                 source: "realtime",
@@ -209,8 +216,8 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
             sessions: {
               ...state.sessions,
               [resolvedSessionId]: {
-                ...existing,
-                logs: [...existing.logs, event.payload as string],
+                ...patchedExisting,
+                logs: [...patchedExisting.logs, event.payload as string],
                 source: "realtime",
                 lastUpdatedAt: Date.now(),
               },

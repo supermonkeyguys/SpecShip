@@ -1,4 +1,4 @@
-import type { StatusResponse, ProjectsResponse, FileEntry } from "../../types";
+import type { StatusResponse, ProjectsResponse, FileEntry, PreviewStatusResponse } from "../../types";
 import type { ActiveSession } from "../../features/session/types";
 
 export interface SelectedFileIdentity {
@@ -14,4 +14,8 @@ export interface WorkspaceState {
   projects: ProjectsResponse["projects"];
   expandedProjectId: string | null;
   sessionFiles: FileEntry[];
+  previewInfo: PreviewStatusResponse | null;
+  // session管理选择态
+  selectionMode: boolean;
+  selectedSessions: Set<string>; // sessionId set
 }

@@ -11,9 +11,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "fs";
 import * as path from "path";
-import { run, type CheckpointHandler } from "../../packages/core/src/shipyard";
+import { run, type CheckpointHandler } from "../../packages/core/src/orchestrator/shipyard";
 import { makeMockAgentRunner, makeMockNodeVerifier, makeTestConfig, makePlannerResponse } from "./helpers";
-import type { AgentRunner } from "../../packages/core/src/shipyard";
+import type { AgentRunner } from "../../packages/core/src/orchestrator/shipyard";
 
 /** Planner mock: checkpoint-confirm → impl-main (depends on checkpoint) */
 function makeCheckpointPlanRunner(outputDir: string): AgentRunner {
@@ -96,6 +96,44 @@ test("checkpoint: auto-approved when no onCheckpoint provided", async () => {
     assert.equal(graph.status, "done");
     assert.equal(graph.nodes.get("checkpoint-confirm")?.status, "done");
     assert.equal(graph.nodes.get("impl-main")?.status, "done");
+  } finally {
+    cleanup();
+  }
+});
+
+test("checkpoint: graph status becomes paused before resume", async () => {
+  const { config, cleanup } = makeTestConfig("checkpoint-paused-status");
+  let resumeFn: (() => void) | null = null;
+  const seenStatuses: string[] = [];
+
+  const onCheckpoint: CheckpointHandler = (_node, resume) => {
+    resumeFn = resume;
+  };
+
+  try {
+    const runPromise = run(
+      "Write a TypeScript module",
+      config,
+      undefined,
+      (updatedGraph) => {
+        seenStatuses.push(updatedGraph.status);
+      },
+      makeCheckpointPlanRunner(config.outputDir ?? "output"),
+      makeMockNodeVerifier(),
+      onCheckpoint,
+    );
+
+    const deadline = Date.now() + 2000;
+    while (!resumeFn && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+
+    assert.ok(resumeFn !== null, "checkpoint should have fired");
+    assert.ok(seenStatuses.includes("paused"), `expected statuses to include paused, got: ${seenStatuses.join(", ")}`);
+
+    resumeFn!();
+    const graph = await runPromise;
+    assert.equal(graph.status, "done");
   } finally {
     cleanup();
   }

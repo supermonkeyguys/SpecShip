@@ -19,7 +19,7 @@ filesRouter.get("/file", (req: Request, res: Response) => {
     return;
   }
 
-  const outputDir = path.join(process.cwd(), "output");
+  const outputDir = path.join(process.env.WORK_DIR ?? process.cwd(), "output");
   const fullPath = path.join(outputDir, filePath);
 
   // 安全检查：不允许路径穿越
@@ -42,7 +42,7 @@ filesRouter.get("/file", (req: Request, res: Response) => {
 });
 
 filesRouter.get("/files", (req: Request, res: Response) => {
-  const outputDir = path.join(process.cwd(), "output");
+  const outputDir = path.join(process.env.WORK_DIR ?? process.cwd(), "output");
 
   if (!fs.existsSync(outputDir)) {
     res.json({ files: [] } satisfies FilesResponse);

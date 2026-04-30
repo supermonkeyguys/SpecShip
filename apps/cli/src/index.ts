@@ -1,13 +1,13 @@
 import * as path from "path";
 import * as fs from "fs";
-import { run, buildHistory, type ExecutionGraph } from "../../../packages/core/src/shipyard";
+import { run, buildHistory, type ExecutionGraph } from "../../../packages/core/src/orchestrator/shipyard";
 import { DEFAULT_CONFIG } from "../../../packages/core/src/config";
 import {
   getCheckpointPath,
   loadGraphCheckpoint,
   prepareGraphForResume,
   saveGraphCheckpoint,
-} from "../../../packages/core/src/checkpoint";
+} from "../../../packages/core/src/persistence/checkpoint";
 
 async function main() {
   const args = process.argv.slice(2);

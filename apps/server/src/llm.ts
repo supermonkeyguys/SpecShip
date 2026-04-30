@@ -1,1 +1,1 @@
-export * from "../../../packages/core/src/llm";
+export * from "../../../packages/core/src/ai/llm";

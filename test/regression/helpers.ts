@@ -14,7 +14,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import type { AgentRunner, NodeVerifier } from "../../packages/core/src/shipyard";
+import type { AgentRunner, NodeVerifier } from "../../packages/core/src/orchestrator/shipyard";
 import type { ShipyardConfig } from "../../packages/core/src/config";
 
 export { NodeVerifier };
@@ -106,7 +106,7 @@ export function makeMockAgentRunner(opts: {
       const fullPath = path.resolve(workDir, targetFile);
       fs.mkdirSync(path.dirname(fullPath), { recursive: true });
       fs.writeFileSync(fullPath, `// intentional error\nconst x: number = "wrong type";\n`, "utf-8");
-      onToolCall?.("write_file", targetFile);
+      onToolCall?.({ tool: "write_file", input: { path: targetFile, content: "" }, output: `Written: ${targetFile}`, success: true, filePath: targetFile });
       return {
         finalText: "",
         toolExecutions: [{ tool: "write_file", input: { path: targetFile, content: "" }, output: `Written: ${targetFile}`, success: true, filePath: targetFile }],
@@ -119,7 +119,7 @@ export function makeMockAgentRunner(opts: {
     const fullPath = path.resolve(workDir, targetFile);
     fs.mkdirSync(path.dirname(fullPath), { recursive: true });
     fs.writeFileSync(fullPath, content, "utf-8");
-    onToolCall?.("write_file", targetFile);
+    onToolCall?.({ tool: "write_file", input: { path: targetFile, content: "" }, output: `Written: ${targetFile}`, success: true, filePath: targetFile });
 
     return {
       finalText: "",

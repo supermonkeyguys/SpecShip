@@ -7,6 +7,12 @@
 
 import express from "express";
 import cors from "cors";
+import * as path from "path";
+
+// 项目根目录：__dirname = apps/server/src，往上三层到项目根
+// 无论 tsx 从哪里启动都能正确定位 .shipyard/
+const PROJECT_ROOT = path.resolve(__dirname, "../../..");
+if (!process.env.WORK_DIR) process.env.WORK_DIR = PROJECT_ROOT;
 import { runRouter } from "./routes/run";
 import { streamRouter } from "./routes/stream";
 import { nodeRouter } from "./routes/node";
@@ -15,6 +21,7 @@ import { chatRouter } from "./routes/chat";
 import { resumeRouter } from "./routes/resume";
 import { projectsRouter } from "./routes/projects";
 import { clarifyRouter } from "./routes/clarify";
+import { previewRouter } from "./routes/preview";
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
@@ -32,6 +39,7 @@ app.use("/api", chatRouter);
 app.use("/api", resumeRouter);
 app.use("/api", projectsRouter);
 app.use("/api", clarifyRouter);
+app.use("/api", previewRouter);
 
 // ---- 健康检查 ----
 app.get("/health", (_req, res) => {

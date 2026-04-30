@@ -11,10 +11,14 @@ import { DEFAULT_CONFIG } from "../config";
 import { loadGraphCheckpoint, prepareGraphForResume, saveGraphCheckpoint } from "../checkpoint";
 import { sseManager } from "../sse";
 import { GraphNode } from "../graph";
+import { mapGraphStatusToSessionStatus } from "../state";
 import { watchSession, stopWatch } from "../sse-projection";
 import { NodeStatus, GraphSummary, StatusResponse, ResumeResponse } from "../types";
-import { activeSession, activeWorkflowId, setActiveRunContext } from "./run";
-import { getSessionGraphPath, listProjects, listSessions, getSessionOutputDir } from "../project";
+import {
+  activeSession, activeWorkflowId, setActiveRunContext,
+  getPendingCheckpointResume, clearPendingCheckpointResume, setPendingCheckpointResume,
+} from "./run";
+import { getSessionGraphPath, listProjects, listSessions, getSessionOutputDir, updateSession } from "../project";
 
 const ORCHESTRATOR_MODE = process.env.ORCHESTRATOR_MODE ?? "legacy";
 
@@ -41,7 +45,7 @@ function resolveResumeTarget(workDir: string, projectId?: string, sessionId?: st
   const projects = listProjects(workDir);
   for (const p of projects) {
     const sessions = listSessions(workDir, p.id);
-    const candidate = sessions.find((s) => s.status === "running" || s.status === "interrupted");
+    const candidate = sessions.find((s) => s.status === "running" || s.status === "paused" || s.status === "interrupted");
     if (candidate) {
       return {
         projectId: p.id,
@@ -86,7 +90,7 @@ resumeRouter.get("/status", async (req: Request, res: Response) => {
   }
 
   try {
-    const workDir = process.cwd();
+    const workDir = process.env.WORK_DIR ?? process.cwd();
     const target = resolveResumeTarget(workDir, projectId, sessionId);
 
     if (!target) {
@@ -134,7 +138,7 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
     sessionId?: string;
   };
 
-  const workDir = process.cwd();
+  const workDir = process.env.WORK_DIR ?? process.cwd();
 
   if (ORCHESTRATOR_MODE === "temporal") {
     const projectId = requestedProjectId ?? activeSession?.projectId;
@@ -186,9 +190,21 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
     outputDir: getSessionOutputDir(workDir, target.projectId, target.sessionId),
   };
 
+  const pendingCheckpoint = getPendingCheckpointResume(target.projectId, target.sessionId);
+  if (pendingCheckpoint) {
+    clearPendingCheckpointResume(target.projectId, target.sessionId);
+    updateSession(workDir, target.projectId, target.sessionId, { status: "running" });
+    isRunning = true;
+    res.json({ ok: true, graphId: target.sessionId, projectId: target.projectId, sessionId: target.sessionId } satisfies ResumeResponse);
+    pendingCheckpoint.resume();
+    return;
+  }
+
   let graph;
+  let autoApproveResumedCheckpoint = false;
   try {
     const loaded = loadGraphCheckpoint(config.workDir, target.graphPath);
+    autoApproveResumedCheckpoint = loaded.status === "paused";
     graph = prepareGraphForResume(loaded);
     saveGraphCheckpoint(config.workDir, graph, target.graphPath);
   } catch (e) {
@@ -205,6 +221,7 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
   } satisfies ResumeResponse);
 
   isRunning = true;
+  updateSession(workDir, target.projectId, target.sessionId, { status: "running" });
   const startTime = Date.now();
   const prevNodeStatus = new Map<string, string>();
 
@@ -212,8 +229,10 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
     const finalGraph = await run(graph.originalSpec, config, graph, (updatedGraph) => {
       for (const node of updatedGraph.nodes.values()) {
         const prev = prevNodeStatus.get(node.id);
-        if (prev !== node.status) {
-          prevNodeStatus.set(node.id, node.status);
+        const statusChanged = prev !== node.status;
+        const hasLiveToolCalls = node.status === "running" && (node.evidence?.toolCalls.length ?? 0) > 0;
+        if (statusChanged || hasLiveToolCalls) {
+          if (statusChanged) prevNodeStatus.set(node.id, node.status);
           sseManager.push({
             type: "node_update",
             payload: toNodeStatus(node),
@@ -222,7 +241,28 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
           });
         }
       }
+    }, undefined, undefined, (checkpointNode, resume) => {
+      if (autoApproveResumedCheckpoint) {
+        autoApproveResumedCheckpoint = false;
+        resume();
+        return;
+      }
+      setPendingCheckpointResume(target.projectId, target.sessionId, checkpointNode.id, resume);
+      updateSession(workDir, target.projectId, target.sessionId, { status: "paused" });
+      isRunning = false;
+      sseManager.push({
+        type: "log",
+        payload: `Paused at checkpoint ${checkpointNode.id}: ${checkpointNode.title}`,
+        projectId: target.projectId,
+        sessionId: target.sessionId,
+      });
     });
+
+    clearPendingCheckpointResume(target.projectId, target.sessionId);
+    updateSession(workDir, target.projectId, target.sessionId, {
+      status: mapGraphStatusToSessionStatus(finalGraph.status),
+    });
+
 
     const summary: GraphSummary = {
       id: finalGraph.id,
@@ -246,6 +286,8 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
       sessionId: target.sessionId,
     });
   } catch (e) {
+    clearPendingCheckpointResume(target.projectId, target.sessionId);
+    updateSession(workDir, target.projectId, target.sessionId, { status: "failed" });
     sseManager.push({
       type: "log",
       payload: `Fatal error: ${(e as Error).message}`,
@@ -253,7 +295,9 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
       sessionId: target.sessionId,
     });
   } finally {
-    isRunning = false;
+    if (!getPendingCheckpointResume(target.projectId, target.sessionId)) {
+      isRunning = false;
+    }
   }
 });
 
@@ -262,6 +306,7 @@ function toNodeStatus(node: GraphNode): NodeStatus {
     id: node.id,
     title: node.title,
     status: node.status,
+    nodeType: node.type,
     specFragment: node.specFragment,
     dependsOn: node.dependsOn,
     filesWritten: node.evidence?.filesWritten.map((f) => f.path) ?? [],
@@ -278,7 +323,108 @@ function toNodeStatus(node: GraphNode): NodeStatus {
       summary: v.output.slice(0, 100),
     })) ?? [],
     retryCount: node.retryCount,
+    maxRetries: node.maxRetries,
     error: node.error?.message,
+    errorCategory: node.error?.category,
+    errorRecoverable: node.error?.recoverable,
     durationMs: node.evidence?.durationMs,
   };
+}
+
+// ---- 可复用的 resume 执行函数（供 node retry 调用）----
+
+export async function runResumeSession(
+  projectId: string,
+  sessionId: string,
+): Promise<void> {
+  if (isRunning) return; // 已有任务在跑，忽略
+
+  const workDir = process.env.WORK_DIR ?? process.cwd();
+  const graphPath = getSessionGraphPath(workDir, projectId, sessionId);
+
+  let graph;
+  let autoApproveResumedCheckpoint = false;
+  try {
+    const loaded = loadGraphCheckpoint(workDir, graphPath);
+    autoApproveResumedCheckpoint = loaded.status === "paused";
+    graph = prepareGraphForResume(loaded);
+    saveGraphCheckpoint(workDir, graph, graphPath);
+  } catch {
+    return; // checkpoint 不存在，忽略
+  }
+
+  const config = {
+    ...DEFAULT_CONFIG,
+    workDir,
+    projectId,
+    sessionId,
+    outputDir: getSessionOutputDir(workDir, projectId, sessionId),
+  };
+
+  setActiveRunContext({ projectId, sessionId }, null);
+  sseManager.reset();
+
+  isRunning = true;
+  updateSession(workDir, projectId, sessionId, { status: "running" });
+  const startTime = Date.now();
+  const prevNodeStatus = new Map<string, string>();
+
+  try {
+    const finalGraph = await run(graph.originalSpec, config, graph, (updatedGraph) => {
+      for (const node of updatedGraph.nodes.values()) {
+        const prev = prevNodeStatus.get(node.id);
+        const statusChanged = prev !== node.status;
+        const hasLiveToolCalls = node.status === "running" && (node.evidence?.toolCalls.length ?? 0) > 0;
+        if (statusChanged || hasLiveToolCalls) {
+          if (statusChanged) prevNodeStatus.set(node.id, node.status);
+          sseManager.push({ type: "node_update", payload: toNodeStatus(node), projectId, sessionId });
+        }
+      }
+    }, undefined, undefined, (checkpointNode, resume) => {
+      if (autoApproveResumedCheckpoint) {
+        autoApproveResumedCheckpoint = false;
+        resume();
+        return;
+      }
+      setPendingCheckpointResume(projectId, sessionId, checkpointNode.id, resume);
+      updateSession(workDir, projectId, sessionId, { status: "paused" });
+      isRunning = false;
+      sseManager.push({
+        type: "log",
+        payload: `Paused at checkpoint ${checkpointNode.id}: ${checkpointNode.title}`,
+        projectId,
+        sessionId,
+      });
+    });
+
+    const summary: GraphSummary = {
+      id: finalGraph.id,
+      title: finalGraph.title,
+      status: finalGraph.status === "done" ? "done" : "failed",
+      stats: {
+        total: finalGraph.stats.total,
+        done: finalGraph.stats.byStatus.done,
+        failed: finalGraph.stats.byStatus.failed,
+        filesGenerated: finalGraph.stats.filesGenerated,
+        verificationsPassed: finalGraph.stats.verificationsPassed,
+        verificationsRun: finalGraph.stats.verificationsRun,
+      },
+      durationMs: Date.now() - startTime,
+    };
+
+    sseManager.push({
+      type: finalGraph.status === "done" ? "graph_done" : "graph_failed",
+      payload: summary,
+      projectId,
+      sessionId,
+    });
+  } catch (e) {
+    clearPendingCheckpointResume(projectId, sessionId);
+    updateSession(workDir, projectId, sessionId, { status: "failed" });
+    sseManager.push({ type: "log", payload: `Fatal error: ${(e as Error).message}`, projectId, sessionId });
+  } finally {
+    if (!getPendingCheckpointResume(projectId, sessionId)) {
+      isRunning = false;
+    }
+  }
 }

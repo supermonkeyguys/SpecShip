@@ -11,6 +11,7 @@ export interface NodeStatus {
   id: string;
   title: string;
   status: "pending" | "ready" | "running" | "verifying" | "done" | "failed" | "blocked" | "skipped";
+  nodeType: "implement" | "checkpoint";
   specFragment: string;
   dependsOn: string[];
   filesWritten: string[];
@@ -23,7 +24,10 @@ export interface NodeStatus {
   }>;
   verifications: Array<{ type: string; passed: boolean; summary: string }>;
   retryCount: number;
+  maxRetries: number;
   error?: string;
+  errorCategory?: "compile" | "api" | "logic" | "timeout" | "unknown";
+  errorRecoverable?: boolean;
   durationMs?: number;
 }
 
@@ -83,6 +87,7 @@ export interface ProjectsResponse {
       id: string;
       spec: string;
       status: string;
+      starred?: boolean;
       createdAt: string;
     }>;
   }>;
@@ -102,6 +107,27 @@ export interface FileEntry {
 export interface FilesResponse {
   files: FileEntry[];
 }
+
+export type PreviewKind = "none" | "static" | "live";
+export type LivePreviewStatus = "idle" | "starting" | "running" | "error";
+
+export interface PreviewStatusResponse {
+  ok: boolean;
+  supported: boolean;
+  kind: PreviewKind;
+  url?: string;
+  entryPath?: string;
+  reason?: string;
+  staticSupported?: boolean;
+  staticUrl?: string;
+  liveSupported?: boolean;
+  liveStatus?: LivePreviewStatus;
+  liveUrl?: string;
+  livePort?: number;
+  liveCommand?: string;
+  liveError?: string;
+}
+
 
 // ---- Clarify API ----
 

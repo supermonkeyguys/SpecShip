@@ -1,1 +1,1 @@
-export * from "../../../packages/core/src/checkpoint";
+export * from "../../../packages/core/src/persistence/checkpoint";

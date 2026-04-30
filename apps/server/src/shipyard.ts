@@ -1,1 +1,1 @@
-export * from "../../../packages/core/src/shipyard";
+export * from "../../../packages/core/src/orchestrator/shipyard";

@@ -17,7 +17,7 @@ export interface ShipyardConfig {
 
 export const DEFAULT_CONFIG: ShipyardConfig = {
   workDir:    process.cwd(),
-  maxRetries: 2,
+  maxRetries: 5,
   baseURL:    process.env.OPENAI_BASE_URL ?? process.env.ANTHROPIC_BASE_URL ?? "https://api.openai.com/v1",
   apiKey:     process.env.OPENAI_API_KEY  ?? process.env.ANTHROPIC_API_KEY  ?? "",
   models: {

@@ -13,15 +13,40 @@ import { sseManager } from "../sse";
 import { watchSession, stopWatch } from "../sse-projection";
 import { RunRequest, RunResponse, NodeStatus, GraphSummary } from "../types";
 import { GraphNode } from "../graph";
+import { mapGraphStatusToSessionStatus } from "../state";
 import { getIsRunning, setIsRunning } from "./resume";
 import {
   createProject, createSession, updateSession,
   getSessionOutputDir,
 } from "../project";
 
+const pendingCheckpointResumes = new Map<string, { nodeId: string; resume: () => void }>();
+
+function sessionKey(projectId: string, sessionId: string): string {
+  return `${projectId}:${sessionId}`;
+}
+
+export function setPendingCheckpointResume(projectId: string, sessionId: string, nodeId: string, resume: () => void): void {
+  pendingCheckpointResumes.set(sessionKey(projectId, sessionId), { nodeId, resume });
+}
+
+export function getPendingCheckpointResume(projectId: string, sessionId: string): { nodeId: string; resume: () => void } | null {
+  return pendingCheckpointResumes.get(sessionKey(projectId, sessionId)) ?? null;
+}
+
+export function clearPendingCheckpointResume(projectId: string, sessionId: string): void {
+  pendingCheckpointResumes.delete(sessionKey(projectId, sessionId));
+}
+
+export function hasPendingCheckpointResume(): boolean {
+  return pendingCheckpointResumes.size > 0;
+}
+
 const ORCHESTRATOR_MODE = process.env.ORCHESTRATOR_MODE ?? "legacy";
 
 export const runRouter = Router();
+
+const DEBUG_PREFIX = "[shipyard:server:run]";
 
 // 记录当前活跃的 session/workflow，供 SSE / resume / files 使用
 export let activeSession: { projectId: string; sessionId: string } | null = null;
@@ -38,18 +63,19 @@ export function setActiveRunContext(
 
 runRouter.post("/run", async (req: Request, res: Response) => {
   const { spec, repoPath } = req.body as RunRequest;
+  console.log(DEBUG_PREFIX, "request", { spec, repoPath });
 
   if (!spec?.trim()) {
     res.status(400).json({ ok: false, error: "spec is required" } satisfies RunResponse);
     return;
   }
 
-  if (getIsRunning()) {
-    res.status(409).json({ ok: false, error: "A task is already running" } satisfies RunResponse);
+  if (getIsRunning() || hasPendingCheckpointResume()) {
+    res.status(409).json({ ok: false, error: "A task is already running or paused awaiting resume" } satisfies RunResponse);
     return;
   }
 
-  const workDir = process.cwd();
+  const workDir = process.env.WORK_DIR ?? process.cwd();
 
   const proj = createProject(workDir, spec.slice(0, 40), repoPath);
   const sess = createSession(workDir, proj.id, spec);
@@ -68,6 +94,7 @@ runRouter.post("/run", async (req: Request, res: Response) => {
   activeSession = { projectId: proj.id, sessionId: sess.id };
   sseManager.reset();
 
+  console.log(DEBUG_PREFIX, "accepted", { projectId: proj.id, sessionId: sess.id, outputDir, spec });
   res.json({ ok: true, graphId: sess.id, projectId: proj.id, sessionId: sess.id } satisfies RunResponse);
 
   if (ORCHESTRATOR_MODE === "temporal") {
@@ -89,19 +116,35 @@ async function runWithLegacy(
   const startTime = Date.now();
   const prevNodeStatus = new Map<string, string>();
 
+  console.log(DEBUG_PREFIX, "runWithLegacy:start", { projectId, sessionId, spec: spec.slice(0, 80), config: { baseURL: config.baseURL, apiKey: config.apiKey ? config.apiKey.slice(0, 8) + "..." : "(empty)", model: config.models?.planning } });
+
   try {
     const graph = await run(spec, config, undefined, (updatedGraph: import("../graph").ExecutionGraph) => {
       for (const node of updatedGraph.nodes.values()) {
         const prev = prevNodeStatus.get(node.id);
-        if (prev !== node.status) {
-          prevNodeStatus.set(node.id, node.status);
+        const statusChanged = prev !== node.status;
+        // tool call 进度推送：running 节点有 evidence.toolCalls 时也推
+        const hasLiveToolCalls = node.status === "running" && (node.evidence?.toolCalls.length ?? 0) > 0;
+        if (statusChanged || hasLiveToolCalls) {
+          if (statusChanged) prevNodeStatus.set(node.id, node.status);
           sseManager.push({ type: "node_update", payload: toNodeStatus(node), projectId, sessionId });
         }
       }
+    }, undefined, undefined, (checkpointNode, resume) => {
+      setPendingCheckpointResume(projectId, sessionId, checkpointNode.id, resume);
+      updateSession(workDir, projectId, sessionId, { status: "paused" });
+      setIsRunning(false);
+      sseManager.push({
+        type: "log",
+        payload: `Paused at checkpoint ${checkpointNode.id}: ${checkpointNode.title}`,
+        projectId,
+        sessionId,
+      });
     });
 
+    clearPendingCheckpointResume(projectId, sessionId);
     updateSession(workDir, projectId, sessionId, {
-      status: graph.status === "done" ? "done" : "failed",
+      status: mapGraphStatusToSessionStatus(graph.status),
     });
 
     const summary: GraphSummary = {
@@ -126,10 +169,43 @@ async function runWithLegacy(
       sessionId,
     });
   } catch (e) {
+    const msg = (e as Error).message ?? String(e);
+    clearPendingCheckpointResume(projectId, sessionId);
     updateSession(workDir, projectId, sessionId, { status: "failed" });
-    sseManager.push({ type: "log", payload: `Fatal error: ${(e as Error).message}`, projectId, sessionId });
+    sseManager.push({ type: "log", payload: `Fatal error: ${msg}`, projectId, sessionId });
+
+    // 把所有还卡在 running/verifying 的节点标为 failed，推 node_update
+    try {
+      const graphPath = require("../project").getSessionGraphPath(workDir, projectId, sessionId);
+      const stuckGraph = require("../checkpoint").loadGraphCheckpoint(workDir, graphPath);
+      let patched = stuckGraph;
+      for (const node of stuckGraph.nodes.values()) {
+        if (node.status === "running" || node.status === "verifying") {
+          patched = require("../graph").transitionNode(patched, node.id, "failed", {
+            error: { message: `Process died: ${msg}`, category: "unknown", recoverable: true },
+          });
+          sseManager.push({ type: "node_update", payload: toNodeStatus(patched.nodes.get(node.id)!), projectId, sessionId });
+        }
+      }
+      require("../checkpoint").saveGraphCheckpoint(workDir, patched, graphPath);
+    } catch { /* best-effort */ }
+
+    sseManager.push({
+      type: "graph_failed",
+      payload: {
+        id: sessionId,
+        title: "",
+        status: "failed",
+        stats: { total: 0, done: 0, failed: 0, filesGenerated: 0, verificationsPassed: 0, verificationsRun: 0 },
+        durationMs: Date.now() - startTime,
+      } satisfies GraphSummary,
+      projectId,
+      sessionId,
+    });
   } finally {
-    setIsRunning(false);
+    if (!getPendingCheckpointResume(projectId, sessionId)) {
+      setIsRunning(false);
+    }
   }
 }
 
@@ -189,6 +265,7 @@ export function toNodeStatus(node: GraphNode): NodeStatus {
     id: node.id,
     title: node.title,
     status: node.status,
+    nodeType: node.type,
     specFragment: node.specFragment,
     dependsOn: node.dependsOn,
     filesWritten: node.evidence?.filesWritten.map((f) => f.path) ?? [],
@@ -205,7 +282,10 @@ export function toNodeStatus(node: GraphNode): NodeStatus {
       summary: v.output.slice(0, 100),
     })) ?? [],
     retryCount: node.retryCount,
+    maxRetries: node.maxRetries,
     error: node.error?.message,
+    errorCategory: node.error?.category,
+    errorRecoverable: node.error?.recoverable,
     durationMs: node.evidence?.durationMs,
   };
 }

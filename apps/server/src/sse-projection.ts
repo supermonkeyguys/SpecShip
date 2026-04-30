@@ -44,11 +44,13 @@ export function watchSession(workDir: string, projectId: string, sessionId: stri
         id: payload.nodeId,
         title: payload.nodeId,
         status: payload.status,
+        nodeType: "implement",
         specFragment: "",
         dependsOn: [],
         filesWritten: payload.filesWritten,
         verifications: [],
         retryCount: 0,
+        maxRetries: 0,
         error: payload.error,
       };
 

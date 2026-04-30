@@ -108,19 +108,7 @@ export function routeIntentByPolicy(input: RouteIntentInput): ChatIntent | null 
   const retryIntent = matchRetryNode(rawMessage, input.currentNodes ?? []);
   if (retryIntent) return retryIntent;
 
-  if (NEW_RUN_RE.test(rawMessage) || (rawMessage.length >= 12 && !input.currentSpec)) {
-    return {
-      type: "new_run",
-      spec: rawMessage,
-      repoPath: extractRepoPath(rawMessage),
-      reply: say(
-        rawMessage,
-        "收到，我先判断是否需要补充几个关键细节，然后开始执行。",
-        "Got it — I'll first check whether a few key details need clarification, then start execution."
-      ),
-    };
-  }
-
+  // new_run 及其他所有意图一律交给 LLM 判断，避免正则误匹配导致复用固定回复
   return null;
 }
 

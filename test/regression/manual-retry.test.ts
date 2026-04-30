@@ -14,8 +14,8 @@ import {
 } from "../../packages/core/src/graph";
 import {
   saveGraphCheckpoint, loadGraphCheckpoint,
-} from "../../packages/core/src/checkpoint";
-import { run } from "../../packages/core/src/shipyard";
+} from "../../packages/core/src/persistence/checkpoint";
+import { run } from "../../packages/core/src/orchestrator/shipyard";
 import { makeMockAgentRunner, makeMockNodeVerifier, makeTestConfig } from "./helpers";
 
 test("manual-retry: failed node can be reset to ready via transitionNode", () => {
@@ -26,6 +26,10 @@ test("manual-retry: failed node can be reset to ready via transitionNode", () =>
     type: "implement",
     title: "Main implementation",
     specFragment: "Write main.ts",
+      nodeRole: "implementer",
+      task: "implement",
+      acceptanceCriteria: "implemented correctly",
+      skills: [],
     dependsOn: [],
     inputs: { description: "Write output/main.ts" },
     outputs: {
@@ -50,6 +54,10 @@ test("manual-retry: cannot transition done node to ready", () => {
     type: "implement",
     title: "Main implementation",
     specFragment: "Write main.ts",
+      nodeRole: "implementer",
+      task: "implement",
+      acceptanceCriteria: "implemented correctly",
+      skills: [],
     dependsOn: [],
     inputs: { description: "Write output/main.ts" },
     outputs: {

@@ -11,6 +11,7 @@ import { transitionNode } from "../graph";
 import { RetryResponse } from "../types";
 import { getSessionGraphPath } from "../project";
 import { activeSession, activeWorkflowId } from "./run";
+import { runResumeSession } from "./resume";
 
 export const nodeRouter = Router();
 
@@ -61,10 +62,10 @@ nodeRouter.post("/node/:id/retry", async (req: Request, res: Response) => {
     return;
   }
 
-  const graphPath = getSessionGraphPath(process.cwd(), projectId, sessionId);
+  const graphPath = getSessionGraphPath(process.env.WORK_DIR ?? process.cwd(), projectId, sessionId);
 
   try {
-    const graph = loadGraphCheckpoint(process.cwd(), graphPath);
+    const graph = loadGraphCheckpoint(process.env.WORK_DIR ?? process.cwd(), graphPath);
     const node = graph.nodes.get(id);
 
     if (!node) {
@@ -72,18 +73,28 @@ nodeRouter.post("/node/:id/retry", async (req: Request, res: Response) => {
       return;
     }
 
-    if (node.status !== "failed") {
+    const retryableStatuses = ["failed", "running", "verifying", "ready"];
+    if (!retryableStatuses.includes(node.status)) {
       res.status(400).json({
         ok: false,
-        error: `Node ${String(id)} is not in failed state (current: ${node.status})`,
+        error: `Node ${String(id)} cannot be retried (current: ${node.status})`,
       } satisfies RetryResponse);
       return;
     }
 
+    // ready 状态说明已经在队列中，不需要再改状态
+    if (node.status === "ready") {
+      res.json({ ok: true } satisfies RetryResponse);
+      return;
+    }
+
     const updated = transitionNode(graph, id, "ready");
-    saveGraphCheckpoint(process.cwd(), updated, graphPath);
+    saveGraphCheckpoint(process.env.WORK_DIR ?? process.cwd(), updated, graphPath);
 
     res.json({ ok: true } satisfies RetryResponse);
+
+    // 异步触发调度循环恢复执行，不阻塞响应
+    runResumeSession(projectId, sessionId).catch(() => {});
   } catch (e) {
     res.status(500).json({ ok: false, error: (e as Error).message } satisfies RetryResponse);
   }

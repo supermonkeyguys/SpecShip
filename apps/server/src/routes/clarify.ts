@@ -14,6 +14,8 @@ import { ClarifyRequest, ClarifyResponse, ClarifyQuestion } from "../types";
 
 export const clarifyRouter = Router();
 
+const DEBUG_PREFIX = "[shipyard:server:clarify]";
+
 function normalizeOption(option: unknown, index: number): NonNullable<ClarifyQuestion["options"]>[number] | null {
   if (typeof option === "string") {
     const label = option.trim();
@@ -71,16 +73,18 @@ function normalizeQuestion(question: unknown, index: number): ClarifyQuestion | 
 
 clarifyRouter.post("/clarify", async (req: Request, res: Response) => {
   const { spec } = req.body as ClarifyRequest;
+  console.log(DEBUG_PREFIX, "request", { spec });
 
   if (!spec?.trim()) {
     res.status(400).json({ ok: false, needsClarification: false, questions: [], confidence: "low", summary: "" });
     return;
   }
 
-  const config = { ...DEFAULT_CONFIG, workDir: process.cwd() };
+  const config = { ...DEFAULT_CONFIG, workDir: process.env.WORK_DIR ?? process.cwd() };
 
   const policyDecision = decideClarificationByPolicy(spec);
   if (policyDecision) {
+    console.log(DEBUG_PREFIX, "decision=policy", policyDecision);
     res.json({
       ok: true,
       needsClarification: policyDecision.needsClarification,
@@ -114,6 +118,8 @@ clarifyRouter.post("/clarify", async (req: Request, res: Response) => {
       .map((q, i) => normalizeQuestion(q, i))
       .filter((value): value is ClarifyQuestion => value !== null);
 
+    console.log(DEBUG_PREFIX, "decision=llm", { parsed, questions });
+
     res.json({
       ok: true,
       needsClarification: parsed.needsClarification ?? false,
@@ -121,7 +127,8 @@ clarifyRouter.post("/clarify", async (req: Request, res: Response) => {
       confidence: (parsed.confidence ?? "medium") as ClarifyResponse["confidence"],
       summary: parsed.summary ?? "",
     } satisfies ClarifyResponse);
-  } catch {
+  } catch (error) {
+    console.log(DEBUG_PREFIX, "decision=fallback", { error: (error as Error).message });
     res.json({
       ok: true,
       needsClarification: false,

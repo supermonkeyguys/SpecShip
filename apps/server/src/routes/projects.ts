@@ -8,7 +8,7 @@
 import { Router, Request, Response } from "express";
 import * as fs from "fs";
 import * as path from "path";
-import { listProjects, listSessions, getSessionOutputDir, getSessionGraphPath } from "../project";
+import { listProjects, listSessions, getSessionOutputDir, getSessionGraphPath, deleteSession, deleteProject, updateSession } from "../project";
 import { loadGraphCheckpoint } from "../checkpoint";
 import { ProjectsResponse, FilesResponse, FileEntry } from "../types";
 
@@ -16,12 +16,18 @@ export const projectsRouter = Router();
 
 // GET /projects
 projectsRouter.get("/projects", (req: Request, res: Response) => {
-  const workDir = process.cwd();
+  const workDir = process.env.WORK_DIR ?? process.cwd();
   const projects = listProjects(workDir);
 
   const result = projects.map((p) => ({
     ...p,
-    sessions: listSessions(workDir, p.id),
+    sessions: listSessions(workDir, p.id).map((s) => ({
+      id: s.id,
+      spec: s.spec,
+      status: s.status,
+      starred: s.starred ?? false,
+      createdAt: s.createdAt,
+    })),
   }));
 
   res.json({ projects: result } satisfies ProjectsResponse);
@@ -30,7 +36,7 @@ projectsRouter.get("/projects", (req: Request, res: Response) => {
 // GET /projects/:pid/sessions/:sid/files
 projectsRouter.get("/projects/:pid/sessions/:sid/files", (req: Request, res: Response) => {
   const { pid, sid } = req.params as { pid: string; sid: string };
-  const workDir = process.cwd();
+  const workDir = process.env.WORK_DIR ?? process.cwd();
   const outputDir = getSessionOutputDir(workDir, pid, sid);
 
   if (!fs.existsSync(outputDir)) {
@@ -59,7 +65,7 @@ projectsRouter.get("/projects/:pid/sessions/:sid/file", (req: Request, res: Resp
     return;
   }
 
-  const workDir = process.cwd();
+  const workDir = process.env.WORK_DIR ?? process.cwd();
   const outputDir = getSessionOutputDir(workDir, pid, sid);
   const fullPath = path.join(outputDir, filePath);
 
@@ -79,7 +85,7 @@ projectsRouter.get("/projects/:pid/sessions/:sid/file", (req: Request, res: Resp
 // GET /projects/:pid/sessions/:sid/graph — 返回 session 的图状态（节点历史）
 projectsRouter.get("/projects/:pid/sessions/:sid/graph", (req: Request, res: Response) => {
   const { pid, sid } = req.params as { pid: string; sid: string };
-  const workDir = process.cwd();
+  const workDir = process.env.WORK_DIR ?? process.cwd();
   const graphPath = getSessionGraphPath(workDir, pid, sid);
 
   try {
@@ -89,10 +95,14 @@ projectsRouter.get("/projects/:pid/sessions/:sid/graph", (req: Request, res: Res
       id,
       title: node.title,
       status: node.status,
+      nodeType: node.type,
       specFragment: node.specFragment,
       dependsOn: node.dependsOn,
       retryCount: node.retryCount,
+      maxRetries: node.maxRetries,
       error: node.error?.message,
+      errorCategory: node.error?.category,
+      errorRecoverable: node.error?.recoverable,
       durationMs: node.evidence?.durationMs,
       filesWritten: node.evidence?.filesWritten.map((f) => f.path) ?? [],
       toolCalls: node.evidence?.toolCalls.map((t) => ({
@@ -111,6 +121,45 @@ projectsRouter.get("/projects/:pid/sessions/:sid/graph", (req: Request, res: Res
     res.json({ ok: true, nodes, title: graph.title, status: graph.status });
   } catch {
     res.json({ ok: false, nodes: [], title: "", status: "unknown" });
+  }
+});
+
+// DELETE /projects/:pid/sessions/:sid
+projectsRouter.delete("/projects/:pid/sessions/:sid", (req: Request, res: Response) => {
+  const { pid, sid } = req.params as { pid: string; sid: string };
+  const workDir = process.env.WORK_DIR ?? process.cwd();
+  try {
+    deleteSession(workDir, pid, sid);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+// DELETE /projects/:pid
+projectsRouter.delete("/projects/:pid", (req: Request, res: Response) => {
+  const { pid } = req.params as { pid: string };
+  const workDir = process.env.WORK_DIR ?? process.cwd();
+  try {
+    deleteProject(workDir, pid);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+// PATCH /projects/:pid/sessions/:sid — update starred
+projectsRouter.patch("/projects/:pid/sessions/:sid", (req: Request, res: Response) => {
+  const { pid, sid } = req.params as { pid: string; sid: string };
+  const { starred } = req.body as { starred?: boolean };
+  const workDir = process.env.WORK_DIR ?? process.cwd();
+  try {
+    if (typeof starred === "boolean") {
+      updateSession(workDir, pid, sid, { starred });
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
   }
 });
 

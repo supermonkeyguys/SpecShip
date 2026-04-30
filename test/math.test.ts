@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { add, multiply } from '../packages/core/src/math';
+import { add, multiply } from '../packages/core/src/examples/math';
 
 test('add should handle basic positive numbers', (): void => {
   assert.equal(add(2, 3), 5);

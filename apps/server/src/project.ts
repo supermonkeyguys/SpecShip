@@ -1,1 +1,1 @@
-export * from "../../../packages/core/src/project";
+export * from "../../../packages/core/src/persistence/project";

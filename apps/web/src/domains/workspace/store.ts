@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ActiveSession } from "../../features/session/types";
-import type { StatusResponse, ProjectsResponse, FileEntry } from "../../types";
+import type { StatusResponse, ProjectsResponse, FileEntry, PreviewStatusResponse } from "../../types";
 import type { SelectedFileIdentity, WorkspaceState } from "./types";
 
 interface WorkspaceStore extends WorkspaceState {
@@ -10,7 +10,12 @@ interface WorkspaceStore extends WorkspaceState {
   setProjects: (projects: ProjectsResponse["projects"]) => void;
   setExpandedProjectId: (projectId: string | null) => void;
   setSessionFiles: (files: FileEntry[]) => void;
+  setPreviewInfo: (previewInfo: PreviewStatusResponse | null) => void;
   clearSelectedFileIfSessionMismatch: (session: ActiveSession | null) => void;
+  // selection
+  setSelectionMode: (on: boolean) => void;
+  toggleSessionSelected: (sessionId: string) => void;
+  clearSelection: () => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
@@ -20,6 +25,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   projects: [],
   expandedProjectId: null,
   sessionFiles: [],
+  previewInfo: null,
+  selectionMode: false,
+  selectedSessions: new Set<string>(),
 
   setActiveSession: (session) => set({ activeSession: session }),
   setSelectedFile: (file) => set({ selectedFile: file }),
@@ -37,6 +45,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
     }),
   setExpandedProjectId: (projectId) => set({ expandedProjectId: projectId }),
   setSessionFiles: (sessionFiles) => set({ sessionFiles }),
+  setPreviewInfo: (previewInfo) => set({ previewInfo }),
 
   clearSelectedFileIfSessionMismatch: (session) =>
     set((state) => {
@@ -50,4 +59,18 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       }
       return state;
     }),
+
+  setSelectionMode: (on) =>
+    set({ selectionMode: on, selectedSessions: new Set<string>() }),
+
+  toggleSessionSelected: (sessionId) =>
+    set((state) => {
+      const next = new Set(state.selectedSessions);
+      if (next.has(sessionId)) next.delete(sessionId);
+      else next.add(sessionId);
+      return { selectedSessions: next };
+    }),
+
+  clearSelection: () =>
+    set({ selectionMode: false, selectedSessions: new Set<string>() }),
 }));

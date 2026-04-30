@@ -7,7 +7,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { run } from "../../packages/core/src/shipyard";
+import { run } from "../../packages/core/src/orchestrator/shipyard";
 import { makeMockAgentRunner, makeMockNodeVerifier, makeTestConfig } from "./helpers";
 
 test("retry: node fails on first verify then succeeds on retry", async () => {

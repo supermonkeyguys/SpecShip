@@ -9,7 +9,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "fs";
 import * as path from "path";
-import { run } from "../../packages/core/src/shipyard";
+import { run } from "../../packages/core/src/orchestrator/shipyard";
+import { createGraph, addNode, isDependencySatisfied } from "../../packages/core/src/graph";
+import { mapGraphStatusToSessionStatus } from "../../packages/core/src/graph/state";
 import { makeMockAgentRunner, makeMockNodeVerifier, makeTestConfig } from "./helpers";
 
 test("run: single node completes successfully", async () => {
@@ -63,4 +65,35 @@ test("run: returns failed graph when planner returns no JSON", async () => {
   } finally {
     cleanup();
   }
+});
+
+
+test("run: dependency resolution only accepts node ids", () => {
+  let graph = createGraph("spec");
+  graph = addNode(graph, {
+    id: "impl-main",
+    type: "implement",
+    title: "Main",
+    specFragment: "Main",
+      nodeRole: "implementer",
+      task: "implement",
+      acceptanceCriteria: "implemented correctly",
+      skills: [],
+    dependsOn: [],
+    inputs: { description: "Write output/main.ts" },
+    outputs: { description: "Write output/main.ts", files: ["output/main.ts"], verificationCriteria: [] },
+    status: "done",
+    maxRetries: 1,
+  });
+
+  assert.equal(isDependencySatisfied(graph, "impl-main"), true);
+  assert.equal(isDependencySatisfied(graph, "output/main.ts"), false);
+});
+
+test("run: graph status maps to session status through a single helper", () => {
+  assert.equal(mapGraphStatusToSessionStatus("building"), "running");
+  assert.equal(mapGraphStatusToSessionStatus("running"), "running");
+  assert.equal(mapGraphStatusToSessionStatus("paused"), "paused");
+  assert.equal(mapGraphStatusToSessionStatus("done"), "done");
+  assert.equal(mapGraphStatusToSessionStatus("failed"), "failed");
 });
