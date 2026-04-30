@@ -86,11 +86,11 @@ ORCHESTRATOR_MODE=temporal OPENAI_API_KEY=sk-xxx pnpm server:dev
 
 ```
 packages/
-  core/                     引擎（graph/llm/verify/shipyard/checkpoint/prompts）
+  core/                     引擎（graph/orchestrator/ai/verification/persistence）
   orchestrator-temporal/    Temporal 编排层（workflow/activities/worker/client）
   shared/                   前后端共享类型
 apps/
-  server/                   Express API server
+  server/                   Express API + SSE + session/project routes
   web/                      React 前端（Vite）
   cli/                      CLI 入口
 test/
@@ -154,17 +154,18 @@ Use the Skill tool to load: shipyard-dev
 
 ### 核心文件索引
 ```
-packages/core/src/graph.ts          所有类型定义（先读这里）
-packages/core/src/shipyard.ts       主调度引擎，run() 入口，buildGraph/executeNode/runCodeReview 已 export
-packages/core/src/llm.ts            LLM 客户端，AgentRunner 类型
-packages/core/src/verify.ts         验证层，NodeVerifier 类型
-packages/core/src/prompts.ts        所有 system prompts（CLARIFIER_PROMPT 已更新为结构化输出）
+packages/core/src/graph/graph.ts              所有核心图类型定义（先读这里）
+packages/core/src/orchestrator/shipyard.ts     主调度引擎，run() 入口
+packages/core/src/orchestrator/planner.ts      buildGraph / clarifySpec
+packages/core/src/ai/llm.ts                    LLM 客户端，AgentRunner 类型
+packages/core/src/verification/verify.ts       验证层，NodeVerifier 类型
+packages/core/src/ai/prompts.ts                所有 system prompts
 
 packages/orchestrator-temporal/src/
   workflows/spec-run.workflow.ts    SpecRunWorkflow（DAG 并发调度 + Signal/Query）
   activities/spec-run.activities.ts  Activities（planGraph/executeNode/persistGraph/notifyNodeUpdate）
   worker/worker.ts                  Worker 启动入口
-  client/run-workflow.ts            Client 封装（server 层调用此文件）
+  client/run-workflow.ts            workflow client 封装（server 层调用此文件）
 
 apps/server/src/routes/
   run.ts      POST /api/run（ORCHESTRATOR_MODE 切换）

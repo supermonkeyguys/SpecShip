@@ -5,6 +5,10 @@
  * 统一错误处理：非 2xx 或非 JSON 响应都抛出可读错误。
  */
 
+function toError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
+}
+
 export async function fetchJSON<T = unknown>(
   url: string,
   options?: RequestInit
@@ -13,8 +17,8 @@ export async function fetchJSON<T = unknown>(
 
   try {
     res = await fetch(url, options);
-  } catch (e) {
-    throw new Error(`Network error: ${(e as Error).message}`);
+  } catch (error) {
+    throw new Error(`Network error: ${toError(error).message}`, { cause: error });
   }
 
   const contentType = res.headers.get("content-type") ?? "";
@@ -25,8 +29,8 @@ export async function fetchJSON<T = unknown>(
     throw new Error(`Expected JSON but got ${res.status} ${res.statusText}: ${text.slice(0, 100)}`);
   }
 
-  const data = await res.json().catch(() => {
-    throw new Error(`Failed to parse JSON response from ${url}`);
+  const data = await res.json().catch((e: unknown) => {
+    throw new Error(`Failed to parse JSON response from ${url}`, { cause: toError(e) });
   });
 
   if (!res.ok) {

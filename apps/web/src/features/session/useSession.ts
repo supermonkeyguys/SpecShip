@@ -38,7 +38,8 @@ export function useSession(): UseSessionReturn {
   const [activeSession, setActiveSessionRaw] = useState<ActiveSession | null>(null);
   const [resumeInfo, setResumeInfo] = useState<StatusResponse | null>(null);
   const sessionRequestIdRef = useRef(0);
-  const workspace = useWorkspaceStore;
+  const setWorkspaceActiveSession = useWorkspaceStore((state) => state.setActiveSession);
+  const setWorkspaceResumeInfo = useWorkspaceStore((state) => state.setResumeInfo);
 
   // 启动时检查是否有可恢复的任务
   useEffect(() => {
@@ -46,11 +47,11 @@ export function useSession(): UseSessionReturn {
       .then((data) => {
         if (data.canResume) {
           setResumeInfo(data);
-          workspace.getState().setResumeInfo(data);
+          setWorkspaceResumeInfo(data);
         }
       })
       .catch(() => {});
-  }, []);
+  }, [setWorkspaceResumeInfo]);
 
   async function loadSessionIntoStore(
     session: ActiveSession | null,
@@ -60,7 +61,7 @@ export function useSession(): UseSessionReturn {
     const executionStore = useExecutionStore.getState();
 
     setActiveSessionRaw(session);
-    workspace.getState().setActiveSession(session);
+    setWorkspaceActiveSession(session);
     executionStore.activateSession(session);
 
     if (!session) return;
@@ -99,7 +100,7 @@ export function useSession(): UseSessionReturn {
   const activateStartedSession = async (session: ActiveSession) => {
     const executionStore = useExecutionStore.getState();
     setResumeInfo(null);
-    workspace.getState().setResumeInfo(null);
+    setWorkspaceResumeInfo(null);
     executionStore.setLiveSession(session);
     executionStore.setSessionRunStatus(session.sessionId, "running");
     await loadSessionIntoStore(session, { optimisticRunStatus: "running" });
@@ -108,7 +109,7 @@ export function useSession(): UseSessionReturn {
   const handleResume = async () => {
     const executionStore = useExecutionStore.getState();
     setResumeInfo(null);
-    workspace.getState().setResumeInfo(null);
+    setWorkspaceResumeInfo(null);
 
     const resumeTarget = activeSession ?? (resumeInfo?.projectId && resumeInfo?.sessionId
       ? {
@@ -123,7 +124,7 @@ export function useSession(): UseSessionReturn {
       executionStore.setSessionRunStatus(resumeTarget.sessionId, "running");
       if (!activeSession) {
         setActiveSessionRaw(resumeTarget);
-        workspace.getState().setActiveSession(resumeTarget);
+        setWorkspaceActiveSession(resumeTarget);
         executionStore.activateSession(resumeTarget);
       }
     }
@@ -145,13 +146,13 @@ export function useSession(): UseSessionReturn {
   const handleNewSession = () => {
     sessionRequestIdRef.current += 1;
     setActiveSessionRaw(null);
-    workspace.getState().setActiveSession(null);
+    setWorkspaceActiveSession(null);
     useExecutionStore.getState().activateSession(null);
   };
 
   const dismissResume = () => {
     setResumeInfo(null);
-    workspace.getState().setResumeInfo(null);
+    setWorkspaceResumeInfo(null);
   };
 
   return {

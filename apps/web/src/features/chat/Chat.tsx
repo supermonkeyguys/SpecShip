@@ -7,7 +7,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { useExecutionStore } from "../../domains/execution/store";
-import type { ChatMessage, ClarificationMessage, SessionExecutionState, TextMessage } from "../../domains/execution/types";
+import type { ChatMessage, SessionExecutionState } from "../../domains/execution/types";
 import type { ActiveSession } from "../session/types";
 import { ClarificationCard } from "./ClarificationCard";
 import { createChatRunController, type ClarificationPending } from "../../domains/execution/runController";
@@ -42,6 +42,7 @@ export function Chat({ sessionId, onRunStarted, onResumeRequested }: Props) {
       </TabsList>
       <TabsContent value="chat" className="mt-0 flex-1 overflow-hidden">
         <ChatPanel
+          key={sessionId ?? "draft"}
           sessionId={sessionId}
           onRunStarted={onRunStarted}
           onResumeRequested={onResumeRequested}
@@ -161,10 +162,6 @@ function ChatPanel({
     return (msg: Message) => appendChatMessage(sessionId, msg);
   }, [sessionId, appendChatMessage]);
 
-  useEffect(() => {
-    setInput("");
-    setPendingSpec(null);
-  }, [sessionId]);
 
   const execution = useActiveExecution();
   const nodes = execution?.nodes ?? EMPTY_NODES;
@@ -189,9 +186,26 @@ function ChatPanel({
     };
   }, [activeSessionId, activeSessionProjectId, activeSessionTitle]);
 
+  // Wrap onRunStarted: migrate current chat messages to the new session before switching,
+  // so the chat history (including clarification state) is visible after the session swap.
+  const wrappedOnRunStarted = useMemo(() => {
+    if (!onRunStarted) return undefined;
+    return async (session: ActiveSession) => {
+      const currentMessages = messages;
+      if (currentMessages.length > 0) {
+        // Mark any pending clarification cards as answered so they don't re-render as interactive
+        const migratedMessages = currentMessages.map((m): Message =>
+          m.role === "clarification" && !m.answered ? { ...m, answered: true } : m
+        );
+        setChatMessages(session.sessionId, migratedMessages);
+      }
+      await onRunStarted(session);
+    };
+  }, [onRunStarted, messages, setChatMessages]);
+
   const controller = useMemo(
-    () => createChatRunController({ onRunStarted, onResumeRequested }),
-    [onRunStarted, onResumeRequested]
+    () => createChatRunController({ onRunStarted: wrappedOnRunStarted, onResumeRequested }),
+    [wrappedOnRunStarted, onResumeRequested]
   );
 
   useEffect(() => {

@@ -5,6 +5,8 @@ import { clarifySpec } from "../../shared/api/clarifyClient";
 import { retryNode } from "../../shared/api/nodeClient";
 import { runSpec } from "../../shared/api/runClient";
 
+const DEBUG_PREFIX = "[shipyard:chat-debug]";
+
 interface SendContext {
   message: string;
   currentNodes: Array<Pick<NodeStatus, "id" | "title" | "status">>;
@@ -13,7 +15,7 @@ interface SendContext {
 }
 
 export interface ClarificationPending {
-  rawMessage: string;
+  baseSpec: string;
   questions: ClarifyQuestion[];
   repoPath?: string;
 }
@@ -43,6 +45,13 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
     | { type: "error"; text: string }
   > {
     try {
+      console.debug(DEBUG_PREFIX, "send:input", {
+        message: input.message,
+        currentSpec: input.currentSpec,
+        currentNodes: input.currentNodes,
+        activeSession: input.activeSession,
+      });
+
       const data = await chatIntent({
         message: input.message,
         currentNodes: input.currentNodes,
@@ -51,6 +60,8 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
 
       const text = data.intent.reply;
       const intent: ChatIntent = data.intent;
+
+      console.debug(DEBUG_PREFIX, "chat:intent", intent);
 
       if (intent.type === "retry_node") {
         if (!input.activeSession) {
@@ -69,25 +80,33 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
       }
 
       if (intent.type === "new_run") {
+        const nextSpec = intent.spec;
+
         try {
-          const clarify = await clarifySpec(input.message);
+          const clarify = await clarifySpec(nextSpec);
+          console.debug(DEBUG_PREFIX, "clarify:response", clarify);
           if (clarify.needsClarification && clarify.questions?.length) {
             return {
               type: "clarification",
               text,
-              pending: { rawMessage: input.message, questions: clarify.questions, repoPath: intent.repoPath },
+              pending: { baseSpec: nextSpec, questions: clarify.questions, repoPath: intent.repoPath },
               questions: clarify.questions,
             };
           }
-        } catch {
+        } catch (e) {
+          console.debug(DEBUG_PREFIX, "clarify:error", e);
         }
 
-        const runResult = await runSpecAndActivate(input.message, intent.repoPath);
+        console.debug(DEBUG_PREFIX, "run:direct", { spec: nextSpec, repoPath: intent.repoPath });
+        const runResult = await runSpecAndActivate(nextSpec, intent.repoPath);
         if (!runResult.ok) return { type: "error", text: `Failed: ${runResult.error}` };
         return { type: "reply", text };
       }
 
       if (intent.type === "resume") {
+        if (!input.activeSession) {
+          return { type: "reply", text };
+        }
         try {
           await deps.onResumeRequested?.();
         } catch (e) {
@@ -111,14 +130,16 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
       .filter((line): line is string => line !== null);
 
     const enrichedSpec = clarificationLines.length
-      ? `${pending.rawMessage}\n\nClarifications:\n${clarificationLines.join("\n")}`
-      : pending.rawMessage;
+      ? `${pending.baseSpec}\n\nClarifications:\n${clarificationLines.join("\n")}`
+      : pending.baseSpec;
 
+    console.debug(DEBUG_PREFIX, "clarify:confirm", { answers, enrichedSpec, repoPath: pending.repoPath });
     return runSpecAndActivate(enrichedSpec, pending.repoPath);
   }
 
   async function skipClarification(pending: ClarificationPending) {
-    return runSpecAndActivate(pending.rawMessage, pending.repoPath);
+    console.debug(DEBUG_PREFIX, "clarify:skip", { baseSpec: pending.baseSpec, repoPath: pending.repoPath });
+    return runSpecAndActivate(pending.baseSpec, pending.repoPath);
   }
 
   return {

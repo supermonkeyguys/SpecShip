@@ -58,7 +58,7 @@ Implementer LLM（implementation model）→ 通过 OpenAI-compatible tool loop 
 Verifier                           → 确定性验证（tsc）+ spec-derived 行为验证
 ```
 
-当前实现不依赖 Claude Agent SDK 执行链。工具调用循环由 `src/llm.ts` 内的 `runAgent()` 自行实现：
+当前实现不依赖 Claude Agent SDK 执行链。工具调用循环由 `packages/core/src/ai/llm.ts` 内的 `runAgent()` 自行实现：
 - 请求 `/chat/completions`
 - 读取 `tool_calls`
 - 本地执行工具
@@ -69,7 +69,7 @@ Verifier                           → 确定性验证（tsc）+ spec-derived �
 
 ### Planner prompt 来源
 
-规划阶段使用 `src/prompts.ts` 中的 `GRAPH_PLANNER_PROMPT`，`buildGraph()` 会直接把它传给 `runAgent(..., withTools=false)` 来生成可解析的计划 JSON。
+规划阶段使用 `packages/core/src/ai/prompts.ts` 中的 `GRAPH_PLANNER_PROMPT`，`buildGraph()` 会直接把它传给 `runAgent(..., withTools=false)` 来生成可解析的计划 JSON。
 `shipyard.ts` 只负责调用，不再维护重复的 planner prompt 常量。
 
 ---
@@ -79,14 +79,15 @@ Verifier                           → 确定性验证（tsc）+ spec-derived �
 ```
 shipyard/
 ├── apps/
-│   ├── cli/src/index.ts      CLI 入口
-│   ├── server/src/           Express + SSE API
-│   └── web/                  Vite + React IDE
+│   ├── cli/src/index.ts        CLI 入口
+│   ├── server/src/             Express API + SSE + session/project routes
+│   └── web/                    Vite + React IDE
 ├── packages/
-│   ├── core/src/             调度引擎、验证、项目/session 管理
-│   └── shared/src/types.ts   前后端共享 contract
-├── .shipyard/                project/session 数据
-└── output/                   生成的代码文件
+│   ├── core/src/               graph / orchestrator / ai / verification / persistence
+│   ├── shared/src/types.ts     前后端共享 contract
+│   └── orchestrator-temporal/  Temporal 编排层
+├── .shipyard/                  project/session 数据
+└── output/                     CLI 生成的代码文件
 ```
 
 ### 数据流
@@ -151,8 +152,8 @@ export MODEL_REVIEW=gpt-5.1
 # 默认模式：每次运行前清空 output/
 pnpm start -- "实现用户登录：接收 email 和 password，密码错误返回 INVALID_CREDENTIALS，成功返回 JWT token，24小时过期"
 
-# resume 模式：保留已有 output/ 文件，再继续执行
-pnpm start -- --resume "实现用户登录：接收 email 和 password，密码错误返回 INVALID_CREDENTIALS，成功返回 JWT token，24小时过期"
+# resume 模式：从 checkpoint 继续；若传入新 spec 会被忽略
+pnpm start -- --resume
 ```
 
 ### output 与 resume 行为
@@ -224,7 +225,7 @@ pnpm start -- --resume "实现用户登录：接收 email 和 password，密码�
 
 ### 为什么不用 LangChain / AutoGen
 
-Shipyard 当前使用自实现的 OpenAI-compatible tool loop（`src/llm.ts`），不依赖 Claude Agent SDK 执行链，也不引入 LangChain/AutoGen。
+Shipyard 当前使用自实现的 OpenAI-compatible tool loop（`packages/core/src/ai/llm.ts`），不依赖 Claude Agent SDK 执行链，也不引入 LangChain/AutoGen。
 
 原因：
 
@@ -264,7 +265,7 @@ Shipyard 当前使用自实现的 OpenAI-compatible tool loop（`src/llm.ts`）�
 
 - [ ] 接入已有 Git 仓库（读懂存量代码再规划）
 - [ ] Checkpoint 持久化（中断后从断点继续）
-- [ ] WebSocket 实时推送图状态
+- [ ] SSE 实时推送图状态
 
 ### v1.0（目标）
 
@@ -277,27 +278,26 @@ Shipyard 当前使用自实现的 OpenAI-compatible tool loop（`src/llm.ts`）�
 
 ## 核心文件说明
 
-### `graph.ts`
+### `packages/core/src/graph/graph.ts`
 
-定义了整个系统的数据模型。如果你想理解 Shipyard 的设计，从这里开始。
+定义整个系统的核心数据模型。如果你想理解 Shipyard 的执行图设计，从这里开始。
 
 关键类型：`ExecutionGraph`、`GraphNode`、`Evidence`、`VerificationCriterion`
 
-关键函数：`createGraph`、`addNode`、`transitionNode`、`getReadyNodes`、`buildHistory`
+### `packages/core/src/verification/verify.ts`
 
-### `verify.ts`
-
-验证系统的实现。两层：
-1. `runCompileCheck` — tsc 编译，确定性，0/1
+验证系统实现：
+1. `runCompileCheck` — TypeScript 编译检查
 2. `extractVerificationCriteria` + `runBehaviorVerification` — 从 spec 提取并运行行为验证
+3. `runLintCheck` — 项目存在 lint 配置时做软校验
 
-### `shipyard.ts`
+### `packages/core/src/orchestrator/shipyard.ts`
 
-调度引擎。`run()` 是主入口，内部循环：找就绪节点 → 并行执行 → 验证 → 推进状态。
+主调度引擎。`run()` 是核心入口，负责：找就绪节点 → 执行节点 → 验证 → 推进状态 → checkpoint。
 
-### `hooks.ts`
+### `packages/core/src/ai/hooks.ts`
 
-执行过程中的副作用函数。`isPathSafe` 负责写入路径安全校验，`auditWrite` 负责记录写入审计日志（`.shipyard-audit.log`）。
+执行过程中与工具/文件系统相关的辅助逻辑，例如路径安全校验与写入审计。
 
 ---
 

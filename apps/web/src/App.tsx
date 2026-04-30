@@ -5,7 +5,7 @@
  * 业务状态全部委托给各 feature 的 hook。
  */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSSE } from "./hooks/useSSE";
 import { useExecutionStore } from "./domains/execution/store";
 import { selectHeaderRunStatus } from "./domains/execution/selectors";
@@ -15,9 +15,12 @@ import { ProjectPanel } from "./features/session/ProjectPanel";
 import { ResumeBar } from "./features/session/ResumeBar";
 import { Canvas } from "./features/canvas/Canvas";
 import { FilePreview } from "./features/files/FilePreview";
+import { PreviewPanel } from "./features/preview/PreviewPanel";
 import { Chat } from "./features/chat/Chat";
 import { StatusBadge } from "./components/StatusBadge";
 import { useWorkspaceStore } from "./domains/workspace/store";
+import { fetchSessionPreview } from "./shared/api/previewClient";
+import type { ActiveSession } from "./features/session/types";
 
 export default function App() {
   useSSE();
@@ -28,17 +31,54 @@ export default function App() {
     setActiveSession, activateStartedSession, handleResume, handleNewSession, dismissResume,
   } = useSession();
   const { selectedFile, fileContent, fileError, handleFileSelect, handleClose } = useFilePreview();
+  const previewInfo = useWorkspaceStore((state) => state.previewInfo);
+  const setPreviewInfo = useWorkspaceStore((state) => state.setPreviewInfo);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const clearSelectedFileIfSessionMismatch = useWorkspaceStore(
     (state) => state.clearSelectedFileIfSessionMismatch
   );
 
   useEffect(() => {
     clearSelectedFileIfSessionMismatch(activeSession);
-  }, [
-    activeSession?.projectId,
-    activeSession?.sessionId,
-    clearSelectedFileIfSessionMismatch,
-  ]);
+  }, [activeSession, clearSelectedFileIfSessionMismatch]);
+
+  const handleSelectSession = async (session: ActiveSession | null) => {
+    setIsPreviewOpen(false);
+    await setActiveSession(session);
+  };
+
+  const handleActivateStartedSession = async (session: ActiveSession) => {
+    setIsPreviewOpen(false);
+    await activateStartedSession(session);
+    handleClose();
+  };
+
+  const handleResumeSession = async () => {
+    setIsPreviewOpen(false);
+    await handleResume();
+  };
+
+  const handleCreateNewSession = () => {
+    setIsPreviewOpen(false);
+    handleNewSession();
+  };
+
+  const refreshPreview = async (next?: import("./types").PreviewStatusResponse) => {
+    if (next) {
+      setPreviewInfo(next);
+      return;
+    }
+    if (!activeSession) {
+      setPreviewInfo(null);
+      return;
+    }
+    try {
+      const data = await fetchSessionPreview(activeSession.projectId, activeSession.sessionId);
+      setPreviewInfo(data);
+    } catch {
+      setPreviewInfo({ ok: false, supported: false, kind: "none", reason: "Failed to load preview status." });
+    }
+  };
 
   return (
     <div className="h-screen w-screen flex flex-col bg-white text-gray-900 overflow-hidden">
@@ -53,19 +93,24 @@ export default function App() {
       {resumeInfo && (
         <ResumeBar
           info={resumeInfo}
-          onResume={handleResume}
+          onResume={handleResumeSession}
           onDismiss={dismissResume}
         />
       )}
 
       <main className="flex-1 flex overflow-hidden" aria-label="Workspace layout">
-        <div className="w-52 flex-shrink-0">
+        <div className="w-64 flex-shrink-0">
           <ProjectPanel
             activeSession={activeSession}
-            onSelectSession={setActiveSession}
+            onSelectSession={handleSelectSession}
             onSelectFile={handleFileSelect}
-            onNewSession={handleNewSession}
+            onNewSession={handleCreateNewSession}
+            onOpenPreview={() => {
+              handleClose();
+              setIsPreviewOpen(true);
+            }}
             selectedFilePath={selectedFile?.path}
+            previewInfo={previewInfo}
           />
         </div>
 
@@ -77,6 +122,14 @@ export default function App() {
               error={fileError}
               onClose={handleClose}
             />
+          ) : isPreviewOpen ? (
+            <PreviewPanel
+              projectId={activeSession?.projectId ?? ""}
+              sessionId={activeSession?.sessionId ?? ""}
+              info={previewInfo}
+              onClose={() => setIsPreviewOpen(false)}
+              onRefresh={refreshPreview}
+            />
           ) : (
             <Canvas />
           )}
@@ -85,11 +138,8 @@ export default function App() {
         <aside className="w-80 flex-shrink-0" aria-label="Chat and logs">
           <Chat
             sessionId={activeSession?.sessionId}
-            onRunStarted={async (session) => {
-              await activateStartedSession(session);
-              handleClose();
-            }}
-            onResumeRequested={handleResume}
+            onRunStarted={handleActivateStartedSession}
+            onResumeRequested={handleResumeSession}
           />
         </aside>
       </main>

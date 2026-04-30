@@ -1,70 +1,105 @@
 ---
 name: shipyard-engine
-description: Use when working on src/ engine code — graph, scheduler, llm, verify, checkpoint, prompts.
+description: Use when working on packages/core engine code — graph, orchestrator, ai, verification, persistence, checkpoint flow.
 ---
 
 # Shipyard Engine
 
+## Source of Truth
+
+The engine lives in `packages/core/src/**`, mainly:
+
+```txt
+packages/core/src/
+  graph/           graph model, stats, status mapping
+  orchestrator/    planner, scheduler loop, node execution, review, checkpoint runtime
+  ai/              LLM runner, prompts, config
+  verification/    compile / behavior / lint verification
+  persistence/     checkpoint + project/session persistence helpers
+  context/         repo/context helpers
+  config.ts
+```
+
 ## Data Flow
 
-```
+```txt
 user spec
-  → Planner LLM  → ExecutionGraph (DAG of GraphNodes)
-  → Scheduler    → dispatch by dependency order (parallel where possible)
-  → per node:    → Implementer LLM (agent loop + tool_use)
-                 → verify.ts (compile → behavior)
-                 → status: done | failed | retrying
-  → graph.json   → consumed by UI / API
+  → planner
+  → ExecutionGraph (DAG of GraphNodes)
+  → orchestrator run loop
+  → per node: execute → verify → transition status
+  → checkpoint persistence + session graph persistence
+  → server/web consume projections and serialized state
 ```
 
 ## Node Status Machine
 
-```
-pending → running → verifying → done
-                             ↘ failed → retrying → running  (max 2 retries)
-                                                 ↘ failed (terminal)
-```
+Current graph node statuses include:
 
-**Rule:** never transition a node to `done` before verifying passes.
-**Rule:** `running.delete(nodeId)` must happen AFTER `verifyNode()` completes — not before.
-
-## Key Types (graph.ts)
-
-```typescript
-GraphNode.status:   "pending" | "running" | "done" | "failed" | "blocked"
-GraphNode.evidence: { toolCalls, filesWritten, verifications, durationMs }
-ExecutionGraph.nodes: Map<string, GraphNode>
-ExecutionGraph.originalSpec: string
+```txt
+pending → ready → running → verifying → done
+                         ↘ failed → ready   (retry path)
+blocked ↔ pending
+skipped (terminal)
 ```
 
-## Known Issues (Check Before Fixing)
+### Rules
 
-- Behavior verification relies on function name matching — fragile for complex exports
-- Planner occasionally writes `dependsOn` as file paths instead of node IDs (compatibility shim exists in scheduler)
-- Generated `*.test.ts` files are not executed yet
+- Never transition to `done` before verification passes
+- Retry is represented by `failed -> ready`, not a separate pseudo-status
+- `blocked` means upstream dependency state prevents execution
+- Any status-machine change must preserve graph stats and dependency semantics
 
-## Next Priority
+## Files to Inspect Before Editing
 
-```
-1. Phase 1.1 — Checkpoint persistence (atomic write via tmp+rename, resume from any node)
-2. Phase 1.3 — Verification hardening (run *.test.ts, lint, hard vs soft failure distinction)
-```
+- `packages/core/src/graph/graph.ts`
+- `packages/core/src/graph/state.ts`
+- `packages/core/src/orchestrator/shipyard.ts`
+- `packages/core/src/orchestrator/node-executor.ts`
+- `packages/core/src/orchestrator/post-node-handler.ts`
+- `packages/core/src/orchestrator/checkpoint-runtime.ts`
+- `packages/core/src/orchestrator/runtime-types.ts`
+- `packages/core/src/verification/verify.ts`
 
-## Running Locally
+## Execution Rules
+
+- Graph/evidence updates must remain serializable to checkpoint files
+- Evidence must capture tool calls, written files, verification records, and timing
+- Checkpoint persistence must be atomic and resumable
+- Planner/output compatibility shims should be explicit, not hidden inside unrelated logic
+- If server imports a core symbol through a shim, change the underlying core implementation unless the problem is truly adapter-specific
+
+## Shared Contracts to Respect
+
+Engine-internal `GraphNode` / `ExecutionGraph` are richer than UI-facing `NodeStatus`.
+Do not couple engine types to frontend DTOs.
+
+UI/server-facing DTOs come from `packages/shared/src/types.ts` and are projections of engine state.
+
+## Known Sharp Edges
+
+- Behavior verification can still be fragile for complex exports/module shapes
+- Planner/output normalization needs caution around dependency ids vs file paths
+- Verify changes affect retry semantics, summaries, and SSE projections downstream
+
+## Local Run/Validation
+
+Typical entrypoints:
 
 ```bash
-OPENAI_BASE_URL=https://aicodelink.top/v1 \
-OPENAI_API_KEY=sk-xxx \
-npx ts-node src/index.ts "your spec"
-
-# Resume after interrupt:
-npx ts-node src/index.ts --resume
+pnpm start
+pnpm server
+pnpm test
+pnpm typecheck
 ```
+
+When touching UI-observable engine behavior, also validate the server/web path that consumes the projections.
 
 ## Checklist for Engine Changes
 
-- [ ] Read `graph.ts` types before any change
-- [ ] Check `PLAN.md` phase ordering — don't skip phases
-- [ ] Verify node status machine still holds after status logic changes
-- [ ] Evidence must be recorded for every tool call and file write
-- [ ] Atomic write for any checkpoint: write to `.tmp` first, then rename
+- [ ] Read `graph.ts` and `runtime-types.ts` first
+- [ ] Confirm state transitions still obey the status machine
+- [ ] Preserve evidence completeness
+- [ ] Preserve checkpoint save/load behavior
+- [ ] Check whether server/UI projections need updating after type/status changes
+- [ ] Prefer changing `packages/core` instead of re-export wrappers
