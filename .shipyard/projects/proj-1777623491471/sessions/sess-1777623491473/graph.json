@@ -1,0 +1,728 @@
+{
+  "id": "graph-1777623592223",
+  "title": "Apple-style blog frontend",
+  "originalSpec": "实现一个 Apple 风格的博客网站，整体设计参考苹果官网的简洁、高级、留白充足的视觉风格。网站应包含博客首页、文章列表、文章详情页等核心功能，具备响应式布局，适配桌面端和移动端。界面需要使用现代化排版、清晰的卡片/分区、优雅的动效或交互效果，整体观感干净、精致、科技感强。",
+  "nodes": [
+    [
+      "types-blog",
+      {
+        "id": "types-blog",
+        "type": "implement",
+        "title": "Define blog contracts",
+        "specFragment": "网站应包含博客首页、文章列表、文章详情页等核心功能，具备响应式布局，适配桌面端和移动端。",
+        "nodeRole": "types",
+        "task": "Define and export TypeScript types from blogTypes.ts: BlogAuthor { id: string, name: string, avatarUrl?: string, bio?: string }, BlogCategory { id: string, name: string, slug: string }, BlogPostSummary { id: string, slug: string, title: string, excerpt: string, coverImage: string, publishedAt: string, readingMinutes: number, category: BlogCategory, author: BlogAuthor, featured: boolean }, BlogPost extends BlogPostSummary { content: BlogContentBlock[] }, BlogContentBlock union type of ParagraphBlock { type: 'paragraph', text: string }, HeadingBlock { type: 'heading', level: 2 | 3, text: string }, QuoteBlock { type: 'quote', text: string, cite?: string }, ImageBlock { type: 'image', src: string, alt: string, caption?: string }, BlogNavigationItem { label: string, href: string }, ResponsiveImage { src: string, alt: string, width?: number, height?: number }.",
+        "acceptanceCriteria": "blogTypes.ts exports BlogAuthor, BlogCategory, BlogPostSummary, BlogPost, BlogContentBlock, ParagraphBlock, HeadingBlock, QuoteBlock, ImageBlock, BlogNavigationItem, and ResponsiveImage with the exact fields and literal unions listed in task. File contains types/interfaces only and compiles without implementation logic.",
+        "skills": [
+          "ts-strict"
+        ],
+        "dependsOn": [],
+        "inputs": {
+          "description": "Create the shared TypeScript contract file for all blog content, navigation, and image metadata. These types are consumed by data, UI components, pages, and tests to keep the implementation consistent."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogTypes.ts",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogTypes.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:21:10.372Z",
+        "evidence": {
+          "reasoning": "Implementing: Create the shared TypeScript contract file for all blog content, navigation, and image metadata. These types are consumed by data, UI components, pages, and tests to keep the implementation consistent.",
+          "promptUsed": "Role: types\nTask: Define and export TypeScript types from blogTypes.ts: BlogAuthor { id: string, name: string, avatarUrl?: string, bio?: string }, BlogCategory { id: string, name: string, slug: string }, BlogPostSummary { id: string, slug: string, title: string, excerpt: string, coverImage: string, ",
+          "modelUsed": "gpt-5.3-codex",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "/**\n * Represents a blog author.\n */\nexport interface BlogAuthor {\n  /**\n   * Unique identifier for the author.\n   */\n  id: string;\n  /**\n   * Display name of the author.\n   */\n  name: string;\n  /**\n   * Optional URL to the author's avatar image.\n   */\n  avatarUrl?: string;\n  /**\n   * Optional short biography of the author.\n   */\n  bio?: string;\n}\n\n/**\n * Represents a blog category.\n */\nexport interface BlogCategory {\n  /**\n   * Unique identifier for the category.\n   */\n  id: string;\n  /**\n   * Human-readable category name.\n   */\n  name: string;\n  /**\n   * URL-friendly slug for the category.\n   */\n  slug: string;\n}\n\n/**\n * Content block for paragraph text.\n */\nexport interface ParagraphBlock {\n  /**\n   * Discriminator for paragraph blocks.\n   */\n  type: 'paragraph';\n  /**\n   * Paragraph text content.\n   */\n  text: string;\n}\n\n/**\n * Content block for section headings.\n */\nexport interface HeadingBlock {\n  /**\n   * Discriminator for heading blocks.\n   */\n  type: 'heading';\n  /**\n   * Supported heading level.\n   */\n  level: 2 | 3;\n  /**\n   * Heading text content.\n   */\n  text: string;\n}\n\n/**\n * Content block for quoted text.\n */\nexport interface QuoteBlock {\n  /**\n   * Discriminator for quote blocks.\n   */\n  type: 'quote';\n  /**\n   * Quoted text content.\n   */\n  text: string;\n  /**\n   * Optional citation for the quote.\n   */\n  cite?: string;\n}\n\n/**\n * Content block for images.\n */\nexport interface ImageBlock {\n  /**\n   * Discriminator for image blocks.\n   */\n  type: 'image';\n  /**\n   * Source URL of the image.\n   */\n  src: string;\n  /**\n   * Alternative text for accessibility.\n   */\n  alt: string;\n  /**\n   * Optional image caption.\n   */\n  caption?: string;\n}\n\n/**\n * Union of all supported blog content block types.\n */\nexport type BlogContentBlock = ParagraphBlock | HeadingBlock | QuoteBlock | ImageBlock;\n\n/**\n * Summary metadata for a blog post.\n */\nexport interface BlogPostSummary {\n  /**\n   * Unique identifier for the post.\n   */\n  id: string;\n  /**\n   * URL-friendly slug for the post.\n   */\n  slug: string;\n  /**\n   * Post title.\n   */\n  title: string;\n  /**\n   * Short summary excerpt of the post.\n   */\n  excerpt: string;\n  /**\n   * Cover image URL.\n   */\n  coverImage: string;\n  /**\n   * Publication timestamp as a string.\n   */\n  publishedAt: string;\n  /**\n   * Estimated reading duration in minutes.\n   */\n  readingMinutes: number;\n  /**\n   * Category assigned to the post.\n   */\n  category: BlogCategory;\n  /**\n   * Author of the post.\n   */\n  author: BlogAuthor;\n  /**\n   * Whether the post is featured.\n   */\n  featured: boolean;\n}\n\n/**\n * Complete blog post including content blocks.\n */\nexport interface BlogPost extends BlogPostSummary {\n  /**\n   * Rich content blocks for the post body.\n   */\n  content: BlogContentBlock[];\n}\n\n/**\n * Navigation item used in blog-related menus.\n */\nexport interface BlogNavigationItem {\n  /**\n   * Text label shown to users.\n   */\n  label: string;\n  /**\n   * Destination URL or path.\n   */\n  href: string;\n}\n\n/**\n * Image metadata that can adapt to different display sizes.\n */\nexport interface ResponsiveImage {\n  /**\n   * Source URL of the image.\n   */\n  src: string;\n  /**\n   * Alternative text for accessibility.\n   */\n  alt: string;\n  /**\n   * Optional intrinsic image width in pixels.\n   */\n  width?: number;\n  /**\n   * Optional intrinsic image height in pixels.\n   */\n  height?: number;\n}\n",
+                "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogTypes.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogTypes.ts (209 lines)",
+              "success": true,
+              "timestamp": "2026-05-01T08:20:51.529Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogTypes.ts",
+              "operation": "create",
+              "sizeBytes": 3377,
+              "checksum": "63b9ee758eb05620",
+              "timestamp": "2026-05-01T08:20:51.529Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 662,
+              "timestamp": "2026-05-01T08:21:02.886Z"
+            }
+          ],
+          "startedAt": "2026-05-01T08:19:52.225Z",
+          "completedAt": "2026-05-01T08:20:51.529Z",
+          "durationMs": 59304
+        }
+      }
+    ],
+    [
+      "impl-blog-data",
+      {
+        "id": "impl-blog-data",
+        "type": "implement",
+        "title": "Create static blog data",
+        "specFragment": "网站应包含博客首页、文章列表、文章详情页等核心功能",
+        "nodeRole": "implementer",
+        "task": "Implement blogData.ts. Import BlogPost, BlogPostSummary, BlogNavigationItem from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogTypes.ts. Export const navigationItems: BlogNavigationItem[]. Export const blogPosts: BlogPost[]. Export function getFeaturedPosts(limit?: number): BlogPostSummary[]. Export function getAllPostSummaries(): BlogPostSummary[]. Export function getPostBySlug(slug: string): BlogPost | null. Export function getRelatedPosts(postId: string, categorySlug: string, limit?: number): BlogPostSummary[].",
+        "acceptanceCriteria": "blogData.ts exports navigationItems, blogPosts, getFeaturedPosts, getAllPostSummaries, getPostBySlug, and getRelatedPosts. blogPosts contains at least 6 BlogPost items and at least 1 featured post. getPostBySlug returns the matching BlogPost by slug or null. getFeaturedPosts returns only featured posts and respects limit. getAllPostSummaries returns objects without requiring article body rendering changes. getRelatedPosts excludes the current postId, matches categorySlug first, and respects limit.",
+        "skills": [
+          "ts-strict"
+        ],
+        "dependsOn": [
+          "types-blog"
+        ],
+        "inputs": {
+          "description": "Provide polished Apple-style technology/design themed sample content for the static blog. Keep data deterministic and framework-independent so page components can render homepage, list, and detail screens without a backend."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:37:01.878Z",
+        "evidence": {
+          "reasoning": "Implementing: Provide polished Apple-style technology/design themed sample content for the static blog. Keep data deterministic and framework-independent so page components can render homepage, list, and detail screens without a backend.",
+          "promptUsed": "Role: implementer\nTask: Implement blogData.ts. Import BlogPost, BlogPostSummary, BlogNavigationItem from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogTypes.ts. Export const navigationItems: BlogNavigationItem[]. Export const blogPosts: BlogPost[]. Export function getF",
+          "modelUsed": "gpt-5.3-codex",
+          "toolCalls": [
+            {
+              "tool": "read_file",
+              "input": {
+                "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogTypes.ts"
+              },
+              "output": "/**\n * Represents a blog author.\n */\nexport interface BlogAuthor {\n  /**\n   * Unique identifier for the author.\n   */\n  id: string;\n  /**\n   * Display name of the author.\n   */\n  name: string;\n  /**\n   * Optional URL to the author's avatar image.\n   */\n  avatarUrl?: string;\n  /**\n   * Optional short",
+              "success": true,
+              "timestamp": "2026-05-01T08:36:56.774Z"
+            },
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import {\n  BlogNavigationItem,\n  BlogPost,\n  BlogPostSummary,\n} from './blogTypes';\n\n/**\n * Primary navigation items for the blog experience.\n */\nexport const navigationItems: BlogNavigationItem[] = [\n  { label: 'All Posts', href: '/blog' },\n  { label: 'Engineering', href: '/blog/category/engineering' },\n  { label: 'Product', href: '/blog/category/product' },\n  { label: 'Design', href: '/blog/category/design' },\n  { label: 'Culture', href: '/blog/category/culture' },\n];\n\n/**\n * Complete blog post dataset used by the blog module.\n */\nexport const blogPosts: BlogPost[] = [\n  {\n    id: 'post-001',\n    slug: 'building-resilient-frontend-architecture',\n    title: 'Building Resilient Frontend Architecture',\n    excerpt:\n      'Practical patterns for scaling frontend codebases while keeping delivery speed high.',\n    coverImage: 'https://images.example.com/blog/resilient-frontend.jpg',\n    publishedAt: '2026-01-12T10:00:00.000Z',\n    readingMinutes: 8,\n    category: { id: 'cat-001', name: 'Engineering', slug: 'engineering' },\n    author: {\n      id: 'author-001',\n      name: 'Avery Chen',\n      avatarUrl: 'https://images.example.com/authors/avery-chen.jpg',\n      bio: 'Staff frontend engineer focused on architecture and DX.',\n    },\n    featured: true,\n    content: [\n      { type: 'heading', level: 2, text: 'Start with boundaries' },\n      {\n        type: 'paragraph',\n        text: 'Clear module boundaries reduce coupling and make refactoring safer over time.',\n      },\n      {\n        type: 'quote',\n        text: 'Architecture is the set of decisions you can no longer easily change.',\n        cite: 'Martin Fowler',\n      },\n    ],\n  },\n  {\n    id: 'post-002',\n    slug: 'roadmapping-with-customer-feedback-loops',\n    title: 'Roadmapping with Customer Feedback Loops',\n    excerpt:\n      'How product teams can connect roadmap bets directly to validated customer needs.',\n    coverImage: 'https://images.example.com/blog/feedback-loops.jpg',\n    publishedAt: '2026-01-05T09:30:00.000Z',\n    readingMinutes: 6,\n    category: { id: 'cat-002', name: 'Product', slug: 'product' },\n    author: {\n      id: 'author-002',\n      name: 'Priya Raman',\n      avatarUrl: 'https://images.example.com/authors/priya-raman.jpg',\n      bio: 'Product lead working on outcome-driven planning.',\n    },\n    featured: true,\n    content: [\n      { type: 'heading', level: 2, text: 'From assumptions to evidence' },\n      {\n        type: 'paragraph',\n        text: 'Feedback loops shorten the time between planning and learning.',\n      },\n      {\n        type: 'image',\n        src: 'https://images.example.com/blog/feedback-cycle-diagram.png',\n        alt: 'Feedback cycle diagram',\n        caption: 'A simple model for continuous product discovery.',\n      },\n    ],\n  },\n  {\n    id: 'post-003',\n    slug: 'designing-inclusive-empty-states',\n    title: 'Designing Inclusive Empty States',\n    excerpt:\n      'Empty states can guide and reassure users when crafted with accessibility and clarity in mind.',\n    coverImage: 'https://images.example.com/blog/inclusive-empty-states.jpg',\n    publishedAt: '2025-12-28T08:45:00.000Z',\n    readingMinutes: 5,\n    category: { id: 'cat-003', name: 'Design', slug: 'design' },\n    author: {\n      id: 'author-003',\n      name: 'Marisol Vega',\n      avatarUrl: 'https://images.example.com/authors/marisol-vega.jpg',\n      bio: 'Product designer specializing in inclusive interaction patterns.',\n    },\n    featured: false,\n    content: [\n      { type: 'heading', level: 2, text: 'Clarity before decoration' },\n      {\n        type: 'paragraph',\n        text: 'An effective empty state explains what happened and what to do next.',\n      },\n      {\n        type: 'quote',\n        text: 'Inclusive design is good design, period.',\n      },\n    ],\n  },\n  {\n    id: 'post-004',\n    slug: 'measuring-developer-experience-metrics-that-matter',\n    title: 'Measuring Developer Experience: Metrics That Matter',\n    excerpt:\n      'A practical framework for selecting DX indicators that drive real engineering improvements.',\n    coverImage: 'https://images.example.com/blog/dx-metrics.jpg',\n    publishedAt: '2025-12-20T11:15:00.000Z',\n    readingMinutes: 7,\n    category: { id: 'cat-001', name: 'Engineering', slug: 'engineering' },\n    author: {\n      id: 'author-004',\n      name: 'Noah Patel',\n      avatarUrl: 'https://images.example.com/authors/noah-patel.jpg',\n      bio: 'Engineering manager focused on velocity, quality, and team health.',\n    },\n    featured: false,\n    content: [\n      { type: 'heading', level: 2, text: 'Avoid vanity metrics' },\n      {\n        type: 'paragraph',\n        text: 'Measure leading indicators such as cycle time and build reliability.',\n      },\n      {\n        type: 'image',\n        src: 'https://images.example.com/blog/dx-dashboard.png',\n        alt: 'Developer experience dashboard mockup',\n      },\n    ],\n  },\n  {\n    id: 'post-005',\n    slug: 'building-a-culture-of-constructive-retrospectives',\n    title: 'Building a Culture of Constructive Retrospectives',\n    excerpt:\n      'Turn retros into high-trust rituals that surface learning and lead to measurable change.',\n    coverImage: 'https://images.example.com/blog/retrospectives-culture.jpg',\n    publishedAt: '2025-12-14T14:20:00.000Z',\n    readingMinutes: 6,\n    category: { id: 'cat-004', name: 'Culture', slug: 'culture' },\n    author: {\n      id: 'author-005',\n      name: 'Elena Brooks',\n      avatarUrl: 'https://images.example.com/authors/elena-brooks.jpg',\n      bio: 'Agile coach helping teams improve collaboration and learning.',\n    },\n    featured: false,\n    content: [\n      { type: 'heading', level: 2, text: 'Psychological safety first' },\n      {\n        type: 'paragraph',\n        text: 'Teams improve fastest when people can discuss failures without blame.',\n      },\n      {\n        type: 'quote',\n        text: 'Process improvement is a team sport.',\n        cite: 'Anonymous retrospective note',\n      },\n    ],\n  },\n  {\n    id: 'post-006',\n    slug: 'experiment-design-for-product-teams',\n    title: 'Experiment Design for Product Teams',\n    excerpt:\n      'Design better experiments with clear hypotheses, guardrails, and decision thresholds.',\n    coverImage: 'https://images.example.com/blog/experiment-design.jpg',\n    publishedAt: '2025-12-07T12:00:00.000Z',\n    readingMinutes: 9,\n    category: { id: 'cat-002', name: 'Product', slug: 'product' },\n    author: {\n      id: 'author-002',\n      name: 'Priya Raman',\n      avatarUrl: 'https://images.example.com/authors/priya-raman.jpg',\n      bio: 'Product lead working on outcome-driven planning.',\n    },\n    featured: true,\n    content: [\n      { type: 'heading', level: 2, text: 'Define success before launch' },\n      {\n        type: 'paragraph',\n        text: 'A strong experiment plan includes expected impact and stop conditions.',\n      },\n      {\n        type: 'image',\n        src: 'https://images.example.com/blog/experiment-template.png',\n        alt: 'Experiment plan template',\n        caption: 'Template with hypothesis, metrics, and risk controls.',\n      },\n    ],\n  },\n];\n\n/**\n * Converts a full blog post into its summary representation.\n *\n * @param post - Full post to convert.\n * @returns The summary metadata for the provided post.\n */\nfunction toSummary(post: BlogPost): BlogPostSummary {\n  const summary: BlogPostSummary = {\n    id: post.id,\n    slug: post.slug,\n    title: post.title,\n    excerpt: post.excerpt,\n    coverImage: post.coverImage,\n    publishedAt: post.publishedAt,\n    readingMinutes: post.readingMinutes,\n    category: post.category,\n    author: post.author,\n    featured: post.featured,\n  };\n\n  return summary;\n}\n\n/**\n * Parses an ISO-like timestamp string into epoch milliseconds.\n * Invalid values are treated as the oldest possible date.\n *\n * @param value - Date string to parse.\n * @returns Parsed epoch milliseconds or {@link Number.NEGATIVE_INFINITY} when invalid.\n */\nfunction toEpoch(value: string): number {\n  const epoch: number = Date.parse(value);\n  return Number.isNaN(epoch) ? Number.NEGATIVE_INFINITY : epoch;\n}\n\n/**\n * Returns featured posts ordered from newest to oldest.\n *\n * @param limit - Optional maximum number of posts to return. Non-positive values return an empty list.\n * @returns Featured post summaries.\n */\nexport function getFeaturedPosts(limit?: number): BlogPostSummary[] {\n  if (typeof limit === 'number' && limit <= 0) {\n    return [];\n  }\n\n  const featuredPosts: BlogPost[] = blogPosts\n    .filter((post: BlogPost): boolean => post.featured)\n    .sort((left: BlogPost, right: BlogPost): number => toEpoch(right.publishedAt) - toEpoch(left.publishedAt));\n\n  const summaries: BlogPostSummary[] = featuredPosts.map((post: BlogPost): BlogPostSummary => toSummary(post));\n\n  if (typeof limit === 'number') {\n    return summaries.slice(0, limit);\n  }\n\n  return summaries;\n}\n\n/**\n * Returns summaries for all posts ordered from newest to oldest.\n *\n * @returns All post summaries.\n */\nexport function getAllPostSummaries(): BlogPostSummary[] {\n  return [...blogPosts]\n    .sort((left: BlogPost, right: BlogPost): number => toEpoch(right.publishedAt) - toEpoch(left.publishedAt))\n    .map((post: BlogPost): BlogPostSummary => toSummary(post));\n}\n\n/**\n * Finds a post by its slug.\n *\n * @param slug - Slug to search for.\n * @returns The matching post, or {@code null} when none is found or slug is empty.\n */\nexport function getPostBySlug(slug: string): BlogPost | null {\n  const normalizedSlug: string = slug.trim();\n  if (normalizedSlug.length === 0) {\n    return null;\n  }\n\n  const found: BlogPost | undefined = blogPosts.find(\n    (post: BlogPost): boolean => post.slug === normalizedSlug,\n  );\n\n  return found ?? null;\n}\n\n/**\n * Returns related posts for a given post and category, ordered from newest to oldest.\n *\n * @param postId - The source post identifier to exclude from results.\n * @param categorySlug - Category slug used to match related posts.\n * @param limit - Optional maximum number of related posts to return. Non-positive values return an empty list.\n * @returns Related post summaries.\n */\nexport function getRelatedPosts(\n  postId: string,\n  categorySlug: string,\n  limit?: number,\n): BlogPostSummary[] {\n  if (typeof limit === 'number' && limit <= 0) {\n    return [];\n  }\n\n  const normalizedCategorySlug: string = categorySlug.trim();\n  if (normalizedCategorySlug.length === 0) {\n    return [];\n  }\n\n  const relatedPosts: BlogPostSummary[] = blogPosts\n    .filter(\n      (post: BlogPost): boolean =>\n        post.id !== postId && post.category.slug === normalizedCategorySlug,\n    )\n    .sort((left: BlogPost, right: BlogPost): number => toEpoch(right.publishedAt) - toEpoch(left.publishedAt))\n    .map((post: BlogPost): BlogPostSummary => toSummary(post));\n\n  if (typeof limit === 'number') {\n    return relatedPosts.slice(0, limit);\n  }\n\n  return relatedPosts;\n}\n",
+                "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts (330 lines)",
+              "success": true,
+              "timestamp": "2026-05-01T08:36:56.774Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts",
+              "operation": "create",
+              "sizeBytes": 10881,
+              "checksum": "ac48acba1fd04029",
+              "timestamp": "2026-05-01T08:36:56.774Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 727,
+              "timestamp": "2026-05-01T08:36:56.774Z"
+            }
+          ],
+          "startedAt": "2026-05-01T08:33:40.272Z",
+          "completedAt": "2026-05-01T08:36:56.774Z",
+          "durationMs": 196502
+        },
+        "error": {
+          "message": "Code review failed: critical issue: blogPosts array is incomplete/truncated, so the file will not parse/compile and does not demonstrate at least 6 BlogPost items; critical issue: required exports getFeaturedPosts, getAllPostSummaries, getPostBySlug, and getRelatedPosts are missing from the provided code",
+          "category": "logic",
+          "recoverable": false
+        },
+        "lastError": "Code review failed: critical issue: file is incomplete/truncated and would not compile or parse, so required exports/functions are not fully implemented; critical issue: acceptance criteria require exports getFeaturedPosts, getAllPostSummaries, getPostBySlug, and getRelatedPosts, but they are not present in the provided code; critical issue: acceptance criteria require blogPosts to contain at least 6 BlogPost items, but only 5 items are present in the provided code",
+        "lastErrorKind": "review"
+      }
+    ],
+    [
+      "util-formatting",
+      {
+        "id": "util-formatting",
+        "type": "implement",
+        "title": "Add presentation utilities",
+        "specFragment": "界面需要使用现代化排版、清晰的卡片/分区、优雅的动效或交互效果，整体观感干净、精致、科技感强。",
+        "nodeRole": "implementer",
+        "task": "Implement blogFormatters.ts. Export function formatDisplayDate(isoDate: string, locale?: string): string. Export function formatReadingTime(minutes: number): string. Export function buildPostHref(slug: string): string. Export function cx(...classes: Array<string | false | null | undefined>): string.",
+        "acceptanceCriteria": "blogFormatters.ts exports formatDisplayDate, formatReadingTime, buildPostHref, and cx. formatDisplayDate formats valid ISO dates into a short human-readable date and returns the input for invalid dates. formatReadingTime returns strings like '5 min read' for positive values and '1 min read' for zero/negative/non-finite values. buildPostHref returns '/blog/' plus the slug without duplicate slashes. cx joins only truthy class strings with single spaces.",
+        "skills": [
+          "ts-strict"
+        ],
+        "dependsOn": [],
+        "inputs": {
+          "description": "Create small reusable utilities for dates, reading time labels, URLs, and class name composition. This layer has no React dependency and can be tested independently."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.ts",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 5,
+        "retryCount": 1,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:21:48.964Z",
+        "lastError": "Code review failed: critical issue: formatDisplayDate returns an empty string for invalid dates, but the acceptance criteria requires returning the original input string; critical issue: buildPostHref returns '/blog' for an empty slug instead of '/blog/' plus the slug, and it does not normalize duplicate slashes within the slug",
+        "lastErrorKind": "review",
+        "evidence": {
+          "reasoning": "Implementing: Create small reusable utilities for dates, reading time labels, URLs, and class name composition. This layer has no React dependency and can be tested independently.",
+          "promptUsed": "Role: implementer\nTask: Implement blogFormatters.ts. Export function formatDisplayDate(isoDate: string, locale?: string): string. Export function formatReadingTime(minutes: number): string. Export function buildPostHref(slug: string): string. Export function cx(...classes: Array<string | false | nul",
+          "modelUsed": "gpt-5.3-codex",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "/**\n * Formats an ISO date string into a locale-aware display date.\n *\n * If the input cannot be parsed as a valid date, the original input string\n * is returned unchanged.\n *\n * @param isoDate - The ISO date string to format.\n * @param locale - Optional BCP 47 locale string used for formatting.\n * @returns A formatted display date, or the original input when invalid.\n */\nexport function formatDisplayDate(isoDate: string, locale?: string): string {\n  const date: Date = new Date(isoDate);\n  if (Number.isNaN(date.getTime())) {\n    return isoDate;\n  }\n\n  try {\n    return new Intl.DateTimeFormat(locale, {\n      year: \"numeric\",\n      month: \"short\",\n      day: \"numeric\",\n    }).format(date);\n  } catch {\n    return new Intl.DateTimeFormat(undefined, {\n      year: \"numeric\",\n      month: \"short\",\n      day: \"numeric\",\n    }).format(date);\n  }\n}\n\n/**\n * Formats a reading time value in minutes.\n *\n * Values less than or equal to 1 are displayed as \"1 min read\".\n * Non-finite or negative values are clamped to 1 minute.\n *\n * @param minutes - The estimated reading time in minutes.\n * @returns A human-readable reading time string.\n */\nexport function formatReadingTime(minutes: number): string {\n  const normalized: number = Number.isFinite(minutes) ? minutes : 1;\n  const roundedUp: number = Math.ceil(normalized);\n  const safeMinutes: number = Math.max(1, roundedUp);\n\n  if (safeMinutes === 1) {\n    return \"1 min read\";\n  }\n\n  return `${safeMinutes} min read`;\n}\n\n/**\n * Builds the canonical post href from a slug.\n *\n * The slug is trimmed, leading slashes are removed, and duplicate slashes\n * within the slug are normalized to a single slash.\n *\n * @param slug - The post slug.\n * @returns A normalized post href in the form \"/blog/{slug}\".\n */\nexport function buildPostHref(slug: string): string {\n  const trimmed: string = slug.trim();\n  const withoutLeadingSlashes: string = trimmed.replace(/^\\/+/, \"\");\n  const normalizedInternalSlashes: string = withoutLeadingSlashes.replace(/\\/{2,}/g, \"/\");\n  return `/blog/${normalizedInternalSlashes}`;\n}\n\n/**\n * Joins class names into a single space-separated string, omitting falsy\n * non-string values and empty strings.\n *\n * @param classes - Class name values to combine.\n * @returns A normalized class name string.\n */\nexport function cx(...classes: Array<string | false | null | undefined>): string {\n  const filtered: string[] = classes.filter((value: string | false | null | undefined): value is string => {\n    return typeof value === \"string\" && value.trim() !== \"\";\n  });\n\n  return filtered.join(\" \");\n}\n",
+                "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.ts (83 lines)",
+              "success": true,
+              "timestamp": "2026-05-01T08:21:43.060Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.ts",
+              "operation": "create",
+              "sizeBytes": 2571,
+              "checksum": "620d6df2b0979534",
+              "timestamp": "2026-05-01T08:21:43.060Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 644,
+              "timestamp": "2026-05-01T08:21:43.060Z"
+            }
+          ],
+          "startedAt": "2026-05-01T08:21:02.884Z",
+          "completedAt": "2026-05-01T08:21:43.060Z",
+          "durationMs": 40176
+        }
+      }
+    ],
+    [
+      "styles-blog-theme",
+      {
+        "id": "styles-blog-theme",
+        "type": "implement",
+        "title": "Implement Apple-like CSS",
+        "specFragment": "整体设计参考苹果官网的简洁、高级、留白充足的视觉风格。具备响应式布局，适配桌面端和移动端。界面需要使用现代化排版、清晰的卡片/分区、优雅的动效或交互效果，整体观感干净、精致、科技感强。",
+        "nodeRole": "implementer",
+        "task": "Implement appleBlog.css defining CSS classes used by components: .apple-blog-shell, .apple-blog-nav, .apple-blog-nav__brand, .apple-blog-nav__links, .apple-blog-hero, .apple-blog-hero__eyebrow, .apple-blog-hero__title, .apple-blog-hero__subtitle, .apple-blog-section, .apple-blog-section__header, .apple-blog-grid, .apple-blog-card, .apple-blog-card__media, .apple-blog-card__body, .apple-blog-card__meta, .apple-blog-card__title, .apple-blog-card__excerpt, .apple-blog-button, .apple-blog-list, .apple-blog-list-item, .apple-blog-detail, .apple-blog-detail__header, .apple-blog-detail__cover, .apple-blog-prose, .apple-blog-quote, .apple-blog-footer, .apple-blog-empty.",
+        "acceptanceCriteria": "appleBlog.css defines all classes listed in task. Styles include responsive breakpoints for max-width 768px and 480px. Cards include hover/focus-visible transitions. Layout uses generous spacing, modern font stack, rounded cards/sections, clean light theme, and mobile-friendly single-column behavior.",
+        "skills": [
+          "responsive-css",
+          "apple-inspired-ui"
+        ],
+        "dependsOn": [],
+        "inputs": {
+          "description": "Create the visual design system and responsive layout rules. Use CSS custom properties for color, spacing, radius, shadows, and motion. Include accessible focus states and reduced-motion support for users who prefer less animation."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/appleBlog.css",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/appleBlog.css"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:33:40.997Z",
+        "evidence": {
+          "reasoning": "Implementing: Create the visual design system and responsive layout rules. Use CSS custom properties for color, spacing, radius, shadows, and motion. Include accessible focus states and reduced-motion support for users who prefer less animation.",
+          "promptUsed": "Role: implementer\nTask: Implement appleBlog.css defining CSS classes used by components: .apple-blog-shell, .apple-blog-nav, .apple-blog-nav__brand, .apple-blog-nav__links, .apple-blog-hero, .apple-blog-hero__eyebrow, .apple-blog-hero__title, .apple-blog-hero__subtitle, .apple-blog-section, .apple-b",
+          "modelUsed": "gpt-5.3-codex",
+          "toolCalls": [
+            {
+              "tool": "list_dir",
+              "input": {
+                "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output"
+              },
+              "output": "f  appleBlog.css\nf  blogData.ts\nf  blogFormatters.test.ts\nf  blogFormatters.ts\nf  blogTypes.ts",
+              "success": true,
+              "timestamp": "2026-05-01T08:33:40.109Z"
+            },
+            {
+              "tool": "search_files",
+              "input": {
+                "glob": "**/*",
+                "pattern": "apple-blog"
+              },
+              "output": "./.shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/graph.json:232:        \"task\": \"Implement appleBlog.css defining CSS classes used by components: .apple-blog-shell, .apple-blog-nav, .apple-blog-nav__brand, .apple-blog-nav__links, .apple-blog-hero, .apple-blog-hero__eyebrow, .apple",
+              "success": true,
+              "timestamp": "2026-05-01T08:33:40.109Z"
+            },
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "/* Apple-inspired responsive blog UI */\n\n:root {\n  --apple-bg: #f5f5f7;\n  --apple-surface: #ffffff;\n  --apple-surface-muted: #fbfbfd;\n  --apple-text: #1d1d1f;\n  --apple-text-muted: #6e6e73;\n  --apple-border: #d2d2d7;\n  --apple-accent: #0071e3;\n  --apple-accent-hover: #0077ed;\n  --apple-shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.06);\n  --apple-shadow-md: 0 14px 34px rgba(0, 0, 0, 0.08);\n  --apple-radius-lg: 22px;\n  --apple-radius-md: 14px;\n  --apple-radius-sm: 10px;\n  --apple-max-width: 1120px;\n}\n\n* {\n  box-sizing: border-box;\n}\n\n.apple-blog-shell {\n  min-height: 100vh;\n  background: var(--apple-bg);\n  color: var(--apple-text);\n  font-family: -apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;\n  line-height: 1.5;\n}\n\n.apple-blog-nav {\n  position: sticky;\n  top: 0;\n  z-index: 40;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 1rem;\n  max-width: var(--apple-max-width);\n  margin: 0 auto;\n  padding: 0.95rem 1.25rem;\n  backdrop-filter: saturate(180%) blur(20px);\n  -webkit-backdrop-filter: saturate(180%) blur(20px);\n  background: rgba(245, 245, 247, 0.84);\n  border-bottom: 1px solid rgba(210, 210, 215, 0.7);\n}\n\n.apple-blog-nav__brand {\n  margin: 0;\n  color: var(--apple-text);\n  font-size: 1.05rem;\n  font-weight: 650;\n  letter-spacing: -0.01em;\n}\n\n.apple-blog-nav__links {\n  display: flex;\n  align-items: center;\n  gap: 0.7rem;\n  flex-wrap: wrap;\n}\n\n.apple-blog-nav__links a {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  text-decoration: none;\n  color: var(--apple-text-muted);\n  font-size: 0.94rem;\n  line-height: 1;\n  padding: 0.5rem 0.7rem;\n  border-radius: 999px;\n  transition: color 180ms ease, background-color 180ms ease;\n}\n\n.apple-blog-nav__links a:hover,\n.apple-blog-nav__links a:focus-visible {\n  color: var(--apple-text);\n  background: rgba(0, 113, 227, 0.1);\n  outline: none;\n}\n\n.apple-blog-hero {\n  max-width: var(--apple-max-width);\n  margin: 0 auto;\n  padding: 4.3rem 1.25rem 2.4rem;\n  text-align: center;\n}\n\n.apple-blog-hero__eyebrow {\n  display: inline-block;\n  margin: 0 0 0.8rem;\n  color: var(--apple-accent);\n  font-size: 0.8rem;\n  font-weight: 600;\n  letter-spacing: 0.12em;\n  text-transform: uppercase;\n}\n\n.apple-blog-hero__title {\n  margin: 0;\n  font-size: clamp(2rem, 4.8vw, 3.8rem);\n  line-height: 1.07;\n  letter-spacing: -0.03em;\n  font-weight: 700;\n}\n\n.apple-blog-hero__subtitle {\n  max-width: 760px;\n  margin: 0.95rem auto 0;\n  color: var(--apple-text-muted);\n  font-size: clamp(1rem, 2.15vw, 1.24rem);\n}\n\n.apple-blog-section {\n  max-width: var(--apple-max-width);\n  margin: 0 auto;\n  padding: 1.8rem 1.25rem 2.9rem;\n}\n\n.apple-blog-section__header {\n  margin: 0 0 1rem;\n  font-size: clamp(1.25rem, 2.4vw, 1.85rem);\n  line-height: 1.2;\n  letter-spacing: -0.02em;\n}\n\n.apple-blog-grid {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n  gap: 1rem;\n}\n\n.apple-blog-card {\n  display: flex;\n  flex-direction: column;\n  min-height: 100%;\n  border-radius: var(--apple-radius-lg);\n  overflow: hidden;\n  background: var(--apple-surface);\n  border: 1px solid rgba(210, 210, 215, 0.6);\n  box-shadow: var(--apple-shadow-sm);\n  transition: transform 220ms ease, box-shadow 220ms ease;\n}\n\n.apple-blog-card:hover {\n  transform: translateY(-2px);\n  box-shadow: var(--apple-shadow-md);\n}\n\n.apple-blog-card__media {\n  width: 100%;\n  aspect-ratio: 16 / 9;\n  object-fit: cover;\n  background: linear-gradient(135deg, #e9ecf1, #d8dde6);\n}\n\n.apple-blog-card__body {\n  display: flex;\n  flex-direction: column;\n  gap: 0.55rem;\n  padding: 1rem 1rem 1.1rem;\n}\n\n.apple-blog-card__meta {\n  margin: 0;\n  color: var(--apple-text-muted);\n  font-size: 0.82rem;\n  letter-spacing: 0.01em;\n}\n\n.apple-blog-card__title {\n  margin: 0;\n  color: var(--apple-text);\n  font-size: 1.12rem;\n  font-weight: 650;\n  line-height: 1.25;\n  letter-spacing: -0.01em;\n}\n\n.apple-blog-card__excerpt {\n  margin: 0;\n  color: var(--apple-text-muted);\n  font-size: 0.95rem;\n}\n\n.apple-blog-button {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  border: 0;\n  border-radius: 999px;\n  background: var(--apple-accent);\n  color: #fff;\n  text-decoration: none;\n  font-size: 0.92rem;\n  font-weight: 600;\n  line-height: 1;\n  padding: 0.68rem 1rem;\n  cursor: pointer;\n  transition: background-color 180ms ease, transform 180ms ease;\n}\n\n.apple-blog-button:hover,\n.apple-blog-button:focus-visible {\n  background: var(--apple-accent-hover);\n  transform: translateY(-1px);\n  outline: none;\n}\n\n.apple-blog-list {\n  display: grid;\n  gap: 0.85rem;\n}\n\n.apple-blog-list-item {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 1rem;\n  padding: 0.9rem 1rem;\n  border-radius: var(--apple-radius-md);\n  background: var(--apple-surface);\n  border: 1px solid rgba(210, 210, 215, 0.7);\n}\n\n.apple-blog-detail {\n  max-width: 860px;\n  margin: 0 auto;\n  padding: 2rem 1.25rem 3rem;\n}\n\n.apple-blog-detail__header {\n  margin-bottom: 1.2rem;\n}\n\n.apple-blog-detail__cover {\n  width: 100%;\n  border-radius: var(--apple-radius-lg);\n  object-fit: cover;\n  aspect-ratio: 16 / 9;\n  background: var(--apple-surface-muted);\n  border: 1px solid rgba(210, 210, 215, 0.65);\n}\n\n.apple-blog-prose {\n  margin-top: 1.2rem;\n  color: var(--apple-text);\n  font-size: 1.03rem;\n}\n\n.apple-blog-prose > * + * {\n  margin-top: 1em;\n}\n\n.apple-blog-prose h1,\n.apple-blog-prose h2,\n.apple-blog-prose h3,\n.apple-blog-prose h4 {\n  letter-spacing: -0.02em;\n  line-height: 1.2;\n}\n\n.apple-blog-prose p,\n.apple-blog-prose li {\n  color: #2d2d2f;\n}\n\n.apple-blog-prose a {\n  color: var(--apple-accent);\n}\n\n.apple-blog-quote {\n  margin: 1.4rem 0;\n  padding: 1rem 1.1rem;\n  border-left: 3px solid var(--apple-accent);\n  background: var(--apple-surface-muted);\n  border-radius: 0 var(--apple-radius-sm) var(--apple-radius-sm) 0;\n  color: #3a3a3c;\n  font-size: 1.04rem;\n}\n\n.apple-blog-footer {\n  max-width: var(--apple-max-width);\n  margin: 0 auto;\n  padding: 1.7rem 1.25rem 2.4rem;\n  color: var(--apple-text-muted);\n  font-size: 0.9rem;\n  text-align: center;\n}\n\n.apple-blog-empty {\n  padding: 2rem 1.2rem;\n  border-radius: var(--apple-radius-md);\n  text-align: center;\n  color: var(--apple-text-muted);\n  background: var(--apple-surface);\n  border: 1px dashed var(--apple-border);\n}\n\n@media (max-width: 1024px) {\n  .apple-blog-grid {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }\n}\n\n@media (max-width: 760px) {\n  .apple-blog-nav {\n    padding: 0.85rem 1rem;\n  }\n\n  .apple-blog-hero {\n    padding-top: 3.2rem;\n  }\n\n  .apple-blog-section,\n  .apple-blog-detail,\n  .apple-blog-footer {\n    padding-left: 1rem;\n    padding-right: 1rem;\n  }\n\n  .apple-blog-grid {\n    grid-template-columns: 1fr;\n  }\n\n  .apple-blog-list-item {\n    flex-direction: column;\n    align-items: flex-start;\n  }\n}\n",
+                "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/appleBlog.css"
+              },
+              "output": "Written: .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/appleBlog.css (333 lines)",
+              "success": true,
+              "timestamp": "2026-05-01T08:33:40.109Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/appleBlog.css",
+              "operation": "create",
+              "sizeBytes": 6810,
+              "checksum": "0e61539b62782de5",
+              "timestamp": "2026-05-01T08:33:40.109Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": false,
+              "output": "error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/appleBlog.css' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.\n  The file is in the program because:\n    Root file specified for compilation\n\nnpm warn Unknown env config \"recursive\". This will stop working in the next major version of npm.",
+              "durationMs": 723,
+              "timestamp": "2026-05-01T08:33:40.274Z"
+            }
+          ],
+          "startedAt": "2026-05-01T08:30:07.088Z",
+          "completedAt": "2026-05-01T08:33:40.109Z",
+          "durationMs": 213021
+        },
+        "lastError": "error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/appleBlog.css' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.\n  The file is in the program because:\n    Root file specified for compilation\n\nnpm warn Unknown env config \"recursive\". This will stop working in the next major version of npm.",
+        "lastErrorKind": "verify",
+        "error": {
+          "message": "Compile failed: error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/appleBlog.css' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.",
+          "category": "compile",
+          "recoverable": false
+        }
+      }
+    ],
+    [
+      "impl-blog-components",
+      {
+        "id": "impl-blog-components",
+        "type": "implement",
+        "title": "Build shared React UI",
+        "specFragment": "整体设计参考苹果官网的简洁、高级、留白充足的视觉风格。界面需要使用现代化排版、清晰的卡片/分区、优雅的动效或交互效果",
+        "nodeRole": "implementer",
+        "task": "Implement BlogComponents.tsx. Import React from 'react'. Import BlogNavigationItem, BlogPostSummary, BlogContentBlock from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogTypes.ts. Import formatDisplayDate, formatReadingTime, buildPostHref, cx from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.ts. Export function BlogShell(props: { children: React.ReactNode, navigationItems: BlogNavigationItem[] }): JSX.Element. Export function BlogHero(props: { eyebrow: string, title: string, subtitle: string, primaryHref?: string, primaryLabel?: string }): JSX.Element. Export function SectionHeader(props: { eyebrow?: string, title: string, description?: string }): JSX.Element. Export function PostCard(props: { post: BlogPostSummary, variant?: 'featured' | 'compact' | 'default' }): JSX.Element. Export function PostGrid(props: { posts: BlogPostSummary[], variant?: 'featured' | 'default' }): JSX.Element. Export function PostList(props: { posts: BlogPostSummary[] }): JSX.Element. Export function ArticleContent(props: { blocks: BlogContentBlock[] }): JSX.Element. Export function EmptyState(props: { title: string, description: string }): JSX.Element.",
+        "acceptanceCriteria": "BlogComponents.tsx exports BlogShell, BlogHero, SectionHeader, PostCard, PostGrid, PostList, ArticleContent, and EmptyState. BlogShell renders navigationItems and children. PostCard renders title, excerpt, formatted date, reading time, category name, cover image alt text, and link from buildPostHref. PostGrid renders all posts or EmptyState when empty. PostList renders all posts or EmptyState when empty. ArticleContent renders paragraph, heading, quote, and image blocks according to block.type. Components use class names defined in appleBlog.css and contain no hardcoded blog data.",
+        "skills": [
+          "react",
+          "ts-strict",
+          "a11y"
+        ],
+        "dependsOn": [
+          "types-blog",
+          "util-formatting",
+          "styles-blog-theme"
+        ],
+        "inputs": {
+          "description": "Build reusable presentational components for navigation shell, hero, sections, post cards, lists, and rich article body rendering. Keep components data-driven and accessible with semantic HTML."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogComponents.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogComponents.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:24:01.188Z"
+      }
+    ],
+    [
+      "page-blog-home",
+      {
+        "id": "page-blog-home",
+        "type": "implement",
+        "title": "Implement blog homepage",
+        "specFragment": "网站应包含博客首页",
+        "nodeRole": "implementer",
+        "task": "Implement BlogHomePage.tsx. Import React from 'react'. Import navigationItems, getFeaturedPosts, getAllPostSummaries from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts. Import BlogShell, BlogHero, SectionHeader, PostGrid, PostList from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogComponents.tsx. Import .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/appleBlog.css. Export function BlogHomePage(): JSX.Element. Export default BlogHomePage.",
+        "acceptanceCriteria": "BlogHomePage.tsx exports named BlogHomePage and default BlogHomePage. BlogHomePage renders BlogShell with navigationItems, a BlogHero, a featured posts section using getFeaturedPosts, and a latest posts section using getAllPostSummaries. The page imports appleBlog.css exactly once and contains no duplicated static post data.",
+        "skills": [
+          "react",
+          "page-composition"
+        ],
+        "dependsOn": [
+          "impl-blog-data",
+          "impl-blog-components",
+          "styles-blog-theme"
+        ],
+        "inputs": {
+          "description": "Compose the landing page with a premium hero, featured story cards, and latest article list. This file should focus only on assembling existing data and components."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogHomePage.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogHomePage.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:21:18.852Z"
+      }
+    ],
+    [
+      "page-blog-list",
+      {
+        "id": "page-blog-list",
+        "type": "implement",
+        "title": "Implement article list page",
+        "specFragment": "网站应包含博客首页、文章列表、文章详情页等核心功能",
+        "nodeRole": "implementer",
+        "task": "Implement BlogListPage.tsx. Import React from 'react'. Import navigationItems, getAllPostSummaries from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts. Import BlogShell, BlogHero, SectionHeader, PostList from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogComponents.tsx. Import .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/appleBlog.css. Export function BlogListPage(): JSX.Element. Export default BlogListPage.",
+        "acceptanceCriteria": "BlogListPage.tsx exports named BlogListPage and default BlogListPage. BlogListPage renders BlogShell with navigationItems, a list-focused BlogHero, a SectionHeader, and PostList populated from getAllPostSummaries. The page imports appleBlog.css exactly once and contains no duplicated static post data.",
+        "skills": [
+          "react",
+          "page-composition"
+        ],
+        "dependsOn": [
+          "impl-blog-data",
+          "impl-blog-components",
+          "styles-blog-theme"
+        ],
+        "inputs": {
+          "description": "Compose the article index page for browsing all posts. Keep layout clean and scannable on both desktop and mobile by delegating rendering to shared components."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogListPage.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogListPage.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:21:18.852Z"
+      }
+    ],
+    [
+      "page-blog-detail",
+      {
+        "id": "page-blog-detail",
+        "type": "implement",
+        "title": "Implement article detail page",
+        "specFragment": "网站应包含博客首页、文章列表、文章详情页等核心功能",
+        "nodeRole": "implementer",
+        "task": "Implement BlogDetailPage.tsx. Import React from 'react'. Import navigationItems, getPostBySlug, getRelatedPosts from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts. Import formatDisplayDate, formatReadingTime from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.ts. Import BlogShell, ArticleContent, SectionHeader, PostGrid, EmptyState from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogComponents.tsx. Import .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/appleBlog.css. Export type BlogDetailPageProps = { slug: string }. Export function BlogDetailPage(props: BlogDetailPageProps): JSX.Element. Export default BlogDetailPage.",
+        "acceptanceCriteria": "BlogDetailPage.tsx exports BlogDetailPageProps, named BlogDetailPage, and default BlogDetailPage. BlogDetailPage calls getPostBySlug(props.slug). When no post is found, it renders BlogShell and EmptyState. When a post is found, it renders article title, excerpt, category, formatted date, reading time, cover image, ArticleContent, and related posts from getRelatedPosts. The page imports appleBlog.css exactly once and contains no duplicated static post data.",
+        "skills": [
+          "react",
+          "page-composition",
+          "a11y"
+        ],
+        "dependsOn": [
+          "impl-blog-data",
+          "impl-blog-components",
+          "util-formatting",
+          "styles-blog-theme"
+        ],
+        "inputs": {
+          "description": "Compose the article detail page with an elegant editorial header, rich article content, and related reading section. Accept slug as a prop so it can be wired to any router later."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogDetailPage.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogDetailPage.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:22:11.704Z"
+      }
+    ],
+    [
+      "integration-blog-entry",
+      {
+        "id": "integration-blog-entry",
+        "type": "implement",
+        "title": "Export blog module",
+        "specFragment": "实现一个 Apple 风格的博客网站",
+        "nodeRole": "integrator",
+        "task": "Implement index.ts. Export all from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogTypes.ts. Export all from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts. Export all from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.ts. Export all from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogComponents.tsx. Export { BlogHomePage } from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogHomePage.tsx. Export { BlogListPage } from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogListPage.tsx. Export { BlogDetailPage } from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogDetailPage.tsx.",
+        "acceptanceCriteria": "index.ts re-exports all public types, data helpers, formatter helpers, shared components, and named page components listed in task. index.ts contains no rendering logic and no duplicated implementation.",
+        "skills": [
+          "module-exports"
+        ],
+        "dependsOn": [
+          "types-blog",
+          "impl-blog-data",
+          "util-formatting",
+          "impl-blog-components",
+          "page-blog-home",
+          "page-blog-list",
+          "page-blog-detail"
+        ],
+        "inputs": {
+          "description": "Create a single integration entrypoint so consumers can import the complete Apple-style blog module from one file."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/index.ts",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/index.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:22:11.704Z"
+      }
+    ],
+    [
+      "test-blog-formatters",
+      {
+        "id": "test-blog-formatters",
+        "type": "implement",
+        "title": "Test utility functions",
+        "specFragment": "具备响应式布局，适配桌面端和移动端。界面需要使用现代化排版、清晰的卡片/分区、优雅的动效或交互效果",
+        "nodeRole": "tester",
+        "task": "Implement blogFormatters.test.ts. Import describe, it, expect from 'vitest'. Import formatDisplayDate, formatReadingTime, buildPostHref, cx from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.ts. Add tests for formatDisplayDate(isoDate: string, locale?: string): string, formatReadingTime(minutes: number): string, buildPostHref(slug: string): string, and cx(...classes: Array<string | false | null | undefined>): string.",
+        "acceptanceCriteria": "blogFormatters.test.ts tests that formatDisplayDate returns a non-empty formatted string for a valid ISO date and returns the original string for an invalid date. Tests verify formatReadingTime handles positive, zero, and invalid numbers. Tests verify buildPostHref normalizes slashes. Tests verify cx removes false/null/undefined values and joins truthy classes.",
+        "skills": [
+          "vitest"
+        ],
+        "dependsOn": [
+          "util-formatting"
+        ],
+        "inputs": {
+          "description": "Add focused unit tests for the framework-independent formatting utilities to catch regressions in labels, URLs, and class composition."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.test.ts",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.test.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:32:31.057Z",
+        "evidence": {
+          "reasoning": "Implementing: Add focused unit tests for the framework-independent formatting utilities to catch regressions in labels, URLs, and class composition.",
+          "promptUsed": "Role: tester\nTask: Implement blogFormatters.test.ts. Import describe, it, expect from 'vitest'. Import formatDisplayDate, formatReadingTime, buildPostHref, cx from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.ts. Add tests for formatDisplayDate(isoDate: str",
+          "modelUsed": "gpt-5.3-codex",
+          "toolCalls": [
+            {
+              "tool": "read_file",
+              "input": {
+                "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.ts"
+              },
+              "output": "/**\n * Formats an ISO date string into a locale-aware display date.\n *\n * If the input cannot be parsed as a valid date, the original input string\n * is returned unchanged.\n *\n * @param isoDate - The ISO date string to format.\n * @param locale - Optional BCP 47 locale string used for formatting.\n * ",
+              "success": true,
+              "timestamp": "2026-05-01T08:32:30.364Z"
+            },
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import { describe, it, expect } from \"../node_modules/vitest\";\nimport {\n  formatDisplayDate,\n  formatReadingTime,\n  buildPostHref,\n  cx,\n} from \"./blogFormatters\";\n\ndescribe(\"formatDisplayDate\", (): void => {\n  it(\"formats a valid ISO date using the provided locale\", (): void => {\n    const isoDate: string = \"2024-01-15T00:00:00.000Z\";\n\n    const result: string = formatDisplayDate(isoDate, \"en-US\");\n\n    expect(result).toBe(\"Jan 15, 2024\");\n  });\n\n  it(\"returns original string when date is invalid\", (): void => {\n    const isoDate: string = \"not-a-date\";\n\n    const result: string = formatDisplayDate(isoDate, \"en-US\");\n\n    expect(result).toBe(isoDate);\n  });\n\n  it(\"uses default locale formatting when locale is omitted\", (): void => {\n    const isoDate: string = \"2024-01-15T00:00:00.000Z\";\n    const expected: string = new Intl.DateTimeFormat(undefined, {\n      year: \"numeric\",\n      month: \"short\",\n      day: \"numeric\",\n    }).format(new Date(isoDate));\n\n    const result: string = formatDisplayDate(isoDate);\n\n    expect(result).toBe(expected);\n  });\n\n  it(\"falls back to default locale when locale is invalid\", (): void => {\n    const isoDate: string = \"2024-01-15T00:00:00.000Z\";\n    const expected: string = new Intl.DateTimeFormat(undefined, {\n      year: \"numeric\",\n      month: \"short\",\n      day: \"numeric\",\n    }).format(new Date(isoDate));\n\n    const result: string = formatDisplayDate(isoDate, \"bad_locale_tag\");\n\n    expect(result).toBe(expected);\n  });\n});\n\ndescribe(\"formatReadingTime\", (): void => {\n  it(\"returns singular label for 1 minute\", (): void => {\n    expect(formatReadingTime(1)).toBe(\"1 min read\");\n  });\n\n  it(\"returns singular label for values less than or equal to 1\", (): void => {\n    expect(formatReadingTime(0.2)).toBe(\"1 min read\");\n    expect(formatReadingTime(0)).toBe(\"1 min read\");\n  });\n\n  it(\"rounds fractional values up\", (): void => {\n    expect(formatReadingTime(2.1)).toBe(\"3 min read\");\n  });\n\n  it(\"clamps negative values to 1 minute\", (): void => {\n    expect(formatReadingTime(-5)).toBe(\"1 min read\");\n  });\n\n  it(\"clamps non-finite values to 1 minute\", (): void => {\n    expect(formatReadingTime(Number.NaN)).toBe(\"1 min read\");\n    expect(formatReadingTime(Number.POSITIVE_INFINITY)).toBe(\"1 min read\");\n    expect(formatReadingTime(Number.NEGATIVE_INFINITY)).toBe(\"1 min read\");\n  });\n});\n\ndescribe(\"buildPostHref\", (): void => {\n  it(\"builds href for a simple slug\", (): void => {\n    expect(buildPostHref(\"my-post\")).toBe(\"/blog/my-post\");\n  });\n\n  it(\"trims whitespace and removes leading slashes\", (): void => {\n    expect(buildPostHref(\"   ///guides/typescript   \")).toBe(\"/blog/guides/typescript\");\n  });\n\n  it(\"normalizes duplicate internal slashes\", (): void => {\n    expect(buildPostHref(\"posts//2024///intro\")).toBe(\"/blog/posts/2024/intro\");\n  });\n\n  it(\"returns blog root suffix when slug is empty after trim\", (): void => {\n    expect(buildPostHref(\"   \")).toBe(\"/blog/\");\n  });\n});\n\ndescribe(\"cx\", (): void => {\n  it(\"joins class names with spaces\", (): void => {\n    expect(cx(\"btn\", \"btn-primary\", \"active\")).toBe(\"btn btn-primary active\");\n  });\n\n  it(\"omits false, null, undefined, and empty strings\", (): void => {\n    expect(cx(\"btn\", false, null, undefined, \"\", \"primary\")).toBe(\"btn primary\");\n  });\n\n  it(\"omits whitespace-only strings\", (): void => {\n    expect(cx(\"card\", \"   \", \"shadow\")).toBe(\"card shadow\");\n  });\n\n  it(\"returns empty string when all entries are omitted\", (): void => {\n    expect(cx(false, null, undefined, \"\", \"   \")).toBe(\"\");\n  });\n});\n",
+                "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.test.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.test.ts (113 lines)",
+              "success": true,
+              "timestamp": "2026-05-01T08:32:30.364Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.test.ts",
+              "operation": "create",
+              "sizeBytes": 3550,
+              "checksum": "71a10c13417f5869",
+              "timestamp": "2026-05-01T08:32:30.364Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": false,
+              "output": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.test.ts(1,38): error TS2307: Cannot find module '../node_modules/vitest' or its corresponding type declarations.\n\nnpm warn Unknown env config \"recursive\". This will stop working in the next major version of npm.",
+              "durationMs": 693,
+              "timestamp": "2026-05-01T08:32:30.364Z"
+            }
+          ],
+          "startedAt": "2026-05-01T08:31:27.318Z",
+          "completedAt": "2026-05-01T08:32:30.364Z",
+          "durationMs": 63046
+        },
+        "lastError": ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.test.ts(1,38): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.\n\nnpm warn Unknown env config \"recursive\". This will stop working in the next major version of npm.",
+        "lastErrorKind": "verify",
+        "error": {
+          "message": "Compile failed: .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogFormatters.test.ts(1,38): error TS2307: Cannot find module '../node_modules/vitest' or its corresponding type declarations.",
+          "category": "compile",
+          "recoverable": false
+        }
+      }
+    ],
+    [
+      "test-blog-data",
+      {
+        "id": "test-blog-data",
+        "type": "implement",
+        "title": "Test blog data helpers",
+        "specFragment": "网站应包含博客首页、文章列表、文章详情页等核心功能",
+        "nodeRole": "tester",
+        "task": "Implement blogData.test.ts. Import describe, it, expect from 'vitest'. Import blogPosts, navigationItems, getFeaturedPosts, getAllPostSummaries, getPostBySlug, getRelatedPosts from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts.",
+        "acceptanceCriteria": "blogData.test.ts verifies blogPosts has at least 6 posts, navigationItems is non-empty, getFeaturedPosts returns only featured posts and respects a limit, getAllPostSummaries returns the same count as blogPosts, getPostBySlug returns an existing post and null for a missing slug, and getRelatedPosts excludes the current post and respects a limit.",
+        "skills": [
+          "vitest"
+        ],
+        "dependsOn": [
+          "impl-blog-data"
+        ],
+        "inputs": {
+          "description": "Validate static content and helper behavior used by homepage, list page, and detail page."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.test.ts",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.test.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:22:11.704Z"
+      }
+    ],
+    [
+      "test-blog-components",
+      {
+        "id": "test-blog-components",
+        "type": "implement",
+        "title": "Test React blog UI",
+        "specFragment": "界面需要使用现代化排版、清晰的卡片/分区、优雅的动效或交互效果，整体观感干净、精致、科技感强。",
+        "nodeRole": "tester",
+        "task": "Implement BlogComponents.test.tsx. Import React from 'react'. Import describe, it, expect from 'vitest'. Import render, screen from '@testing-library/react'. Import BlogShell, BlogHero, PostCard, PostGrid, ArticleContent, EmptyState from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogComponents.tsx. Import blogPosts, navigationItems from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts.",
+        "acceptanceCriteria": "BlogComponents.test.tsx verifies BlogShell renders navigation labels and children, BlogHero renders eyebrow/title/subtitle, PostCard renders a post title/excerpt/category/image alt/link, PostGrid renders an EmptyState when passed an empty array, ArticleContent renders paragraph/heading/quote/image blocks, and EmptyState renders title and description.",
+        "skills": [
+          "vitest",
+          "react-testing-library"
+        ],
+        "dependsOn": [
+          "impl-blog-components",
+          "impl-blog-data"
+        ],
+        "inputs": {
+          "description": "Add component-level tests for the reusable React UI layer, focusing on rendered content and accessibility-relevant text rather than visual snapshots."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogComponents.test.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogComponents.test.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:22:11.704Z"
+      }
+    ],
+    [
+      "test-blog-pages",
+      {
+        "id": "test-blog-pages",
+        "type": "implement",
+        "title": "Test composed pages",
+        "specFragment": "网站应包含博客首页、文章列表、文章详情页等核心功能，具备响应式布局，适配桌面端和移动端。",
+        "nodeRole": "tester",
+        "task": "Implement BlogPages.test.tsx. Import React from 'react'. Import describe, it, expect from 'vitest'. Import render, screen from '@testing-library/react'. Import { BlogHomePage } from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogHomePage.tsx. Import { BlogListPage } from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogListPage.tsx. Import { BlogDetailPage } from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogDetailPage.tsx. Import blogPosts from .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/blogData.ts.",
+        "acceptanceCriteria": "BlogPages.test.tsx verifies BlogHomePage renders homepage hero text and at least one featured/latest post title, BlogListPage renders article list heading and post titles, BlogDetailPage with an existing slug renders the article title and content, and BlogDetailPage with a missing slug renders the not-found EmptyState.",
+        "skills": [
+          "vitest",
+          "react-testing-library"
+        ],
+        "dependsOn": [
+          "page-blog-home",
+          "page-blog-list",
+          "page-blog-detail",
+          "impl-blog-data"
+        ],
+        "inputs": {
+          "description": "Validate that page-level compositions correctly connect static data, shared components, and detail slug handling."
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogPages.test.tsx",
+          "files": [
+            ".shipyard/projects/proj-1777623491471/sessions/sess-1777623491473/output/BlogPages.test.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-01T08:19:52.223Z",
+        "updatedAt": "2026-05-01T08:22:11.704Z"
+      }
+    ]
+  ],
+  "status": "failed",
+  "stats": {
+    "total": 13,
+    "byStatus": {
+      "pending": 0,
+      "ready": 0,
+      "running": 0,
+      "verifying": 0,
+      "done": 2,
+      "failed": 3,
+      "blocked": 8,
+      "skipped": 0
+    },
+    "filesGenerated": 5,
+    "verificationsRun": 5,
+    "verificationsPassed": 3
+  },
+  "createdAt": "2026-05-01T08:19:52.223Z",
+  "updatedAt": "2026-05-01T08:37:01.878Z",
+  "completedAt": "2026-05-01T08:37:01.884Z"
+}

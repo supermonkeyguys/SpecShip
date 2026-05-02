@@ -60,19 +60,23 @@ function buildCommandForOutput(outputDir: string, port: number): PreviewCommand 
   const hasVite = "vite" in dependencies || (previewScript?.includes("vite") ?? false) || (devScript?.includes("vite") ?? false);
   const hasNext = "next" in dependencies || (devScript?.includes("next") ?? false);
 
+  if (devScript && hasVite) {
+    // Use monorepo vite binary directly to avoid workspace install issues
+    const monorepoRoot = process.env.WORK_DIR ?? process.cwd();
+    const viteBin = path.join(monorepoRoot, "apps/web/node_modules/.bin/vite");
+    const viteCmd = fs.existsSync(viteBin) ? viteBin : "vite";
+    return {
+      command: viteCmd,
+      args: ["--host", "127.0.0.1", "--port", String(port)],
+      display: `vite --host 127.0.0.1 --port ${port}`,
+    };
+  }
+
   if (previewScript && hasVite) {
     return {
       command: "pnpm",
       args: ["preview", "--", "--host", "127.0.0.1", "--port", String(port)],
       display: `pnpm preview -- --host 127.0.0.1 --port ${port}`,
-    };
-  }
-
-  if (devScript && hasVite) {
-    return {
-      command: "pnpm",
-      args: ["dev", "--", "--host", "127.0.0.1", "--port", String(port)],
-      display: `pnpm dev -- --host 127.0.0.1 --port ${port}`,
     };
   }
 
@@ -87,8 +91,78 @@ function buildCommandForOutput(outputDir: string, port: number): PreviewCommand 
   return null;
 }
 
+function isViteReactOutput(outputDir: string): boolean {
+  const mainTsx = path.join(outputDir, "main.tsx");
+  if (!fs.existsSync(mainTsx)) return false;
+  try {
+    return fs.readdirSync(outputDir).some((f) => f.endsWith(".tsx") && f !== "main.tsx");
+  } catch {
+    return false;
+  }
+}
+
+function injectViteScaffold(outputDir: string): void {
+  const packageJsonPath = path.join(outputDir, "package.json");
+  const viteConfigPath = path.join(outputDir, "vite.config.ts");
+  const indexHtmlPath = path.join(outputDir, "index.html");
+
+  if (!fs.existsSync(packageJsonPath)) {
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(
+        {
+          name: "shipyard-preview",
+          version: "0.0.0",
+          private: true,
+          scripts: { dev: "vite", build: "vite build", preview: "vite preview" },
+        },
+        null,
+        2
+      )
+    );
+    console.log(DEBUG_PREFIX, "scaffold:package.json", { outputDir });
+  }
+
+  if (!fs.existsSync(viteConfigPath)) {
+    const webNM = path.join(process.env.WORK_DIR ?? process.cwd(), "apps/web/node_modules");
+    const reactPlugin = path.join(webNM, "@vitejs/plugin-react");
+    const reactPath = path.join(webNM, "react");
+    const reactDomPath = path.join(webNM, "react-dom");
+    const viteConfigContent = [
+      `import { defineConfig } from "vite";`,
+      `import react from ${JSON.stringify(reactPlugin)};`,
+      `export default defineConfig({`,
+      `  plugins: [react()],`,
+      `  resolve: {`,
+      `    alias: {`,
+      `      react: ${JSON.stringify(reactPath)},`,
+      `      "react-dom": ${JSON.stringify(reactDomPath)},`,
+      `    },`,
+      `  },`,
+      `});`,
+      ``,
+    ].join("\n");
+    fs.writeFileSync(viteConfigPath, viteConfigContent);
+    console.log(DEBUG_PREFIX, "scaffold:vite.config.ts", { outputDir });
+  }
+
+  if (!fs.existsSync(indexHtmlPath)) {
+    fs.writeFileSync(
+      indexHtmlPath,
+      `<!doctype html>\n<html lang="en">\n  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Shipyard Preview</title></head>\n  <body><div id="root"></div><script type="module" src="/main.tsx"></script></body>\n</html>\n`
+    );
+    console.log(DEBUG_PREFIX, "scaffold:index.html", { outputDir });
+  }
+}
+
 export function getLivePreviewCapability(outputDir: string): LivePreviewCapability {
   const packageJsonPath = path.join(outputDir, "package.json");
+
+  // Auto-scaffold Vite project if we detect a generated React output (main.tsx + other .tsx files)
+  if (!fs.existsSync(packageJsonPath) && isViteReactOutput(outputDir)) {
+    injectViteScaffold(outputDir);
+  }
+
   if (!fs.existsSync(packageJsonPath)) {
     return {
       supported: false,
@@ -107,7 +181,7 @@ export function getLivePreviewCapability(outputDir: string): LivePreviewCapabili
 
   return {
     supported: true,
-    command: command.display.replace(/4173/, "<port>"),
+    command: command.display.replace(/4173/, "<port>"),
     packageJsonPath,
   };
 }
@@ -155,23 +229,9 @@ function waitForPort(port: number, timeoutMs = 30_000): Promise<void> {
   });
 }
 
-function runInstall(outputDir: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("pnpm", ["install", "--frozen-lockfile=false"], {
-      cwd: outputDir,
-      env: { ...process.env, CI: "1" },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    child.stdout.on("data", (chunk) => console.log(DEBUG_PREFIX, "install:stdout", chunk.toString().trim()));
-    child.stderr.on("data", (chunk) => console.log(DEBUG_PREFIX, "install:stderr", chunk.toString().trim()));
-
-    child.once("exit", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`pnpm install exited with code ${code ?? -1}`));
-    });
-    child.once("error", reject);
-  });
+function runInstall(_outputDir: string): Promise<void> {
+  // Scaffolded preview projects use monorepo vite directly — no install needed
+  return Promise.resolve();
 }
 
 async function launchLivePreview(

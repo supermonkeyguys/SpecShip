@@ -104,7 +104,8 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
       }
 
       if (intent.type === "resume") {
-        if (!input.activeSession) {
+        // activeSession 不存在时不触发 resume 请求，直接展示 reply
+        if (!input.activeSession?.sessionId) {
           return { type: "reply", text };
         }
         try {

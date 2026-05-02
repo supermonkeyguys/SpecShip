@@ -50,7 +50,17 @@
       "mcp__chrome-devtools__evaluate_script",
       "Bash(pnpm web:build)",
       "Bash(kill 84006 83960)",
-      "Bash(pnpm web:dev)"
+      "Bash(pnpm web:dev)",
+      "Bash(xargs ls:*)",
+      "Bash(lsof -ti:3001)",
+      "Bash(xargs kill:*)",
+      "Bash(find:*)",
+      "Bash(grep \"node_modules/react$\")",
+      "mcp__chrome-devtools__handle_dialog",
+      "Bash(ps:*)",
+      "Bash(kill 2052)",
+      "Bash(kill 2046)",
+      "Bash(pkill -f \"tsx.*src/index.ts\")"
     ]
   }
 }

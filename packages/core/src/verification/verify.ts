@@ -29,8 +29,13 @@ export function runCompileCheck(files: string[], workDir: string): VerificationR
     return { type: "compile", passed: false, output: "No files to compile", durationMs: 0, timestamp };
   }
 
+  const hasTsx = files.some((f) => f.endsWith(".tsx"));
+
   try {
-    const cmd = `npx tsc --noEmit --target ES2022 --moduleResolution node --esModuleInterop --skipLibCheck ${files.join(" ")}`;
+    // .tsx 文件需要 --jsx react 和 --allowImportingTsExtensions
+    // 注意：代码里必须用 React.JSX.Element，不能用全局 JSX.Element（React 19 已移除）
+    const jsxFlags = hasTsx ? "--jsx react --allowImportingTsExtensions" : "";
+    const cmd = `npx tsc --noEmit --target ES2022 --moduleResolution bundler --esModuleInterop --skipLibCheck ${jsxFlags} ${files.join(" ")}`;
     execSync(cmd, { cwd: workDir, encoding: "utf-8", timeout: 30_000, stdio: ["pipe", "pipe", "pipe"] });
     return { type: "compile", passed: true, output: `${files.length} file(s) compiled`, durationMs: Date.now() - start, timestamp };
   } catch (e: unknown) {
@@ -307,12 +312,104 @@ export interface NodeVerificationResult {
   summary: string;
 }
 
+/**
+ * tester 节点专用验证：
+ * 在 output 目录创建临时测试环境（symlink node_modules），用 vitest 实际运行测试文件
+ */
+async function runTesterNodeVerification(
+  outputFiles: string[],
+  workDir: string
+): Promise<NodeVerificationResult> {
+  const records: VerificationRecord[] = [];
+  const testFiles = outputFiles.filter((f) => f.includes(".test.") || f.includes(".spec."));
+
+  if (testFiles.length === 0) {
+    return { passed: true, records, summary: "No test files found, skipping tester verification" };
+  }
+
+  // 策略：把 node_modules symlink 和 vitest.config 直接放在 output/ 目录
+  // 这样 vitest 从 output/ 出发解析所有 import，路径关系与代码一致
+  // outputFiles 是绝对路径，取第一个文件所在目录作为 output 目录
+  const outputDir = path.dirname(path.resolve(testFiles[0]));
+  const monorepoRoot = path.resolve(__dirname, "../../../../");
+  const nmLink = path.join(outputDir, "node_modules");
+  const vitestConfigPath = path.join(outputDir, "__shipyard_vitest.config.ts");
+
+  let createdNmLink = false;
+
+  try {
+    // 1. 在 output/ 创建 node_modules symlink → monorepo 根的 node_modules
+    if (!fs.existsSync(nmLink)) {
+      const nmTarget = path.join(monorepoRoot, "node_modules");
+      if (fs.existsSync(nmTarget)) {
+        fs.symlinkSync(nmTarget, nmLink, "dir");
+        createdNmLink = true;
+      }
+    }
+
+    // 2. 在 output/ 生成 vitest.config.ts（无需 alias，node_modules 已在同目录）
+    const testFilePaths = JSON.stringify(testFiles.map((f) => path.resolve(f)));
+    // 用 node require 解析 react 真实物理路径（避免 pnpm symlink 导致多实例）
+    const webNM = path.resolve(monorepoRoot, "apps/web/node_modules");
+    const reactPhysical = path.dirname(require.resolve("react", { paths: [webNM] }));
+    const reactDomPhysical = path.dirname(require.resolve("react-dom", { paths: [webNM] }));
+    const vitestConfig = [
+      "import { defineConfig } from 'vitest/config';",
+      "export default defineConfig({",
+      "  resolve: {",
+      "    alias: {",
+      `      react: ${JSON.stringify(reactPhysical)},`,
+      `      'react-dom': ${JSON.stringify(reactDomPhysical)},`,
+      `      'react-dom/client': ${JSON.stringify(reactDomPhysical + "/client")},`,
+      "    },",
+      "  },",
+      "  test: {",
+      "    environment: 'jsdom',",
+      "    globals: true,",
+      `    include: ${testFilePaths},`,
+      "    setupFiles: [],",
+      "  },",
+      "});",
+    ].join("\n");
+    fs.writeFileSync(vitestConfigPath, vitestConfig);
+
+    // 3. 在 output/ 目录执行 vitest，它能正确解析 react 等依赖
+    const start = Date.now();
+    const timestamp = new Date().toISOString();
+    const vitestBin = path.join(monorepoRoot, "node_modules/.bin/vitest");
+    try {
+      const out = execSync(
+        `${vitestBin} run --config "${vitestConfigPath}"`,
+        { cwd: outputDir, encoding: "utf-8", timeout: 60_000, stdio: ["pipe", "pipe", "pipe"] }
+      );
+      records.push({ type: "test", passed: true, output: out.slice(0, 500), durationMs: Date.now() - start, timestamp });
+      return { passed: true, records, summary: "Tests passed" };
+    } catch (e: unknown) {
+      const err = e as { stdout?: string; stderr?: string };
+      const output = [err.stdout, err.stderr].filter(Boolean).join("\n").trim().slice(0, 800);
+      records.push({ type: "test", passed: false, output, durationMs: Date.now() - start, timestamp });
+      return { passed: false, records, summary: `Tests failed: ${output.split("\n")[0]}` };
+    }
+  } finally {
+    // 清理：只删 symlink 和临时 config，不动 output/ 里的代码文件
+    try { if (createdNmLink && fs.lstatSync(nmLink).isSymbolicLink()) fs.unlinkSync(nmLink); } catch { /**/ }
+    try { if (fs.existsSync(vitestConfigPath)) fs.unlinkSync(vitestConfigPath); } catch { /**/ }
+  }
+}
+
+
 export async function verifyNode(
   specFragment: string,
   outputFiles: string[],
   workDir: string,
-  config: ShipyardConfig
+  config: ShipyardConfig,
+  nodeRole?: string
 ): Promise<NodeVerificationResult> {
+  // tester 节点：走独立的测试执行环境，而非普通 compile check
+  if (nodeRole === "tester") {
+    return runTesterNodeVerification(outputFiles, workDir);
+  }
+
   const records: VerificationRecord[] = [];
 
   // 1. 编译检查（必须）

@@ -99,10 +99,18 @@ export function routeIntentByPolicy(input: RouteIntentInput): ChatIntent | null 
   }
 
   if (RESUME_RE.test(message)) {
-    return {
-      type: "resume",
-      reply: say(rawMessage, "收到，我继续当前可恢复的任务。", "Sure — I'll resume the current recoverable task."),
-    };
+    // 只有当前真的有未完成节点时才触发 resume，否则让 LLM 正常回答
+    const hasResumable = (input.currentNodes ?? []).some(
+      (n) => n.status === "failed" || n.status === "running"
+    );
+    if (hasResumable && input.currentSpec) {
+      return {
+        type: "resume",
+        reply: say(rawMessage, "收到，我继续当前可恢复的任务。", "Sure — I'll resume the current recoverable task."),
+      };
+    }
+    // 没有可恢复内容，交给 LLM 回答（避免触发无效 resume 请求）
+    return null;
   }
 
   const retryIntent = matchRetryNode(rawMessage, input.currentNodes ?? []);

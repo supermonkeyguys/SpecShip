@@ -6,17 +6,19 @@ import { REVIEWER_PROMPT } from "../ai/prompts";
 import { runAgent as defaultRunAgent } from "../ai/llm";
 import { makeLLMConfig } from "../ai/llm-config";
 import type { AgentRunner } from "./runtime-types";
+import type { ExecutionLogger } from "./execution-logger";
 
 export async function runCodeReview(
   node: GraphNode,
   outputFiles: string[],
   config: ShipyardConfig,
-  agentRunner: AgentRunner = defaultRunAgent
+  agentRunner: AgentRunner = defaultRunAgent,
+  logger?: ExecutionLogger
 ): Promise<{ passed: boolean; blockingIssues: string }> {
   // 每个文件最多读 6000 字节，避免截断导致 reviewer 误判"代码不完整"
   const fileContents = outputFiles
     .filter((f) => fs.existsSync(f))
-    .map((f) => `// ${path.relative(config.workDir, f)}\n${fs.readFileSync(f, "utf-8").slice(0, 6000)}`)
+    .map((f) => `// ${path.relative(config.workDir, f)}\n${fs.readFileSync(f, "utf-8").slice(0, 15000)}`)
     .join("\n\n");
 
   if (!fileContents) return { passed: true, blockingIssues: "" };
@@ -34,6 +36,8 @@ export async function runCodeReview(
     const role = node.nodeRole && node.nodeRole !== "undefined" ? node.nodeRole : "implementer";
     const taskDesc = node.task && node.task !== "undefined" ? node.task : node.inputs?.description ?? node.title;
 
+    logger?.log({ event: "review_input", nodeId: node.id, criteria, role, task: taskDesc, codeSnippet: fileContents.slice(0, 500) });
+
     const { finalText } = await agentRunner(
       REVIEWER_PROMPT,
       `Acceptance criteria for this step:\n${criteria}\n\nNode role: ${role}\nTask: ${taskDesc}\n\nCode:\n${fileContents}`,
@@ -46,6 +50,8 @@ export async function runCodeReview(
     if (!match) return { passed: true, blockingIssues: "" };
 
     const result = JSON.parse(match[0]) as { passed: boolean; blocking?: string[]; warnings?: string[]; summary?: string };
+
+    logger?.log({ event: "review_result", nodeId: node.id, passed: result.passed !== false, blocking: result.blocking ?? [], warnings: result.warnings ?? [], summary: result.summary ?? "" });
 
     if (result.blocking?.length) {
       console.log(`  🔍 Review blocking: ${result.blocking.join("; ")}`);

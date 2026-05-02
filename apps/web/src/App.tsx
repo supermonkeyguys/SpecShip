@@ -80,6 +80,19 @@ export default function App() {
     }
   };
 
+  // Auto-fetch preview status when active session changes or run completes
+  useEffect(() => {
+    refreshPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSession?.sessionId]);
+
+  useEffect(() => {
+    if (runStatus === "done" || runStatus === "failed") {
+      refreshPreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runStatus]);
+
   return (
     <div className="h-screen w-screen flex flex-col bg-white text-gray-900 overflow-hidden">
       <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-white flex-shrink-0">

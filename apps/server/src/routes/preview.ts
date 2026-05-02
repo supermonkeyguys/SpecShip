@@ -3,6 +3,7 @@
  */
 
 import { Router, Request, Response } from "express";
+import * as http from "http";
 import * as fs from "fs";
 import * as path from "path";
 import type { PreviewKind, PreviewStatusResponse } from "../types";
@@ -45,14 +46,16 @@ function buildPreviewStatus(pid: string, sid: string, outputDir: string): Previe
 
   const staticUrl = staticEntry ? buildStaticUrl(pid, sid, staticEntry.entryPath) : undefined;
   const liveUrl = liveState?.url;
+  // Use server-side proxy URL for iframe to avoid cross-origin restrictions
+  const liveProxyUrl = liveState?.port ? `/api/projects/${pid}/sessions/${sid}/preview/live/proxy/` : undefined;
 
   let kind: PreviewKind = "none";
   let url: string | undefined;
   let reason: string | undefined;
 
-  if (liveState && (liveState.status === "starting" || liveState.status === "running") && liveUrl) {
+  if (liveState && (liveState.status === "starting" || liveState.status === "running") && liveProxyUrl) {
     kind = "live";
-    url = liveUrl;
+    url = liveProxyUrl;
   } else if (staticUrl) {
     kind = "static";
     url = staticUrl;
@@ -182,4 +185,55 @@ previewRouter.get("/projects/:pid/sessions/:sid/preview/content/*path", (req: Re
   }
 
   res.sendFile(fullPath);
+});
+
+// Reverse-proxy live preview traffic through the server to avoid cross-origin iframe issues
+previewRouter.all("/projects/:pid/sessions/:sid/preview/live/proxy/{*path}", (req: Request, res: Response) => {
+  const { pid, sid } = req.params as { pid: string; sid: string };
+  const rawPath = String((req.params as Record<string, string>).path ?? "").replace(/^\/+/, "");
+  const liveState = getLivePreviewState(pid, sid);
+
+  if (!liveState || !liveState.port || (liveState.status !== "running" && liveState.status !== "starting")) {
+    res.status(503).send("Live preview not running");
+    return;
+  }
+
+  const targetPath = `/${rawPath}${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`;
+  const options: http.RequestOptions = {
+    hostname: "127.0.0.1",
+    port: liveState.port,
+    path: targetPath || "/",
+    method: req.method,
+    headers: { ...req.headers, host: `127.0.0.1:${liveState.port}` },
+  };
+
+  const proxyBase = `/api/projects/${pid}/sessions/${sid}/preview/live/proxy`;
+  const isHtml = req.path.endsWith(".html") || req.path.endsWith("/") || !req.path.includes(".");
+
+  const proxy = http.request(options, (proxyRes) => {
+    res.status(proxyRes.statusCode ?? 200);
+    Object.entries(proxyRes.headers).forEach(([k, v]) => {
+      if (k === "content-length") return; // may change after rewrite
+      if (k === "content-security-policy") return; // relax CSP
+      if (v !== undefined) res.setHeader(k, v);
+    });
+
+    const contentType = String(proxyRes.headers["content-type"] ?? "");
+    if (isHtml || contentType.includes("text/html")) {
+      let body = "";
+      proxyRes.setEncoding("utf8");
+      proxyRes.on("data", (chunk: string) => { body += chunk; });
+      proxyRes.on("end", () => {
+        // Rewrite absolute paths to go through proxy
+        body = body.replace(/(src|href|action)=(["'])\//g, `$1=$2${proxyBase}/`);
+        body = body.replace(/from (["'])\//g, `from $1${proxyBase}/`);
+        res.end(body);
+      });
+    } else {
+      proxyRes.pipe(res);
+    }
+  });
+
+  proxy.on("error", () => res.status(502).send("Live preview proxy error"));
+  req.pipe(proxy);
 });

@@ -55,7 +55,17 @@ General rules:
 - Maximize parallelism: steps with no shared dependencies should have empty dependsOn
 - Step count: use as many as needed (no artificial limit), but avoid splitting trivial logic
 - role / nodeRole: types | implementation | test | util | integration | checkpoint
+- For tester nodes (nodeRole=tester): you MAY import @testing-library/react, vitest, jsdom — a dedicated test environment with node_modules is provided at verify time
 - If spec mentions existing repo context, reference existing file paths in dependsOn where appropriate
+
+File size / granularity rules (CRITICAL — prevents LLM output truncation):
+- One file = one responsibility: one component, one class, or one cohesive set of related functions
+- UI components: each component MUST have its own file — never put multiple independent components in one file
+- If a step would require more than ~80-100 lines of code, split it into multiple steps
+- Sub-components used inside a parent (e.g. ArticleCard inside FeaturedArticlesSection) must be separate steps with separate files, with the parent depending on the sub-component
+- Large style objects / theme tokens should be their own file
+- WRONG: one file with FeaturedArticlesSection + ArticleCard + styles (too large, will truncate)
+- RIGHT: impl-article-card → impl-featured-articles-section (dependsOn: impl-article-card)
 
 Checkpoint nodes (role: "checkpoint"):
 - Use ONLY when the spec is genuinely ambiguous about a critical architectural decision that would be expensive to reverse (e.g. choice of database schema, API contract, auth model)
@@ -78,6 +88,8 @@ Rules:
 - Handle edge cases mentioned in the spec (null, empty, errors)
 - Use only standard library / built-ins unless the spec explicitly requires a dependency
 - If given dependency context, import from those files using relative paths
+- Import paths MUST NOT include file extensions — write './Foo' not './Foo.tsx' or './Foo.ts'
+- For React JSX return types, use 'React.JSX.Element' or 'React.ReactElement' — NEVER use 'JSX.Element' (removed in React 19)
 - If the spec mentions a specific algorithm or approach, implement that exact approach
 - Keep functions focused — split large functions into well-named helpers
 `.trim();
@@ -148,4 +160,10 @@ Rules:
 - warnings: style, minor improvements, things outside the acceptance criteria scope
 - Be concise — one line per issue
 - If code satisfies all acceptance criteria, passed = true even if the whole project is incomplete
+
+IMPORTANT — do NOT flag these as blocking:
+- Relative import paths (e.g. './types', './globalStyles') — if the file compiled successfully, import paths are correct. Do NOT require absolute or output/-prefixed paths.
+- Extra defensive code (empty-state handling, null checks, fallbacks) — these are good practices, not violations
+- Implementation details not explicitly forbidden by the criteria (e.g. how a placeholder renders internally)
+- Style choices, naming conventions, extra comments — put these in warnings only
 `.trim();

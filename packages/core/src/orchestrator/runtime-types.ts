@@ -20,7 +20,8 @@ export type NodeVerifier = (
   specFragment: string,
   outputFiles: string[],
   workDir: string,
-  config: ShipyardConfig
+  config: ShipyardConfig,
+  nodeRole?: string
 ) => Promise<NodeVerificationResult>;
 
 export interface ClarificationQuestion {

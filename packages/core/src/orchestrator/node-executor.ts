@@ -2,6 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as crypto from "crypto";
 import { ShipyardConfig } from "../config";
+import type { ExecutionLogger } from "./execution-logger";
 import { IMPLEMENTER_PROMPT } from "../ai/prompts";
 import type { Evidence, ExecutionGraph, GraphNode } from "../graph";
 import { runAgent as defaultRunAgent } from "../ai/llm";
@@ -204,7 +205,8 @@ export async function executeNode(
   graph: ExecutionGraph,
   config: ShipyardConfig,
   agentRunner: AgentRunner = defaultRunAgent,
-  onToolCallComplete?: (nodeId: string, accumulatedToolCalls: Evidence["toolCalls"]) => void
+  onToolCallComplete?: (nodeId: string, accumulatedToolCalls: Evidence["toolCalls"]) => void,
+  logger?: ExecutionLogger
 ): Promise<{ evidence: Evidence; outputFiles: string[]; fatalError?: string }> {
   const startedAt = new Date().toISOString();
 
@@ -216,6 +218,7 @@ export async function executeNode(
     // 用依赖文件的真实导出符号增强 acceptanceCriteria，避免 reviewer 因符号名对不上而误判
     const enrichedNode = enrichAcceptanceCriteriaFromDeps(node, graph, config.workDir);
     const prompt = buildImplementationPrompt(enrichedNode, dependencyContext, previousFileContent);
+    logger?.log({ event: "node_prompt", nodeId: node.id, prompt });
     const llmConfig = makeLLMConfig(config.models.implementation, config);
 
     const accumulatedToolCalls: Evidence["toolCalls"] = [];

@@ -8,6 +8,7 @@ import { verifyNode as defaultVerifyNode } from "../verification/verify";
 import { runAgent as defaultRunAgent } from "../ai/llm";
 import { executeNode } from "./node-executor";
 import { saveGraphCheckpoint } from "../persistence/checkpoint";
+import { ExecutionLogger } from "./execution-logger";
 import {
   buildCheckpointEvidence,
   pauseGraphAtCheckpoint,
@@ -67,6 +68,27 @@ export async function run(
   const sessionGraphPath = config.sessionId && config.projectId
     ? getSessionGraphPath(config.workDir, config.projectId, config.sessionId)
     : undefined;
+
+  // 构造 logger，session 有效时写入 execution.log.jsonl
+  const logger = config.projectId && config.sessionId
+    ? new ExecutionLogger(config.workDir, config.projectId, config.sessionId)
+    : null;
+
+  // 记录规划结果
+  logger?.log({
+    event: "plan_complete",
+    title: graph.title,
+    nodeCount: graph.nodes.size,
+    nodes: Array.from(graph.nodes.values()).map((n) => ({
+      id: n.id,
+      title: n.title,
+      nodeRole: n.nodeRole,
+      task: n.task,
+      acceptanceCriteria: n.acceptanceCriteria,
+      dependsOn: n.dependsOn,
+      outputFile: n.outputs.files?.[0] ?? "",
+    })),
+  });
 
   const checkpoint = () => {
     saveGraphCheckpoint(config.workDir, graph, sessionGraphPath);
@@ -134,6 +156,7 @@ export async function run(
       graph = transitionNode(graph, node.id, "running");
       checkpoint();
       console.log(`  ▶ [${node.id}] ${node.title}`);
+      logger?.log({ event: "node_start", nodeId: node.id, title: node.title, nodeRole: node.nodeRole, task: node.task, retryCount: node.retryCount });
       running.set(node.id, executeNode(node, graph, config, agentRunner, (nodeId, accumulatedToolCalls) => {
         // 把中途累积的 toolCalls 注入节点快照，触发 SSE 推送
         const liveNode = graph.nodes.get(nodeId);
@@ -155,7 +178,7 @@ export async function run(
           });
           onUpdate(replaceGraphNodes(graph, patchedNodes));
         }
-      }).then((r) => ({ nodeId: node.id, ...r }))
+      }, logger ?? undefined).then((r) => ({ nodeId: node.id, ...r }))
         .catch((e: Error) => ({
           nodeId: node.id,
           evidence: {
@@ -182,9 +205,24 @@ export async function run(
       config,
       nodeVerifier,
       agentRunner,
+      logger: logger ?? undefined,
     });
     graph = handled.graph;
     checkpoint();
+
+    // 记录节点最终状态
+    const finishedNode = graph.nodes.get(result.nodeId);
+    if (finishedNode && logger) {
+      const durationMs = finishedNode.evidence?.durationMs ?? 0;
+      if (finishedNode.status === "done") {
+        logger.log({ event: "node_done", nodeId: result.nodeId, durationMs, filesWritten: result.outputFiles.map((f) => f.replace(config.workDir + "/", "")) });
+      } else if (finishedNode.status === "failed") {
+        logger.log({ event: "node_failed", nodeId: result.nodeId, durationMs, reason: finishedNode.error?.message ?? "unknown", lastError: finishedNode.lastError ?? "" });
+      } else if (finishedNode.status === "ready") {
+        // ready 表示被安排重试
+        logger.log({ event: "node_retry", nodeId: result.nodeId, retryCount: finishedNode.retryCount, maxRetries: finishedNode.maxRetries, reason: finishedNode.lastErrorKind ?? "unknown" });
+      }
+    }
 
     if (handled.logKind === "error") {
       console.error(handled.logMessage);
@@ -196,6 +234,7 @@ export async function run(
   const stats = graph.stats;
   const allDone = stats.byStatus.done === stats.total;
   graph = { ...graph, status: allDone ? "done" : "failed", completedAt: new Date().toISOString() };
+  logger?.log({ event: "session_done", status: allDone ? "done" : "failed", totalMs: Date.now(), doneCount: stats.byStatus.done, failedCount: stats.byStatus.failed });
   checkpoint();
   return graph;
 }
