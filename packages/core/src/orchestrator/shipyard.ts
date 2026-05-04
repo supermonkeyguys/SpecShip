@@ -18,6 +18,7 @@ import {
 import { getSessionGraphPath } from "../persistence/project";
 import { buildGraph, clarifySpec } from "./planner";
 import { handleCompletedNodeResult } from "./post-node-handler";
+import type { TaskStrategy } from "../strategies/base";
 import type {
   AgentRunner,
   NodeVerifier,
@@ -39,6 +40,7 @@ export type {
 } from "./runtime-types";
 
 export { executeNode } from "./node-executor";
+export { detectStrategy, getStrategy, listStrategies } from "../strategies";
 
 // ---- 主调度循环 ----
 
@@ -56,9 +58,10 @@ export async function run(
   agentRunner: AgentRunner = defaultRunAgent,
   nodeVerifier: NodeVerifier = defaultVerifyNode,
   onCheckpoint?: CheckpointHandler,
-  onClarify?: (result: ClarificationResult) => Promise<string>
+  onClarify?: (result: ClarificationResult) => Promise<string>,
+  strategy?: TaskStrategy
 ): Promise<ExecutionGraph> {
-  const graphOrNull = initialGraph ?? await buildGraph(spec, config, agentRunner, onClarify);
+  const graphOrNull = initialGraph ?? await buildGraph(spec, config, agentRunner, onClarify, strategy);
   if (!graphOrNull) {
     const g = createGraph(spec);
     return { ...g, status: "failed" };
@@ -178,7 +181,7 @@ export async function run(
           });
           onUpdate(replaceGraphNodes(graph, patchedNodes));
         }
-      }, logger ?? undefined).then((r) => ({ nodeId: node.id, ...r }))
+      }, logger ?? undefined, strategy).then((r) => ({ nodeId: node.id, ...r }))
         .catch((e: Error) => ({
           nodeId: node.id,
           evidence: {
@@ -206,6 +209,7 @@ export async function run(
       nodeVerifier,
       agentRunner,
       logger: logger ?? undefined,
+      strategy,
     });
     graph = handled.graph;
     checkpoint();

@@ -18,16 +18,119 @@ import {
   activeSession, activeWorkflowId, setActiveRunContext,
   getPendingCheckpointResume, clearPendingCheckpointResume, setPendingCheckpointResume,
 } from "./run";
-import { getSessionGraphPath, listProjects, listSessions, getSessionOutputDir, updateSession } from "../project";
+import {
+  getSessionGraphPath,
+  listProjects,
+  listSessions,
+  getSessionOutputDir,
+  updateSession,
+} from "../project";
+import {
+  appendSessionOperation,
+  getSessionRevision,
+} from "../op-log";
 
 const ORCHESTRATOR_MODE = process.env.ORCHESTRATOR_MODE ?? "legacy";
 
 export const resumeRouter = Router();
 
-let isRunning = false;
+const runningSessions = new Set<string>();
 
-export function setIsRunning(v: boolean) { isRunning = v; }
-export function getIsRunning() { return isRunning; }
+function sessionKey(projectId: string, sessionId: string): string {
+  return `${projectId}:${sessionId}`;
+}
+
+const DEBUG_PREFIX = "[shipyard:server:resume]";
+
+export function setSessionRunning(projectId: string, sessionId: string, running: boolean): void {
+  const key = sessionKey(projectId, sessionId);
+  if (running) runningSessions.add(key);
+  else runningSessions.delete(key);
+}
+
+export function isSessionRunning(projectId: string, sessionId: string): boolean {
+  return runningSessions.has(sessionKey(projectId, sessionId));
+}
+
+/** 是否有任何 session 正在运行 — 用于全局互斥 guard */
+export function getIsRunning(): boolean {
+  return runningSessions.size > 0;
+}
+
+function appendShadowOperation(
+  workDir: string,
+  projectId: string,
+  sessionId: string,
+  source: "run" | "resume" | "retry" | "checkpoint" | "scheduler",
+  type: "session.created" | "session.status_set" | "graph.initialized" | "node.status_set" | "node.evidence_appended" | "node.retry_scheduled" | "checkpoint.paused" | "checkpoint.resumed" | "graph.completed" | "graph.failed",
+  payload: Record<string, unknown>,
+  actor: "system" | "user" | "server" = "system"
+): void {
+  try {
+    const revision = getSessionRevision(workDir, projectId, sessionId);
+    appendSessionOperation(
+      workDir,
+      {
+        v: 1,
+        projectId,
+        sessionId,
+        actor,
+        source,
+        type,
+        payload,
+      },
+      revision
+    );
+  } catch (e) {
+    console.warn(`${DEBUG_PREFIX} shadow-op failed`, {
+      projectId,
+      sessionId,
+      source,
+      type,
+      error: (e as Error).message,
+    });
+  }
+}
+
+function appendNodeOpsFromStatus(
+  workDir: string,
+  projectId: string,
+  sessionId: string,
+  node: GraphNode,
+  source: "run" | "resume" | "retry" | "checkpoint" | "scheduler"
+): void {
+  appendShadowOperation(workDir, projectId, sessionId, source, "node.status_set", {
+    nodeId: node.id,
+    title: node.title,
+    nodeType: node.type,
+    specFragment: node.specFragment,
+    dependsOn: node.dependsOn,
+    status: node.status,
+    retryCount: node.retryCount,
+    maxRetries: node.maxRetries,
+    error: node.error?.message,
+    errorCategory: node.error?.category,
+    errorRecoverable: node.error?.recoverable,
+    durationMs: node.evidence?.durationMs,
+  });
+
+  if ((node.evidence?.filesWritten.length ?? 0) > 0 || (node.evidence?.toolCalls.length ?? 0) > 0 || (node.evidence?.verifications.length ?? 0) > 0) {
+    appendShadowOperation(workDir, projectId, sessionId, source, "node.evidence_appended", {
+      nodeId: node.id,
+      filesWritten: node.evidence?.filesWritten.map((f) => f.path) ?? [],
+      toolCalls: node.evidence?.toolCalls ?? [],
+      verifications: node.evidence?.verifications ?? [],
+    });
+  }
+
+  if (node.status === "ready" && node.retryCount > 0) {
+    appendShadowOperation(workDir, projectId, sessionId, source, "node.retry_scheduled", {
+      nodeId: node.id,
+      retryCount: node.retryCount,
+      maxRetries: node.maxRetries,
+    });
+  }
+}
 
 function resolveResumeTarget(workDir: string, projectId?: string, sessionId?: string) {
   if (projectId && sessionId) {
@@ -70,8 +173,8 @@ resumeRouter.get("/status", async (req: Request, res: Response) => {
       const hasUnfinished = summary.status === "running";
 
       res.json({
-        isRunning: isRunning || hasUnfinished,
-        canResume: hasUnfinished && !isRunning,
+        isRunning: getIsRunning() || hasUnfinished,
+        canResume: hasUnfinished && !getIsRunning(),
         nodeCount: statuses.length,
         doneCount,
         projectId: activeSession.projectId,
@@ -80,7 +183,7 @@ resumeRouter.get("/status", async (req: Request, res: Response) => {
       return;
     } catch {
       res.json({
-        isRunning,
+        isRunning: getIsRunning(),
         canResume: false,
         projectId: activeSession.projectId,
         sessionId: activeSession.sessionId,
@@ -95,7 +198,7 @@ resumeRouter.get("/status", async (req: Request, res: Response) => {
 
     if (!target) {
       res.json({
-        isRunning,
+        isRunning: getIsRunning(),
         canResume: false,
         projectId: activeSession?.projectId,
         sessionId: activeSession?.sessionId,
@@ -109,8 +212,8 @@ resumeRouter.get("/status", async (req: Request, res: Response) => {
     const hasUnfinished = graph.status !== "done" && graph.status !== "failed";
 
     res.json({
-      isRunning,
-      canResume: hasUnfinished && !isRunning,
+      isRunning: getIsRunning(),
+      canResume: hasUnfinished && !getIsRunning(),
       spec: graph.originalSpec,
       nodeCount: total,
       doneCount,
@@ -119,7 +222,7 @@ resumeRouter.get("/status", async (req: Request, res: Response) => {
     } satisfies StatusResponse);
   } catch {
     res.json({
-      isRunning,
+      isRunning: getIsRunning(),
       canResume: false,
       projectId: activeSession?.projectId,
       sessionId: activeSession?.sessionId,
@@ -128,7 +231,7 @@ resumeRouter.get("/status", async (req: Request, res: Response) => {
 });
 
 resumeRouter.post("/resume", async (req: Request, res: Response) => {
-  if (isRunning) {
+  if (getIsRunning()) {
     res.status(409).json({ ok: false, error: "A task is already running" } satisfies ResumeResponse);
     return;
   }
@@ -163,6 +266,13 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
 
       await signalResumeRun({ workflowId: resolvedWorkflowId, reason: "resume via /api/resume" });
 
+      appendShadowOperation(workDir, projectId, sessionId, "resume", "checkpoint.resumed", {
+        workflowId: resolvedWorkflowId,
+      }, "server");
+      appendShadowOperation(workDir, projectId, sessionId, "resume", "session.status_set", {
+        status: "running",
+      }, "server");
+
       setActiveRunContext({ projectId, sessionId }, resolvedWorkflowId);
       stopWatch();
       watchSession(workDir, projectId, sessionId);
@@ -194,7 +304,13 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
   if (pendingCheckpoint) {
     clearPendingCheckpointResume(target.projectId, target.sessionId);
     updateSession(workDir, target.projectId, target.sessionId, { status: "running" });
-    isRunning = true;
+    appendShadowOperation(workDir, target.projectId, target.sessionId, "resume", "checkpoint.resumed", {
+      nodeId: pendingCheckpoint.nodeId,
+    }, "server");
+    appendShadowOperation(workDir, target.projectId, target.sessionId, "resume", "session.status_set", {
+      status: "running",
+    }, "server");
+    setSessionRunning(target.projectId, target.sessionId, true);
     res.json({ ok: true, graphId: target.sessionId, projectId: target.projectId, sessionId: target.sessionId } satisfies ResumeResponse);
     pendingCheckpoint.resume();
     return;
@@ -212,6 +328,10 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
     return;
   }
 
+  appendShadowOperation(workDir, target.projectId, target.sessionId, "resume", "checkpoint.resumed", {
+    graphId: graph.id,
+  }, "server");
+
   sseManager.reset();
   res.json({
     ok: true,
@@ -220,19 +340,43 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
     sessionId: target.sessionId,
   } satisfies ResumeResponse);
 
-  isRunning = true;
+  setSessionRunning(target.projectId, target.sessionId, true);
   updateSession(workDir, target.projectId, target.sessionId, { status: "running" });
+  appendShadowOperation(workDir, target.projectId, target.sessionId, "resume", "session.status_set", {
+    status: "running",
+  }, "server");
   const startTime = Date.now();
   const prevNodeStatus = new Map<string, string>();
+  let graphInitialized = false;
 
   try {
     const finalGraph = await run(graph.originalSpec, config, graph, (updatedGraph) => {
+      if (!graphInitialized) {
+        appendShadowOperation(workDir, target.projectId, target.sessionId, "scheduler", "graph.initialized", {
+          graphId: updatedGraph.id,
+          title: updatedGraph.title,
+          status: updatedGraph.status,
+        });
+        graphInitialized = true;
+      }
+
       for (const node of updatedGraph.nodes.values()) {
         const prev = prevNodeStatus.get(node.id);
         const statusChanged = prev !== node.status;
         const hasLiveToolCalls = node.status === "running" && (node.evidence?.toolCalls.length ?? 0) > 0;
         if (statusChanged || hasLiveToolCalls) {
-          if (statusChanged) prevNodeStatus.set(node.id, node.status);
+          if (statusChanged) {
+            prevNodeStatus.set(node.id, node.status);
+            appendNodeOpsFromStatus(workDir, target.projectId, target.sessionId, node, "scheduler");
+          } else if (hasLiveToolCalls) {
+            appendShadowOperation(workDir, target.projectId, target.sessionId, "scheduler", "node.evidence_appended", {
+              nodeId: node.id,
+              filesWritten: node.evidence?.filesWritten.map((f) => f.path) ?? [],
+              toolCalls: node.evidence?.toolCalls ?? [],
+              verifications: node.evidence?.verifications ?? [],
+            });
+          }
+
           sseManager.push({
             type: "node_update",
             payload: toNodeStatus(node),
@@ -249,7 +393,14 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
       }
       setPendingCheckpointResume(target.projectId, target.sessionId, checkpointNode.id, resume);
       updateSession(workDir, target.projectId, target.sessionId, { status: "paused" });
-      isRunning = false;
+      appendShadowOperation(workDir, target.projectId, target.sessionId, "checkpoint", "checkpoint.paused", {
+        nodeId: checkpointNode.id,
+        title: checkpointNode.title,
+      });
+      appendShadowOperation(workDir, target.projectId, target.sessionId, "checkpoint", "session.status_set", {
+        status: "paused",
+      });
+      setSessionRunning(target.projectId, target.sessionId, false);
       sseManager.push({
         type: "log",
         payload: `Paused at checkpoint ${checkpointNode.id}: ${checkpointNode.title}`,
@@ -259,10 +410,18 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
     });
 
     clearPendingCheckpointResume(target.projectId, target.sessionId);
+    const finalSessionStatus = mapGraphStatusToSessionStatus(finalGraph.status);
     updateSession(workDir, target.projectId, target.sessionId, {
-      status: mapGraphStatusToSessionStatus(finalGraph.status),
+      status: finalSessionStatus,
     });
-
+    appendShadowOperation(workDir, target.projectId, target.sessionId, "scheduler", "session.status_set", {
+      status: finalSessionStatus,
+    });
+    appendShadowOperation(workDir, target.projectId, target.sessionId, "scheduler", finalGraph.status === "done" ? "graph.completed" : "graph.failed", {
+      graphId: finalGraph.id,
+      title: finalGraph.title,
+      status: finalGraph.status,
+    });
 
     const summary: GraphSummary = {
       id: finalGraph.id,
@@ -288,6 +447,12 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
   } catch (e) {
     clearPendingCheckpointResume(target.projectId, target.sessionId);
     updateSession(workDir, target.projectId, target.sessionId, { status: "failed" });
+    appendShadowOperation(workDir, target.projectId, target.sessionId, "scheduler", "session.status_set", {
+      status: "failed",
+    });
+    appendShadowOperation(workDir, target.projectId, target.sessionId, "scheduler", "graph.failed", {
+      error: (e as Error).message,
+    });
     sseManager.push({
       type: "log",
       payload: `Fatal error: ${(e as Error).message}`,
@@ -296,7 +461,7 @@ resumeRouter.post("/resume", async (req: Request, res: Response) => {
     });
   } finally {
     if (!getPendingCheckpointResume(target.projectId, target.sessionId)) {
-      isRunning = false;
+      setSessionRunning(target.projectId, target.sessionId, false);
     }
   }
 });
@@ -331,13 +496,11 @@ function toNodeStatus(node: GraphNode): NodeStatus {
   };
 }
 
-// ---- 可复用的 resume 执行函数（供 node retry 调用）----
-
 export async function runResumeSession(
   projectId: string,
   sessionId: string,
 ): Promise<void> {
-  if (isRunning) return; // 已有任务在跑，忽略
+  if (isSessionRunning(projectId, sessionId)) return;
 
   const workDir = process.env.WORK_DIR ?? process.cwd();
   const graphPath = getSessionGraphPath(workDir, projectId, sessionId);
@@ -350,8 +513,12 @@ export async function runResumeSession(
     graph = prepareGraphForResume(loaded);
     saveGraphCheckpoint(workDir, graph, graphPath);
   } catch {
-    return; // checkpoint 不存在，忽略
+    return;
   }
+
+  appendShadowOperation(workDir, projectId, sessionId, "resume", "checkpoint.resumed", {
+    graphId: graph.id,
+  }, "server");
 
   const config = {
     ...DEFAULT_CONFIG,
@@ -364,19 +531,42 @@ export async function runResumeSession(
   setActiveRunContext({ projectId, sessionId }, null);
   sseManager.reset();
 
-  isRunning = true;
+  setSessionRunning(projectId, sessionId, true);
   updateSession(workDir, projectId, sessionId, { status: "running" });
+  appendShadowOperation(workDir, projectId, sessionId, "resume", "session.status_set", {
+    status: "running",
+  }, "server");
   const startTime = Date.now();
   const prevNodeStatus = new Map<string, string>();
+  let graphInitialized = false;
 
   try {
     const finalGraph = await run(graph.originalSpec, config, graph, (updatedGraph) => {
+      if (!graphInitialized) {
+        appendShadowOperation(workDir, projectId, sessionId, "scheduler", "graph.initialized", {
+          graphId: updatedGraph.id,
+          title: updatedGraph.title,
+          status: updatedGraph.status,
+        });
+        graphInitialized = true;
+      }
+
       for (const node of updatedGraph.nodes.values()) {
         const prev = prevNodeStatus.get(node.id);
         const statusChanged = prev !== node.status;
         const hasLiveToolCalls = node.status === "running" && (node.evidence?.toolCalls.length ?? 0) > 0;
         if (statusChanged || hasLiveToolCalls) {
-          if (statusChanged) prevNodeStatus.set(node.id, node.status);
+          if (statusChanged) {
+            prevNodeStatus.set(node.id, node.status);
+            appendNodeOpsFromStatus(workDir, projectId, sessionId, node, "scheduler");
+          } else if (hasLiveToolCalls) {
+            appendShadowOperation(workDir, projectId, sessionId, "scheduler", "node.evidence_appended", {
+              nodeId: node.id,
+              filesWritten: node.evidence?.filesWritten.map((f) => f.path) ?? [],
+              toolCalls: node.evidence?.toolCalls ?? [],
+              verifications: node.evidence?.verifications ?? [],
+            });
+          }
           sseManager.push({ type: "node_update", payload: toNodeStatus(node), projectId, sessionId });
         }
       }
@@ -388,13 +578,31 @@ export async function runResumeSession(
       }
       setPendingCheckpointResume(projectId, sessionId, checkpointNode.id, resume);
       updateSession(workDir, projectId, sessionId, { status: "paused" });
-      isRunning = false;
+      appendShadowOperation(workDir, projectId, sessionId, "checkpoint", "checkpoint.paused", {
+        nodeId: checkpointNode.id,
+        title: checkpointNode.title,
+      });
+      appendShadowOperation(workDir, projectId, sessionId, "checkpoint", "session.status_set", {
+        status: "paused",
+      });
+      setSessionRunning(projectId, sessionId, false);
       sseManager.push({
         type: "log",
         payload: `Paused at checkpoint ${checkpointNode.id}: ${checkpointNode.title}`,
         projectId,
         sessionId,
       });
+    });
+
+    const finalSessionStatus = mapGraphStatusToSessionStatus(finalGraph.status);
+    updateSession(workDir, projectId, sessionId, { status: finalSessionStatus });
+    appendShadowOperation(workDir, projectId, sessionId, "scheduler", "session.status_set", {
+      status: finalSessionStatus,
+    });
+    appendShadowOperation(workDir, projectId, sessionId, "scheduler", finalGraph.status === "done" ? "graph.completed" : "graph.failed", {
+      graphId: finalGraph.id,
+      title: finalGraph.title,
+      status: finalGraph.status,
     });
 
     const summary: GraphSummary = {
@@ -421,10 +629,16 @@ export async function runResumeSession(
   } catch (e) {
     clearPendingCheckpointResume(projectId, sessionId);
     updateSession(workDir, projectId, sessionId, { status: "failed" });
+    appendShadowOperation(workDir, projectId, sessionId, "scheduler", "session.status_set", {
+      status: "failed",
+    });
+    appendShadowOperation(workDir, projectId, sessionId, "scheduler", "graph.failed", {
+      error: (e as Error).message,
+    });
     sseManager.push({ type: "log", payload: `Fatal error: ${(e as Error).message}`, projectId, sessionId });
   } finally {
     if (!getPendingCheckpointResume(projectId, sessionId)) {
-      isRunning = false;
+      setSessionRunning(projectId, sessionId, false);
     }
   }
 }

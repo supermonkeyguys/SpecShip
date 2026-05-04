@@ -55,6 +55,14 @@ export function getSessionOutputDir(workDir: string, projectId: string, sessionI
   return path.join(getSessionDir(workDir, projectId, sessionId), "output");
 }
 
+export function getSessionEventsDir(workDir: string, projectId: string, sessionId: string): string {
+  return path.join(getSessionDir(workDir, projectId, sessionId), "events");
+}
+
+export function getSessionOperationsLogPath(workDir: string, projectId: string, sessionId: string): string {
+  return path.join(getSessionEventsDir(workDir, projectId, sessionId), "operations.v1.jsonl");
+}
+
 export function getSessionGraphPath(workDir: string, projectId: string, sessionId: string): string {
   return path.join(getSessionDir(workDir, projectId, sessionId), "graph.json");
 }

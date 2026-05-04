@@ -8,6 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { execSync, spawnSync } from "child_process";
 import { isPathSafe, auditWrite } from "./hooks";
+import type { ToolDef } from "../strategies/base";
 
 // ---- 配置 ----
 
@@ -389,8 +390,10 @@ function normalizeResponsesError(raw: string): string {
 async function callResponsesAPI(
   messages: Message[],
   withTools: boolean,
-  config: LLMClientConfig
+  config: LLMClientConfig,
+  toolsOverride?: ToolDef[]
 ): Promise<EndpointChoiceResult> {
+  const tools = toolsOverride ?? TOOLS;
   const endpoint = `${config.baseURL}/responses`;
   const body: Record<string, unknown> = {
     model: config.model,
@@ -399,7 +402,7 @@ async function callResponsesAPI(
     stream: true,
   };
   if (withTools) {
-    body.tools = TOOLS.map((t) => ({
+    body.tools = tools.map((t) => ({
       type: t.type,
       name: t.function.name,
       description: t.function.description,
@@ -473,15 +476,17 @@ async function callResponsesAPI(
 async function callChatCompletionsAPI(
   messages: Message[],
   withTools: boolean,
-  config: LLMClientConfig
+  config: LLMClientConfig,
+  toolsOverride?: ToolDef[]
 ): Promise<EndpointChoiceResult> {
+  const tools = toolsOverride ?? TOOLS;
   const endpoint = `${config.baseURL}/chat/completions`;
   const body: Record<string, unknown> = {
     model: config.model,
     messages,
     max_tokens: 4096,
   };
-  if (withTools) body.tools = TOOLS;
+  if (withTools) body.tools = tools;
 
   const resp = await fetch(endpoint, {
     method: "POST",
@@ -594,21 +599,22 @@ function assembleFromSseChunks(sseBody: string, endpoint: string): EndpointChoic
 async function callModelEndpoint(
   messages: Message[],
   withTools: boolean,
-  config: LLMClientConfig
+  config: LLMClientConfig,
+  toolsOverride?: ToolDef[]
 ): Promise<EndpointChoiceResult> {
   const errors: string[] = [];
   const forceChatCompletions = process.env.FORCE_CHAT_COMPLETIONS === "1";
 
   if (!forceChatCompletions) {
     try {
-      return await callResponsesAPI(messages, withTools, config);
+      return await callResponsesAPI(messages, withTools, config, toolsOverride);
     } catch (e) {
       errors.push(`responses: ${(e as Error).message}`);
     }
   }
 
   try {
-    return await callChatCompletionsAPI(messages, withTools, config);
+    return await callChatCompletionsAPI(messages, withTools, config, toolsOverride);
   } catch (e) {
     errors.push(`chat_completions: ${(e as Error).message}`);
   }
@@ -631,7 +637,8 @@ export async function runAgent(
   workDir: string,
   config: LLMClientConfig,
   withTools = true,
-  onToolCall?: (execution: ToolExecution) => void
+  onToolCall?: (execution: ToolExecution) => void,
+  toolsOverride?: ToolDef[]
 ): Promise<AgentRunResult> {
   const messages: Message[] = [
     { role: "system", content: systemPrompt },
@@ -645,7 +652,7 @@ export async function runAgent(
   const MAX_TURNS = 15;
 
   while (turns++ < MAX_TURNS) {
-    const { choice, tokensUsed: turnTokens } = await callModelEndpoint(messages, withTools, config);
+    const { choice, tokensUsed: turnTokens } = await callModelEndpoint(messages, withTools, config, toolsOverride);
     tokensUsed += turnTokens;
 
     const msg = choice.message;

@@ -2,7 +2,7 @@
  * StatusBadge.tsx — 顶部运行状态标签
  */
 
-import { StatusPill } from "../shared/ui/StatusPill";
+import { Badge } from "./ui/badge";
 
 interface Props {
   status: string;
@@ -18,5 +18,5 @@ export function StatusBadge({ status }: Props) {
 
   const { label, variant } = config[status] ?? config.idle;
 
-  return <StatusPill label={label} variant={variant} className="font-mono text-[11px]" />;
+  return <Badge variant={variant} className="font-mono text-[11px]">{label}</Badge>;
 }

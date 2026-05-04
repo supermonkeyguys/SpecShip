@@ -47,7 +47,7 @@ Rules:
 `.trim();
 
 chatRouter.post("/chat", async (req: Request, res: Response) => {
-  const { message, currentNodes, currentSpec } = req.body as ChatRequest;
+  const { message, currentNodes, currentSpec, llm } = req.body as ChatRequest;
 
   if (!message?.trim()) {
     res.status(400).json({ ok: false, intent: { type: "unknown", reply: "Empty message" } } satisfies ChatResponse);
@@ -57,6 +57,8 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
   const config = {
     ...DEFAULT_CONFIG,
     workDir: process.env.WORK_DIR ?? process.cwd(),
+    baseURL: llm?.baseURL?.trim() || DEFAULT_CONFIG.baseURL,
+    apiKey: llm?.apiKey?.trim() || DEFAULT_CONFIG.apiKey,
   };
 
   console.log(DEBUG_PREFIX, "request", { message, currentSpec, currentNodesCount: currentNodes?.length ?? 0 });

@@ -72,7 +72,7 @@ function normalizeQuestion(question: unknown, index: number): ClarifyQuestion | 
 }
 
 clarifyRouter.post("/clarify", async (req: Request, res: Response) => {
-  const { spec } = req.body as ClarifyRequest;
+  const { spec, llm } = req.body as ClarifyRequest;
   console.log(DEBUG_PREFIX, "request", { spec });
 
   if (!spec?.trim()) {
@@ -80,7 +80,12 @@ clarifyRouter.post("/clarify", async (req: Request, res: Response) => {
     return;
   }
 
-  const config = { ...DEFAULT_CONFIG, workDir: process.env.WORK_DIR ?? process.cwd() };
+  const config = {
+    ...DEFAULT_CONFIG,
+    workDir: process.env.WORK_DIR ?? process.cwd(),
+    baseURL: llm?.baseURL?.trim() || DEFAULT_CONFIG.baseURL,
+    apiKey: llm?.apiKey?.trim() || DEFAULT_CONFIG.apiKey,
+  };
 
   const policyDecision = decideClarificationByPolicy(spec);
   if (policyDecision) {

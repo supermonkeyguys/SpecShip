@@ -1,7 +1,7 @@
 import type { ClarifyQuestion, GraphSummary, NodeStatus } from "../../types";
 
 export type GraphRunStatus = "idle" | "running" | "done" | "failed";
-export type ExecutionSource = "snapshot" | "realtime";
+export type ExecutionSource = "snapshot" | "realtime" | "events" | "snapshot_fallback";
 export type StreamStatus = "disconnected" | "connecting" | "connected" | "error";
 
 export interface SessionRef {
@@ -15,6 +15,14 @@ export interface SessionGraphSnapshot {
   nodes: NodeStatus[];
   title: string;
   status: string;
+  source?: "snapshot" | "events" | "snapshot_fallback";
+  revision?: number;
+  parity?: {
+    nodeCount: { snapshot: number; replay: number; match: boolean };
+    statusDistribution: { snapshot: Record<string, number>; replay: Record<string, number>; match: boolean };
+    terminalStatus: { snapshot: string | undefined; replay: string | undefined; match: boolean };
+    mismatchedNodeStatuses: string[];
+  } | null;
 }
 
 // ---- Chat message types ----
@@ -38,6 +46,8 @@ export interface SessionExecutionState {
   runStatus: GraphRunStatus;
   source: ExecutionSource;
   lastUpdatedAt: number | null;
+  revision: number;
+  parity: SessionGraphSnapshot["parity"];
   // chat history persisted per session
   chatMessages: ChatMessage[];
 }

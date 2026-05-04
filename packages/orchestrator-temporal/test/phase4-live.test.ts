@@ -1,11 +1,11 @@
 /**
  * phase4-live.test.ts — 真实 Temporal server 端到端验证
  *
- * 需要：temporal server start-dev 已在运行（localhost:7233）
- * 跳过条件：TEMPORAL_LIVE_TEST 环境变量未设置时自动跳过
+ * 需要：TEMPORAL_LIVE_TEST=1
+ * 优先连接外部 Temporal server；若未配置 TEMPORAL_ADDRESS，则回退到本地 dev server。
  *
  * 验证：
- * 1. Client 能连接到真实 Temporal server
+ * 1. Client 能连接到 Temporal server
  * 2. Worker 能注册并消费 Task
  * 3. Workflow 完整跑通（mock activities，不调 LLM）
  * 4. Workflow ID 规范：specship:{projectId}:{sessionId}
@@ -14,14 +14,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as os from "os";
-import { Client, Connection } from "@temporalio/client";
-import { Worker, NativeConnection } from "@temporalio/worker";
+import { TestWorkflowEnvironment } from "@temporalio/testing";
+import { Worker } from "@temporalio/worker";
 import { SpecRunWorkflow } from "../src/workflows/spec-run.workflow";
 import type { SpecRunActivities, PlanGraphResult, ExecuteNodeActivityResult } from "../src/activities/spec-run.activities";
 
 const SKIP = !process.env.TEMPORAL_LIVE_TEST;
 const TASK_QUEUE = "test-live";
-const ADDRESS = process.env.TEMPORAL_ADDRESS ?? "localhost:7233";
+const ADDRESS = process.env.TEMPORAL_ADDRESS;
 
 const mockActivities: SpecRunActivities = {
   async planGraph(input): Promise<PlanGraphResult> {
@@ -44,13 +44,13 @@ const mockActivities: SpecRunActivities = {
   async notifyNodeUpdate(): Promise<void> {},
 };
 
-test("phase4-live: workflow runs on real Temporal server", { skip: SKIP ? "Set TEMPORAL_LIVE_TEST=1 to run" : false }, async () => {
-  const connection = await Connection.connect({ address: ADDRESS });
-  const nativeConn  = await NativeConnection.connect({ address: ADDRESS });
-  const client = new Client({ connection });
+test("phase4-live: workflow runs on temporal server", { skip: SKIP ? "Set TEMPORAL_LIVE_TEST=1 to run" : false }, async () => {
+  const env = ADDRESS
+    ? await TestWorkflowEnvironment.createFromExistingServer({ address: ADDRESS })
+    : await TestWorkflowEnvironment.createLocal();
 
   const worker = await Worker.create({
-    connection: nativeConn,
+    connection: env.nativeConnection,
     taskQueue: TASK_QUEUE,
     workflowsPath: require.resolve("../src/workflows/spec-run.workflow"),
     activities: mockActivities,
@@ -62,7 +62,7 @@ test("phase4-live: workflow runs on real Temporal server", { skip: SKIP ? "Set T
 
   try {
     const summary = await worker.runUntil(
-      client.workflow.execute(SpecRunWorkflow, {
+      env.client.workflow.execute(SpecRunWorkflow, {
         taskQueue: TASK_QUEUE,
         workflowId,
         args: [{ spec: "Write a TypeScript function", projectId, sessionId, workDir: os.tmpdir() }],
@@ -72,14 +72,11 @@ test("phase4-live: workflow runs on real Temporal server", { skip: SKIP ? "Set T
     assert.equal(summary.status, "done");
     assert.equal(summary.nodeStatuses["impl-main"], "done");
 
-    // 验证 Workflow ID 格式
     assert.ok(workflowId.startsWith("specship:"), `workflowId should start with specship: got ${workflowId}`);
 
-    // 通过 CLI 验证 workflow 历史可查（可观测性）
     console.log(`\n  ✓ Workflow ID: ${workflowId}`);
     console.log(`  ✓ Run: temporal workflow show --workflow-id ${workflowId}`);
   } finally {
-    await connection.close();
-    await nativeConn.close();
+    await env.teardown();
   }
 });

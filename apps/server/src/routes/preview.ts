@@ -18,6 +18,12 @@ import {
 export const previewRouter = Router();
 
 const DEBUG_PREFIX = "[shipyard:server:preview]";
+const PREVIEW_DEBUG = process.env.PREVIEW_DEBUG === "1";
+
+function debugLog(event: string, payload: unknown): void {
+  if (!PREVIEW_DEBUG) return;
+  console.log(DEBUG_PREFIX, event, payload);
+}
 const CANDIDATE_ENTRIES = [
   "index.html",
   "dist/index.html",
@@ -119,13 +125,13 @@ previewRouter.get("/projects/:pid/sessions/:sid/preview", (req: Request, res: Re
       liveSupported: false,
       liveStatus: "idle",
     };
-    console.log(DEBUG_PREFIX, "status", { pid, sid, ...payload });
+    debugLog("status", { pid, sid, ...payload });
     res.json(payload);
     return;
   }
 
   const payload = buildPreviewStatus(pid, sid, outputDir);
-  console.log(DEBUG_PREFIX, "status", { pid, sid, ...payload });
+  debugLog("status", { pid, sid, ...payload });
   res.json(payload);
 });
 
@@ -141,7 +147,7 @@ previewRouter.post("/projects/:pid/sessions/:sid/preview/live/start", async (req
 
   await startLivePreview(pid, sid, outputDir);
   const payload = buildPreviewStatus(pid, sid, outputDir);
-  console.log(DEBUG_PREFIX, "live:start", { pid, sid, ...payload });
+  debugLog("live:start", { pid, sid, ...payload });
   res.json(payload);
 });
 
@@ -152,7 +158,7 @@ previewRouter.post("/projects/:pid/sessions/:sid/preview/live/stop", (req: Reque
 
   stopLivePreview(pid, sid);
   const payload = buildPreviewStatus(pid, sid, outputDir);
-  console.log(DEBUG_PREFIX, "live:stop", { pid, sid, ...payload });
+  debugLog("live:stop", { pid, sid, ...payload });
   res.json(payload);
 });
 

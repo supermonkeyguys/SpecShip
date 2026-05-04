@@ -315,7 +315,7 @@ function collectSourceFiles(
       } else if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) {
         try {
           const content = fs.readFileSync(fullPath, "utf-8");
-          const rel = path.relative(rootPath, fullPath);
+          const rel = path.relative(rootPath, fullPath).replace(/\\/g, "/");
           // 提取 export 签名而非字符截断，让 LLM 看到完整 API 地图
           result[rel] = extractExportSignatures(content);
           count++;

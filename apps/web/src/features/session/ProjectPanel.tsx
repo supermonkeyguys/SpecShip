@@ -21,6 +21,7 @@ interface Props {
   onSelectFile: (file: FileEntry, projectId: string, sessionId: string) => void;
   onNewSession: () => void;
   onOpenPreview: () => void;
+  onOpenSettings: () => void;
   selectedFilePath?: string;
   previewInfo: PreviewStatusResponse | null;
 }
@@ -35,13 +36,12 @@ interface FlatSession {
   createdAt: string;
 }
 
-export function ProjectPanel({ activeSession, onSelectSession, onSelectFile, onNewSession, onOpenPreview, selectedFilePath, previewInfo }: Props) {
+export function ProjectPanel({ activeSession, onSelectSession, onSelectFile, onNewSession, onOpenPreview, onOpenSettings, selectedFilePath, previewInfo }: Props) {
   const {
     projects,
     sessionFiles,
     selectionMode,
     selectedSessions,
-    setSelectionMode,
     toggleSessionSelected,
     clearSelection,
     setProjects,
@@ -154,10 +154,10 @@ export function ProjectPanel({ activeSession, onSelectSession, onSelectFile, onN
               <button
                 type="button"
                 className="h-6 px-1.5 text-xs rounded border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                onClick={() => setSelectionMode(true)}
-                title="批量管理"
+                onClick={onOpenSettings}
+                title="Settings"
               >
-                ☰
+                ⚙
               </button>
               <button
                 type="button"

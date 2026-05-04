@@ -60,7 +60,14 @@
       "Bash(ps:*)",
       "Bash(kill 2052)",
       "Bash(kill 2046)",
-      "Bash(pkill -f \"tsx.*src/index.ts\")"
+      "Bash(pkill -f \"tsx.*src/index.ts\")",
+      "Bash(pnpm *)",
+      "Bash(TEMPORAL_LIVE_TEST=1 node *)",
+      "Bash(temporal server *)",
+      "Bash(docker *)",
+      "Bash(podman *)",
+      "Bash(python *)",
+      "Bash(awk '{print $NF}')"
     ]
   }
 }

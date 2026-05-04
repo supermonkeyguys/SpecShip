@@ -6,14 +6,19 @@ import { REVIEWER_PROMPT } from "../ai/prompts";
 import { runAgent as defaultRunAgent } from "../ai/llm";
 import { makeLLMConfig } from "../ai/llm-config";
 import type { AgentRunner } from "./runtime-types";
+import type { TaskStrategy } from "../strategies/base";
+import { typescriptLibStrategy } from "../strategies";
 import type { ExecutionLogger } from "./execution-logger";
+
+const REVIEW_SCOPE_NOTE = "Import path style is not blocking if the file compiles; only flag actual acceptance-criteria violations.";
 
 export async function runCodeReview(
   node: GraphNode,
   outputFiles: string[],
   config: ShipyardConfig,
   agentRunner: AgentRunner = defaultRunAgent,
-  logger?: ExecutionLogger
+  logger?: ExecutionLogger,
+  strategy?: TaskStrategy
 ): Promise<{ passed: boolean; blockingIssues: string }> {
   // 每个文件最多读 6000 字节，避免截断导致 reviewer 误判"代码不完整"
   const fileContents = outputFiles
@@ -26,20 +31,20 @@ export async function runCodeReview(
   try {
     // acceptanceCriteria 可能在旧 session 的 graph.json 中不存在（字段迁移前生成的节点）
     const criteria = node.acceptanceCriteria && node.acceptanceCriteria !== "undefined"
-      ? node.acceptanceCriteria
+      ? `${node.acceptanceCriteria}\n${REVIEW_SCOPE_NOTE}`
       // fallback：明确限制 reviewer 只检查"编译通过 + 内容与节点职责一致"，禁止跨节点评判
       : `SCOPE: Review ONLY this single file. Task title: "${node.title}". ` +
         `Check: (1) file is syntactically valid and compiles, ` +
         `(2) file content matches what the title describes. ` +
         `Do NOT fail for missing features that belong to other files/steps. ` +
-        `Do NOT require a complete working application from a single file.`;
+        `Do NOT require a complete working application from a single file. ${REVIEW_SCOPE_NOTE}`;
     const role = node.nodeRole && node.nodeRole !== "undefined" ? node.nodeRole : "implementer";
     const taskDesc = node.task && node.task !== "undefined" ? node.task : node.inputs?.description ?? node.title;
 
     logger?.log({ event: "review_input", nodeId: node.id, criteria, role, task: taskDesc, codeSnippet: fileContents.slice(0, 500) });
 
     const { finalText } = await agentRunner(
-      REVIEWER_PROMPT,
+      (strategy ?? typescriptLibStrategy).reviewerPrompt,
       `Acceptance criteria for this step:\n${criteria}\n\nNode role: ${role}\nTask: ${taskDesc}\n\nCode:\n${fileContents}`,
       config.workDir,
       makeLLMConfig(config.models.review ?? config.models.planning, config),

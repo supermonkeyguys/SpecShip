@@ -194,29 +194,44 @@ presentation   → .html, .json（reveal.js 配置）
 ## 实施顺序建议
 
 ```
-Step 1 — 接口定义（不改现有行为）
-  定义 TaskStrategy 接口
-  把现有流程提取成 typescript-lib Strategy
-  加 detectStrategy()（暂时总是返回 typescript-lib）
-  编译通过，行为不变
+Step 1 — 接口定义（不改现有行为）✅ (2026-05-04)
+  定义 TaskStrategy 接口                 → packages/core/src/strategies/base.ts
+  把现有流程提取成 typescript-lib Strategy → packages/core/src/strategies/typescript-lib.ts
+  加 detectStrategy()（暂时总是返回 typescript-lib）→ packages/core/src/strategies/index.ts
+  编译通过，行为不变                      → tsc + 26 tests + server build + web build ✅
 
-Step 2 — static-web Strategy
-  Planner prompt：生成 HTML+CSS+JS 自包含文件
-  Implementer：write_file 支持 .html/.css/.js
-  Verifier：HTML 语法检查
-  Preview：文件树加"Open"按钮，在新标签页打开
+Step 2 — static-web Strategy ✅ (2026-05-04)
+  ✅ Planner prompt → packages/core/src/strategies/static-web.ts
+  ✅ Implementer tools → SW_TOOLS
+  ✅ Strategy 参数已接入完整 orchestrator 链路
+  ✅ Preview：现有 PreviewPanel 已支持 iframe + "Open raw" 新标签页打开
+  ✅ Verifier：reviewer prompt 内置 HTML/CSS/JS 语法检查
 
-Step 3 — detectStrategy 真正工作
+Step 3 — detectStrategy 真正工作 ✅ (2026-05-04)
+  ✅ detectStrategy() 已接入 server run.ts：根据 spec 关键词自动选择
+  ✅ static-web 关键词检测：网站/webpage/landing page → 0.95 置信度
+  ✅ strategyId 字段已加入 RunRequest（前端可显式指定）/ RunResponse / GraphSummary
+  ✅ SSE log 事件广播 "Using strategy: <name>"
+  ✅ 用户可通过 strategyId 参数覆盖自动检测（getStrategy 回退）
   LLM 判断 spec 类型
   聊天框支持"用 React 做"这样的覆盖指令
   前端展示当前使用的 Strategy
 
-Step 4 — react-app Strategy
-  工具集扩展：npm install + build
-  Preview：内嵌 iframe
-  进程管理：dev server 生命周期
+Step 4 — react-app Strategy ✅ (2026-05-04)
+  ✅ Vite+React+TypeScript 策略 → packages/core/src/strategies/react-app.ts
+  ✅ Planner/Implementer/Reviewer 三套独立 prompt（React 19 约定：React.JSX.Element）
+  ✅ 工具集含 npm install/build（allowedCommands 含 npx vite）
+  ✅ Verifier: compile=true (tsc --jsx react), behavior=false, lint=true
+  ✅ Preview: iframe type
+  ✅ 关键词检测：react/spa/dashboard/前端应用 → 0.9, 组件/jsx/vite → 0.65
+  ✅ 已注册到 registry，detectStrategy 自动识别
+  ✅ 26 tests / typecheck / server / web 全绿
 
-Step 5 — 更多 Strategy（按需）
+Step 5 — 更多 Strategy（按需）▶
+  ✅ node-server → packages/core/src/strategies/node-server.ts (2026-05-04)
+     Express.js + TypeScript, tsc compile check, terminal preview
+     关键词检测：api/server/express/backend/后端 → 0.9
+  ⬜ presentation / mobile-app / full-stack / graduation-thesis / data-analysis / cli-tool
 ```
 
 ---

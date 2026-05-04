@@ -186,6 +186,57 @@ test("core: unexpected write path fails node instead of silently succeeding", as
   }
 });
 
+test("core: write path matcher accepts slash variants for same output file", async () => {
+  const { config, cleanup } = makeConfig("write-slash-variant");
+
+  try {
+    const agentRunner: AgentRunner = async (systemPrompt, _userPrompt, workDir, _cfg, _withTools, onToolCall) => {
+      if (systemPrompt.includes("architect")) {
+        return {
+          finalText: JSON.stringify({
+            title: "write-slash-variant",
+            ambiguities: [],
+            steps: [
+              { id: "impl-main", title: "Main", specFragment: "Main", description: "Write output/main.ts", outputFile: "output\\main.ts", dependsOn: [], role: "implementation" },
+            ],
+          }),
+          toolExecutions: [],
+          tokensUsed: 0,
+        };
+      }
+
+      if (systemPrompt.includes("strict code reviewer")) {
+        return {
+          finalText: JSON.stringify({ passed: true, blocking: [], warnings: [], summary: "ok" }),
+          toolExecutions: [],
+          tokensUsed: 0,
+        };
+      }
+
+      const actualPath = "output/main.ts";
+      fs.mkdirSync(path.dirname(path.join(workDir, actualPath)), { recursive: true });
+      const content = 'export function main(): string { return "ok"; }\n';
+      fs.writeFileSync(path.join(workDir, actualPath), content);
+      const execution = { tool: "write_file", input: { path: actualPath, content }, output: "Written", success: true, filePath: actualPath };
+      onToolCall?.(execution);
+      return { finalText: "", toolExecutions: [execution], tokensUsed: 0 };
+    };
+
+    const verifier: NodeVerifier = async () => ({
+      passed: true,
+      records: [{ type: "compile", passed: true, output: "ok", durationMs: 0, timestamp: new Date().toISOString() }],
+      summary: "ok",
+    });
+
+    const graph = await run("spec", config, undefined, undefined, agentRunner, verifier);
+    assert.equal(graph.status, "done");
+    const node = Array.from(graph.nodes.values())[0];
+    assert.equal(node.status, "done");
+  } finally {
+    cleanup();
+  }
+});
+
 test("core: lint soft-failure does not block verifyNode success", async () => {
   const { config, cleanup } = makeConfig("lint-soft");
   const originalPath = process.env.PATH ?? "";

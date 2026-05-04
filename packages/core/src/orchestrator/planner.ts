@@ -2,6 +2,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { ShipyardConfig } from "../config";
 import { GRAPH_PLANNER_PROMPT, CLARIFIER_PROMPT } from "../ai/prompts";
+import type { TaskStrategy } from "../strategies/base";
+import { typescriptLibStrategy } from "../strategies";
 import { extractRepoContext } from "../context/repo";
 import { ExecutionGraph, createGraph, addNode } from "../graph";
 import { runAgent as defaultRunAgent } from "../ai/llm";
@@ -82,7 +84,8 @@ export async function buildGraph(
   config: ShipyardConfig,
   agentRunner: AgentRunner = defaultRunAgent,
   /** If provided, called when spec needs clarification. Resolve with amended spec to continue, or reject to abort. */
-  onClarify?: (result: ClarificationResult) => Promise<string>
+  onClarify?: (result: ClarificationResult) => Promise<string>,
+  strategy?: TaskStrategy
 ): Promise<ExecutionGraph | null> {
   console.log("\n[PLANNING] Building execution graph...");
 
@@ -122,7 +125,8 @@ export async function buildGraph(
   const plannerInput = `Output directory: ${outputDir}\n\n${enrichedSpec}`;
 
   const llmConfig = makeLLMConfig(config.models.planning, config);
-  const { finalText } = await agentRunner(GRAPH_PLANNER_PROMPT, plannerInput, config.workDir, llmConfig, false);
+  const plannerPrompt = (strategy ?? typescriptLibStrategy).plan(config).systemPrompt;
+  const { finalText } = await agentRunner(plannerPrompt, plannerInput, config.workDir, llmConfig, false);
 
   let planData: {
     title: string;

@@ -24,8 +24,10 @@ import {
 import { useExecutionStore } from "../../domains/execution/store";
 import type { SessionExecutionState } from "../../domains/execution/types";
 import type { NodeStatus } from "../../types";
-import { retryNode } from "../../shared/api/nodeClient";
+import { retryNode, editNode } from "../../shared/api/nodeClient";
+import type { NodeEditImpact } from "../../types";
 import { applyAutoLayout, DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH } from "./layout";
+import { ImpactPanel } from "./ImpactPanel";
 
 const STATUS_COLORS: Record<NodeStatus["status"], string> = {
   pending: "#9ca3af",
@@ -277,6 +279,13 @@ function NodeDetail({
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
+  // edit state
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(node.title);
+  const [applying, setApplying] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [impact, setImpact] = useState<NodeEditImpact | null>(null);
+
   const handleRetry = useCallback(async () => {
     if (!session) return;
     setRetrying(true);
@@ -290,6 +299,31 @@ function NodeDetail({
       setRetrying(false);
     }
   }, [node.id, session]);
+
+  const handleEditApply = useCallback(async () => {
+    if (!session || !editTitle.trim()) return;
+    setApplying(true);
+    setEditError(null);
+    setImpact(null);
+    try {
+      const r = await editNode(node.id, {
+        projectId: session.projectId,
+        sessionId: session.sessionId,
+        updates: { title: editTitle.trim() },
+      });
+      if (r.ok && r.impact) {
+        setImpact(r.impact);
+        setEditing(false);
+      } else {
+        setEditError(r.error ?? "Edit failed");
+      }
+    } catch (e) {
+      setEditError((e as Error).message);
+    } finally {
+      setApplying(false);
+    }
+  }, [node.id, session, editTitle]);
+
   const isActive = node.status === "running" || node.status === "verifying";
   const showToolCalls = (isActive || node.status === "done" || node.status === "failed") &&
     (node.toolCalls?.length ?? 0) > 0;
@@ -460,6 +494,73 @@ function NodeDetail({
               </button>
               {retryError && (
                 <div className="mt-1 text-red-500 text-xs">{retryError}</div>
+              )}
+            </div>
+          )}
+
+          {/* Edit node section */}
+          {session && (
+            <div className="pt-1 border-t border-gray-100">
+              {!editing && !impact && (
+                <button
+                  type="button"
+                  onClick={() => { setEditing(true); setEditTitle(node.title); setEditError(null); }}
+                  className="w-full rounded-md px-3 py-1.5 text-xs font-medium transition-colors
+                    bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
+                  Edit Node
+                </button>
+              )}
+
+              {editing && (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.currentTarget.value)}
+                    className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-800 focus:outline-none focus:border-blue-400"
+                    placeholder="Node title"
+                    onKeyDown={(e) => { if (e.key === "Enter") handleEditApply(); if (e.key === "Escape") setEditing(false); }}
+                  />
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      disabled={applying || !editTitle.trim()}
+                      onClick={handleEditApply}
+                      className="flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors
+                        bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {applying ? "Applying…" : "Apply"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={applying}
+                      onClick={() => setEditing(false)}
+                      className="rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-100"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {editError && (
+                    <div className="text-red-500 text-xs">{editError}</div>
+                  )}
+                </div>
+              )}
+
+              {impact && (
+                <div className="pt-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-gray-500">Impact Analysis</span>
+                    <button
+                      type="button"
+                      onClick={() => setImpact(null)}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <ImpactPanel impact={impact} />
+                </div>
               )}
             </div>
           )}

@@ -5,6 +5,12 @@ import { spawn, type ChildProcess } from "child_process";
 import type { LivePreviewStatus } from "./types";
 
 const DEBUG_PREFIX = "[shipyard:server:preview-live]";
+const PREVIEW_DEBUG = process.env.PREVIEW_DEBUG === "1";
+
+function debugLog(event: string, payload: unknown): void {
+  if (!PREVIEW_DEBUG) return;
+  console.log(DEBUG_PREFIX, event, payload);
+}
 
 export interface LivePreviewCapability {
   supported: boolean;
@@ -120,7 +126,7 @@ function injectViteScaffold(outputDir: string): void {
         2
       )
     );
-    console.log(DEBUG_PREFIX, "scaffold:package.json", { outputDir });
+    debugLog("scaffold:package.json", { outputDir });
   }
 
   if (!fs.existsSync(viteConfigPath)) {
@@ -143,7 +149,7 @@ function injectViteScaffold(outputDir: string): void {
       ``,
     ].join("\n");
     fs.writeFileSync(viteConfigPath, viteConfigContent);
-    console.log(DEBUG_PREFIX, "scaffold:vite.config.ts", { outputDir });
+    debugLog("scaffold:vite.config.ts", { outputDir });
   }
 
   if (!fs.existsSync(indexHtmlPath)) {
@@ -151,7 +157,7 @@ function injectViteScaffold(outputDir: string): void {
       indexHtmlPath,
       `<!doctype html>\n<html lang="en">\n  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Shipyard Preview</title></head>\n  <body><div id="root"></div><script type="module" src="/main.tsx"></script></body>\n</html>\n`
     );
-    console.log(DEBUG_PREFIX, "scaffold:index.html", { outputDir });
+    debugLog("scaffold:index.html", { outputDir });
   }
 }
 
@@ -250,9 +256,9 @@ async function launchLivePreview(
 
   try {
     if (fs.existsSync(packageJsonPath) && !fs.existsSync(nodeModulesPath)) {
-      console.log(DEBUG_PREFIX, "install:start", { projectId, sessionId, outputDir });
+      debugLog("install:start", { projectId, sessionId, outputDir });
       await runInstall(outputDir);
-      console.log(DEBUG_PREFIX, "install:done", { projectId, sessionId });
+      debugLog("install:done", { projectId, sessionId });
     }
 
     const child = spawn(command.command, command.args, {
@@ -268,8 +274,8 @@ async function launchLivePreview(
     state.error = undefined;
     livePreviewStates.set(key, state);
 
-    child.stdout.on("data", (chunk) => console.log(DEBUG_PREFIX, "stdout", { projectId, sessionId, line: chunk.toString().trim() }));
-    child.stderr.on("data", (chunk) => console.log(DEBUG_PREFIX, "stderr", { projectId, sessionId, line: chunk.toString().trim() }));
+    child.stdout.on("data", (chunk) => debugLog("stdout", { projectId, sessionId, line: chunk.toString().trim() }));
+    child.stderr.on("data", (chunk) => debugLog("stderr", { projectId, sessionId, line: chunk.toString().trim() }));
 
     child.once("exit", (code, signal) => {
       const current = livePreviewStates.get(key);
@@ -301,7 +307,7 @@ async function launchLivePreview(
     current.status = "running";
     current.error = undefined;
     livePreviewStates.set(key, current);
-    console.log(DEBUG_PREFIX, "running", { projectId, sessionId, url: current.url, command: current.command });
+    debugLog("running", { projectId, sessionId, url: current.url, command: current.command });
   } catch (error) {
     const current = livePreviewStates.get(key);
     if (!current) return;
@@ -310,7 +316,7 @@ async function launchLivePreview(
     current.status = "error";
     current.error = (error as Error).message;
     livePreviewStates.set(key, current);
-    console.log(DEBUG_PREFIX, "error", { projectId, sessionId, error: current.error });
+    debugLog("error", { projectId, sessionId, error: current.error });
   }
 }
 
@@ -353,7 +359,7 @@ export function stopLivePreview(projectId: string, sessionId: string): LivePrevi
   current.status = "idle";
   current.error = undefined;
   livePreviewStates.set(key, current);
-  console.log(DEBUG_PREFIX, "stopped", { projectId, sessionId });
+  debugLog("stopped", { projectId, sessionId });
   return current;
 }
 

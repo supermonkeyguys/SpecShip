@@ -3,12 +3,13 @@ import * as fs from "fs";
 import * as crypto from "crypto";
 import { ShipyardConfig } from "../config";
 import type { ExecutionLogger } from "./execution-logger";
-import { IMPLEMENTER_PROMPT } from "../ai/prompts";
 import type { Evidence, ExecutionGraph, GraphNode } from "../graph";
 import { runAgent as defaultRunAgent } from "../ai/llm";
 import { makeLLMConfig } from "../ai/llm-config";
 import { validateOutputPath } from "./output-policy";
 import type { AgentRunner } from "./runtime-types";
+import type { TaskStrategy } from "../strategies/base";
+import { typescriptLibStrategy } from "../strategies";
 
 function cleanupNodeOutputsOnRetry(node: GraphNode, workDir: string): void {
   // 只有 fatal 错误才删文件重写；verify/review 失败时保留文件，让 LLM 能看到上次写的内容
@@ -85,7 +86,7 @@ export function enrichAcceptanceCriteriaFromDeps(
     if (!depFile) continue;
     const symbols = extractExportedSymbols(path.resolve(workDir, depFile));
     if (symbols.length) {
-      depSymbols.push(`${depFile}: [${symbols.join(", ")}]`);
+      depSymbols.push(`${path.basename(depFile)} exports: [${symbols.join(", ")}]`);
     }
   }
 
@@ -109,7 +110,7 @@ Task: ${node.task}
 Output file: ${node.outputs.files?.[0]}
 ${node.skills?.length ? `Follow these conventions: ${node.skills.join(", ")}` : ""}
 
-${dependencyContext ? `Dependencies (import from these):\n\`\`\`\n${dependencyContext}\n\`\`\`` : ""}
+${dependencyContext ? `Dependency reference snippets (use exported symbols from these snippets; choose the correct relative import path for the current file):\n\`\`\`\n${dependencyContext}\n\`\`\`` : ""}
 ${node.lastError ? `
 ⚠️  PREVIOUS ATTEMPT FAILED (reason: ${node.lastErrorKind ?? "unknown"}) — you must fix these issues:
 \`\`\`
@@ -122,20 +123,26 @@ ${previousFileContent
 `.trim();
 }
 
+function normalizeToolRelativePath(filePath: string): string {
+  return path.posix.normalize(filePath.replace(/\\/g, "/"));
+}
+
 function ensureWritesStayWithinExpectedOutputs(
   node: GraphNode,
   toolExecutions: Array<{ tool: string; filePath?: string }>,
   config: ShipyardConfig
 ): void {
-  const expectedOutputFiles = new Set(node.outputs.files ?? []);
+  const expectedPaths = node.outputs.files ?? [];
+  const expectedOutputFiles = new Set(expectedPaths.map(normalizeToolRelativePath));
   const invalidWrite = toolExecutions.find((execution) => {
     if (execution.tool !== "write_file" || !execution.filePath) return false;
-    return !expectedOutputFiles.has(execution.filePath) || validateOutputPath(execution.filePath, config) !== null;
+    const normalizedPath = normalizeToolRelativePath(execution.filePath);
+    return !expectedOutputFiles.has(normalizedPath) || validateOutputPath(normalizedPath, config) !== null;
   });
 
   if (invalidWrite?.filePath) {
     throw new Error(
-      `write_file attempted unexpected path "${invalidWrite.filePath}"; expected: ${Array.from(expectedOutputFiles).join(", ") || "(none)"}`
+      `write_file attempted unexpected path "${invalidWrite.filePath}"; expected: ${expectedPaths.join(", ") || "(none)"}`
     );
   }
 }
@@ -206,7 +213,8 @@ export async function executeNode(
   config: ShipyardConfig,
   agentRunner: AgentRunner = defaultRunAgent,
   onToolCallComplete?: (nodeId: string, accumulatedToolCalls: Evidence["toolCalls"]) => void,
-  logger?: ExecutionLogger
+  logger?: ExecutionLogger,
+  strategy?: TaskStrategy
 ): Promise<{ evidence: Evidence; outputFiles: string[]; fatalError?: string }> {
   const startedAt = new Date().toISOString();
 
@@ -221,9 +229,10 @@ export async function executeNode(
     logger?.log({ event: "node_prompt", nodeId: node.id, prompt });
     const llmConfig = makeLLMConfig(config.models.implementation, config);
 
+    const activeStrategy = strategy ?? typescriptLibStrategy;
     const accumulatedToolCalls: Evidence["toolCalls"] = [];
     const { toolExecutions } = await agentRunner(
-      IMPLEMENTER_PROMPT,
+      activeStrategy.implementerPrompt,
       prompt,
       config.workDir,
       llmConfig,
@@ -240,7 +249,8 @@ export async function executeNode(
           timestamp: new Date().toISOString(),
         });
         onToolCallComplete?.(node.id, [...accumulatedToolCalls]);
-      }
+      },
+      activeStrategy.tools()
     );
 
     ensureWritesStayWithinExpectedOutputs(node, toolExecutions, config);

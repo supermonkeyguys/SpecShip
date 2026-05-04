@@ -1,5 +1,6 @@
 import type { ClarifyOption, ClarifyQuestion } from "../../types";
 import { fetchJSON } from "../../utils/fetchJSON";
+import { loadLLMSettings } from "./llmSettings";
 
 export interface ClarifyResponseDTO {
   needsClarification: boolean;
@@ -81,10 +82,11 @@ function normalizeQuestion(question: unknown, index: number): ClarifyQuestion | 
 }
 
 export async function clarifySpec(spec: string): Promise<ClarifyResponseDTO> {
+  const llm = loadLLMSettings();
   const data = await fetchJSON<{ needsClarification?: boolean; questions?: unknown[] }>("/api/clarify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ spec }),
+    body: JSON.stringify({ spec, llm }),
   });
 
   const questions = (data.questions ?? [])

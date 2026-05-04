@@ -16,6 +16,8 @@ import * as path from "path";
 import { VerificationCriterion, VerificationRecord } from "../graph";
 import { ShipyardConfig } from "../config";
 import { runAgent } from "../ai/llm";
+import type { TaskStrategy, VerifierConfig } from "../strategies/base";
+import { typescriptLibStrategy } from "../strategies";
 
 // ─────────────────────────────────────────
 // 层 1：确定性验证
@@ -403,8 +405,11 @@ export async function verifyNode(
   outputFiles: string[],
   workDir: string,
   config: ShipyardConfig,
-  nodeRole?: string
+  nodeRole?: string,
+  strategy?: TaskStrategy
 ): Promise<NodeVerificationResult> {
+  const verifierConfig: VerifierConfig = (strategy ?? typescriptLibStrategy).verify();
+
   // tester 节点：走独立的测试执行环境，而非普通 compile check
   if (nodeRole === "tester") {
     return runTesterNodeVerification(outputFiles, workDir);
@@ -412,16 +417,18 @@ export async function verifyNode(
 
   const records: VerificationRecord[] = [];
 
-  // 1. 编译检查（必须）
-  const compileResult = runCompileCheck(outputFiles, workDir);
-  records.push(compileResult);
+  // 1. 编译检查（由 VerifierConfig 控制）
+  if (verifierConfig.compile) {
+    const compileResult = runCompileCheck(outputFiles, workDir);
+    records.push(compileResult);
 
-  if (!compileResult.passed) {
-    return {
-      passed: false,
-      records,
-      summary: `Compile failed: ${compileResult.output.split("\n")[0]}`,
-    };
+    if (!compileResult.passed) {
+      return {
+        passed: false,
+        records,
+        summary: `Compile failed: ${compileResult.output.split("\n")[0]}`,
+      };
+    }
   }
 
   // 2. 检查文件是否有可执行的实现（纯类型文件跳过行为验证）
@@ -435,38 +442,46 @@ export async function verifyNode(
     return { passed: true, records, summary: `Compile passed (types-only file, skipping behavior tests)` };
   }
 
-  // 3. 从 spec 提取行为验证标准（仅在 spec 明确包含行为语义时触发）
-  const shouldExtractBehaviorCriteria = hasBehaviorSemantics(specFragment);
-  const criteria = shouldExtractBehaviorCriteria
-    ? await extractVerificationCriteria(specFragment, config, outputFiles)
-    : [];
-  const behaviorCriteria = criteria.filter((c) => c.type === "behavior");
+  // 3. 从 spec 提取行为验证标准（仅在 spec 明确包含行为语义且 VerifierConfig 启用时触发）
+  if (verifierConfig.behavior) {
+    const shouldExtractBehaviorCriteria = hasBehaviorSemantics(specFragment);
+    const criteria = shouldExtractBehaviorCriteria
+      ? await extractVerificationCriteria(specFragment, config, outputFiles)
+      : [];
+    const behaviorCriteria = criteria.filter((c) => c.type === "behavior");
 
-  // 含行为语义但无法提取任何行为验证标准时，视为验证失败，走重试链
-  if (shouldExtractBehaviorCriteria && behaviorCriteria.length === 0) {
-    records.push({
-      type: "spec_check",
-      passed: false,
-      output: "Spec contains behavior semantics but no executable verification criteria were extracted",
-      durationMs: 0,
-      timestamp: new Date().toISOString(),
-    });
+    // 含行为语义但无法提取任何行为验证标准时，视为验证失败，走重试链
+    if (shouldExtractBehaviorCriteria && behaviorCriteria.length === 0) {
+      records.push({
+        type: "spec_check",
+        passed: false,
+        output: "Spec contains behavior semantics but no executable verification criteria were extracted",
+        durationMs: 0,
+        timestamp: new Date().toISOString(),
+      });
 
-    return {
-      passed: false,
-      records,
-      summary: "Behavioral spec check failed: no verification criteria extracted",
-    };
-  }
+      return {
+        passed: false,
+        records,
+        summary: "Behavioral spec check failed: no verification criteria extracted",
+      };
+    }
 
-  // 4. 运行行为验证（区分 hard/soft）
-  const behaviorResults: Array<{ criterion: VerificationCriterion; record: VerificationRecord }> = [];
-  for (const criterion of behaviorCriteria) {
-    const result = runBehaviorVerification(criterion, outputFiles, workDir);
-    records.push(result);
-    behaviorResults.push({ criterion, record: result });
-    const isHard = criterion.hardness !== "soft";
-    console.log(`    ${result.passed ? "✅" : isHard ? "❌" : "⚠️ "} ${criterion.description}${!isHard ? " (soft)" : ""}`);
+    // 4. 运行行为验证（区分 hard/soft）
+    const behaviorResults: Array<{ criterion: VerificationCriterion; record: VerificationRecord }> = [];
+    for (const criterion of behaviorCriteria) {
+      const result = runBehaviorVerification(criterion, outputFiles, workDir);
+      records.push(result);
+      behaviorResults.push({ criterion, record: result });
+      const isHard = criterion.hardness !== "soft";
+      console.log(`    ${result.passed ? "✅" : isHard ? "❌" : "⚠️ "} ${criterion.description}${!isHard ? " (soft)" : ""}`);
+    }
+
+    const hardBehaviorFailed = behaviorResults.some(({ criterion, record }) => !record.passed && criterion.hardness !== "soft");
+    if (hardBehaviorFailed) {
+      const failCount = records.filter((record) => !record.passed).length;
+      return { passed: false, records, summary: `${failCount}/${records.length} check(s) failed` };
+    }
   }
 
   // 5. 执行已有 *.test.ts 文件（如果存在）
@@ -512,18 +527,17 @@ export async function verifyNode(
     }
   }
 
-  // 6. Lint 检查（如果项目有 eslint/biome 配置，软失败 — 不阻塞节点）
-  const lintResult = runLintCheck(outputFiles, workDir);
-  if (lintResult) {
-    records.push(lintResult);
-    console.log(`    ${lintResult.passed ? "✅" : "⚠️ "} lint${!lintResult.passed ? ` (soft): ${lintResult.output.split("\n")[0]}` : ""}`);
+  // 6. Lint 检查（由 VerifierConfig 控制，软失败 — 不阻塞节点）
+  if (verifierConfig.lint) {
+    const lintResult = runLintCheck(outputFiles, workDir);
+    if (lintResult) {
+      records.push(lintResult);
+      console.log(`    ${lintResult.passed ? "✅" : "⚠️ "} lint${!lintResult.passed ? ` (soft): ${lintResult.output.split("\n")[0]}` : ""}`);
+    }
   }
 
-  // 只有 hard 验证失败才算节点失败
-  const compileFailed = !compileResult.passed;
-  const hardBehaviorFailed = behaviorResults.some(({ criterion, record }) => !record.passed && criterion.hardness !== "soft");
   const testFileFailed = testFileRecords.some((record) => !record.passed);
-  const passed = !compileFailed && !hardBehaviorFailed && !testFileFailed;
+  const passed = !testFileFailed;
   const failCount = records.filter((record) => !record.passed).length;
 
   return {

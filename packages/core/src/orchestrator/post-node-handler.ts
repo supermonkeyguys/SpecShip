@@ -5,6 +5,7 @@ import { runCodeReview } from "./review";
 import { enrichAcceptanceCriteriaFromDeps } from "./node-executor";
 import type { AgentRunner, NodeVerifier } from "./runtime-types";
 import type { ExecutionLogger } from "./execution-logger";
+import type { TaskStrategy } from "../strategies/base";
 
 export interface NodeExecutionResult {
   nodeId: string;
@@ -20,6 +21,7 @@ export interface PostNodeHandlingContext {
   nodeVerifier: NodeVerifier;
   agentRunner: AgentRunner;
   logger?: ExecutionLogger;
+  strategy?: TaskStrategy;
 }
 
 export interface PostNodeHandlingResult {
@@ -70,12 +72,13 @@ async function handleVerifiedSuccess(
   outputFiles: string[],
   config: ShipyardConfig,
   agentRunner: AgentRunner,
-  logger?: ExecutionLogger
+  logger?: ExecutionLogger,
+  strategy?: TaskStrategy
 ): Promise<PostNodeHandlingResult> {
   const node = graph.nodes.get(nodeId)!;
   // 用依赖文件真实导出符号增强 acceptanceCriteria，使 reviewer 有准确的验收基准
   const enrichedNode = enrichAcceptanceCriteriaFromDeps(node, graph, config.workDir);
-  const reviewResult = await runCodeReview(enrichedNode, outputFiles, config, agentRunner, logger);
+  const reviewResult = await runCodeReview(enrichedNode, outputFiles, config, agentRunner, logger, strategy);
 
   if (!reviewResult.passed) {
     const reviewMessage = `Code review failed: ${reviewResult.blockingIssues || "unknown blocking issues"}`;
@@ -162,7 +165,7 @@ async function handleVerificationFailure(
 }
 
 export async function handleCompletedNodeResult(context: PostNodeHandlingContext): Promise<PostNodeHandlingResult> {
-  const { graph, result, config, nodeVerifier, agentRunner, logger } = context;
+  const { graph, result, config, nodeVerifier, agentRunner, logger, strategy } = context;
   const { nodeId, evidence, outputFiles, fatalError } = result;
 
   if (fatalError) {
@@ -171,12 +174,12 @@ export async function handleCompletedNodeResult(context: PostNodeHandlingContext
 
   let verifyingGraph = transitionNode(graph, nodeId, "verifying");
   const node = verifyingGraph.nodes.get(nodeId)!;
-  const verifyResult = await nodeVerifier(node.specFragment, outputFiles, config.workDir, config, node.nodeRole);
+  const verifyResult = await nodeVerifier(node.specFragment, outputFiles, config.workDir, config, node.nodeRole, strategy);
   const fullEvidence: Evidence = { ...evidence, verifications: verifyResult.records };
   logger?.log({ event: "verify_result", nodeId, passed: verifyResult.passed, errors: verifyResult.records.filter(r => !r.passed).map(r => r.output).join("\n").slice(0, 1000) });
 
   if (verifyResult.passed) {
-    return handleVerifiedSuccess(verifyingGraph, nodeId, fullEvidence, outputFiles, config, agentRunner, logger);
+    return handleVerifiedSuccess(verifyingGraph, nodeId, fullEvidence, outputFiles, config, agentRunner, logger, strategy);
   }
 
   return handleVerificationFailure(

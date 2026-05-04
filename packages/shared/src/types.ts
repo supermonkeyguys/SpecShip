@@ -48,6 +48,7 @@ export interface GraphSummary {
   id: string;
   title: string;
   status: "done" | "failed";
+  strategyId?: string;
   stats: {
     total: number;
     done: number;
@@ -64,6 +65,11 @@ export interface GraphSummary {
 export interface RunRequest {
   spec: string;
   repoPath?: string;
+  strategyId?: string;
+  llm?: {
+    baseURL?: string;
+    apiKey?: string;
+  };
 }
 
 export interface RunResponse {
@@ -71,6 +77,7 @@ export interface RunResponse {
   graphId?: string;
   projectId?: string;
   sessionId?: string;
+  strategyId?: string;
   error?: string;
 }
 
@@ -146,6 +153,10 @@ export interface ClarifyQuestion {
 
 export interface ClarifyRequest {
   spec: string;
+  llm?: {
+    baseURL?: string;
+    apiKey?: string;
+  };
 }
 
 export interface ClarifyResponse {
@@ -178,10 +189,44 @@ export interface ResumeResponse {
   error?: string;
 }
 
+// ---- Node Edit API ----
+
+export interface NodeEditRequest {
+  projectId: string;
+  sessionId: string;
+  updates: {
+    title?: string;
+    task?: string;
+    specFragment?: string;
+    acceptanceCriteria?: string;
+    dependsOn?: string[];
+  };
+}
+
+export interface NodeEditImpact {
+  changedNodeId: string;
+  changeKind: "content" | "dependency" | "criteria" | "mixed";
+  description: string;
+  nodesStillValid: Array<{ id: string; title: string; reason: string }>;
+  nodesNeedRerun: Array<{ id: string; title: string; reason: string }>;
+  totalAffected: number;
+  totalUnaffected: number;
+}
+
+export interface NodeEditResponse {
+  ok: boolean;
+  impact?: NodeEditImpact;
+  error?: string;
+}
+
 export interface ChatRequest {
   message: string;
   currentNodes?: Array<{ id: string; title: string; status: string }>;
   currentSpec?: string;
+  llm?: {
+    baseURL?: string;
+    apiKey?: string;
+  };
 }
 
 export type ChatIntent =
@@ -195,4 +240,56 @@ export interface ChatResponse {
   ok: boolean;
   intent: ChatIntent;
   error?: string;
+}
+
+// ---- Session-first Event Sourcing ----
+
+export type SessionOperationActor = "system" | "user" | "server";
+export type SessionOperationSource = "run" | "resume" | "retry" | "checkpoint" | "scheduler";
+
+export type SessionOperationType =
+  | "session.created"
+  | "session.status_set"
+  | "graph.initialized"
+  | "node.status_set"
+  | "node.evidence_appended"
+  | "node.retry_scheduled"
+  | "checkpoint.paused"
+  | "checkpoint.resumed"
+  | "graph.completed"
+  | "graph.failed";
+
+export interface SessionOperationV1 {
+  v: 1;
+  opId: string;
+  projectId: string;
+  sessionId: string;
+  sessionRevision: number;
+  at: string;
+  actor: SessionOperationActor;
+  source: SessionOperationSource;
+  type: SessionOperationType;
+  payload: Record<string, unknown>;
+}
+
+export interface SessionProjectionNode {
+  id: string;
+  status: NodeStatus["status"];
+  retryCount: number;
+  maxRetries: number;
+  error?: string;
+  filesWritten: string[];
+}
+
+export interface SessionProjection {
+  projectId: string;
+  sessionId: string;
+  revision: number;
+  graph: {
+    id?: string;
+    title?: string;
+    status?: "building" | "running" | "paused" | "done" | "failed";
+  };
+  sessionStatus?: "running" | "paused" | "done" | "failed" | "interrupted";
+  nodes: Record<string, SessionProjectionNode>;
 }

@@ -24,6 +24,8 @@ function createEmptySession(ref: SessionRef): SessionExecutionState {
     runStatus: "idle",
     source: "snapshot",
     lastUpdatedAt: null,
+    revision: 0,
+    parity: null,
     chatMessages: [...INITIAL_CHAT_MESSAGES],
   };
 }
@@ -139,6 +141,7 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
   replaceSessionSnapshot: (session, snapshot, options) =>
     set((state) => {
       const existing = state.sessions[session.sessionId] ?? createEmptySession(session);
+      const nextRevision = typeof snapshot.revision === "number" ? snapshot.revision : existing.revision;
       return {
         sessions: {
           ...state.sessions,
@@ -151,8 +154,10 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
             logs: existing.logs,
             summary: existing.summary,
             runStatus: resolveRunStatus(snapshot.status, options?.optimisticRunStatus),
-            source: "snapshot",
+            source: snapshot.source ?? "snapshot",
             lastUpdatedAt: Date.now(),
+            revision: nextRevision,
+            parity: snapshot.parity ?? null,
             chatMessages: existing.chatMessages.length > 0 ? existing.chatMessages : [...INITIAL_CHAT_MESSAGES],
           },
         },
@@ -164,14 +169,12 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
       const resolvedSessionId = targetSessionId ?? state.liveSessionId ?? state.activeSessionId;
       if (!resolvedSessionId) return state;
 
-      // 优先从 SSE 事件里取 projectId，其次从已有 session 取，最后才留空
       const existingProjectId = state.sessions[resolvedSessionId]?.projectId;
       const resolvedProjectId = (event as { projectId?: string }).projectId ?? existingProjectId ?? "";
       const existing = state.sessions[resolvedSessionId] ?? createEmptySession({
         projectId: resolvedProjectId,
         sessionId: resolvedSessionId,
       });
-      // 如果已有 session 的 projectId 是空的但现在有了，补上
       const patchedExisting = !existingProjectId && resolvedProjectId
         ? { ...existing, projectId: resolvedProjectId }
         : existing;

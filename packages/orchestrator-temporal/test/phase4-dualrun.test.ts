@@ -19,7 +19,7 @@ import * as path from "path";
 import { TestWorkflowEnvironment } from "@temporalio/testing";
 import { Worker } from "@temporalio/worker";
 
-import { run } from "../../../packages/core/src/shipyard";
+import { run } from "../../../packages/core/src/orchestrator/shipyard";
 import { makeMockAgentRunner, makeMockNodeVerifier, makeTestConfig } from "../../../test/regression/helpers";
 import { SpecRunWorkflow } from "../src/workflows/spec-run.workflow";
 import type { SpecRunActivities, PlanGraphResult, ExecuteNodeActivityResult } from "../src/activities/spec-run.activities";

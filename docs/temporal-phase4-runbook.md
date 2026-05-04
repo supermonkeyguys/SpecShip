@@ -52,13 +52,20 @@ ORCHESTRATOR_MODE=legacy pnpm server:dev
 
 ## 验收标准（Phase 4 DoD）
 
-- [ ] `run/resume/retry/status` 在 Temporal 模式行为与 legacy 一致
+- [x] `run/resume/retry/status` 在 Temporal 模式行为与 legacy 一致
 - [ ] 进程重启后，运行中任务自动恢复（Temporal Web UI 可见）
-- [ ] `ORCHESTRATOR_MODE=legacy` 单开关回退 legacy 成功
-- [ ] 双跑测试通过（`pnpm test`）
+- [x] `ORCHESTRATOR_MODE=legacy` 单开关回退 legacy 成功
+- [x] 双跑测试通过（`pnpm test`）
 
-## 已知限制（待 Phase 3 末期处理）
+## 已知限制（待后续阶段处理）
 
-- `resume` 路由目前仍走 legacy checkpoint，Temporal 路径暂未接入
-- `/api/node/:id/retry` 目前直接修改 checkpoint 文件，Temporal 路径应改为发 Signal
 - SSE 推送依赖文件 projection（`fs.watch`），Windows 上可能有延迟
+- “进程重启后自动恢复”的真实验证依赖手工环境演练，当前未纳入自动化回归
+
+## 状态对齐说明（2026-05-03）
+
+以下能力已在代码中接入：
+- `POST /api/resume` Temporal 路径已接入 `signalResumeRun`（`apps/server/src/routes/resume.ts`）
+- `POST /api/node/:id/retry` Temporal 路径已接入 `signalRetryNode`（`apps/server/src/routes/node.ts`）
+- `GET /api/status` Temporal 路径已改为 Query `querySpecRunSummary`（`apps/server/src/routes/resume.ts`）
+- 双跑与信号链路测试已存在于 `packages/orchestrator-temporal/test/*`

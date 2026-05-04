@@ -16,8 +16,10 @@ import { ResumeBar } from "./features/session/ResumeBar";
 import { Canvas } from "./features/canvas/Canvas";
 import { FilePreview } from "./features/files/FilePreview";
 import { PreviewPanel } from "./features/preview/PreviewPanel";
+import { SettingsPanel } from "./features/settings/SettingsPanel";
 import { Chat } from "./features/chat/Chat";
 import { StatusBadge } from "./components/StatusBadge";
+
 import { useWorkspaceStore } from "./domains/workspace/store";
 import { fetchSessionPreview } from "./shared/api/previewClient";
 import type { ActiveSession } from "./features/session/types";
@@ -34,6 +36,7 @@ export default function App() {
   const previewInfo = useWorkspaceStore((state) => state.previewInfo);
   const setPreviewInfo = useWorkspaceStore((state) => state.setPreviewInfo);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const clearSelectedFileIfSessionMismatch = useWorkspaceStore(
     (state) => state.clearSelectedFileIfSessionMismatch
   );
@@ -43,22 +46,26 @@ export default function App() {
   }, [activeSession, clearSelectedFileIfSessionMismatch]);
 
   const handleSelectSession = async (session: ActiveSession | null) => {
+    setIsSettingsOpen(false);
     setIsPreviewOpen(false);
     await setActiveSession(session);
   };
 
   const handleActivateStartedSession = async (session: ActiveSession) => {
+    setIsSettingsOpen(false);
     setIsPreviewOpen(false);
     await activateStartedSession(session);
     handleClose();
   };
 
   const handleResumeSession = async () => {
+    setIsSettingsOpen(false);
     setIsPreviewOpen(false);
     await handleResume();
   };
 
   const handleCreateNewSession = () => {
+    setIsSettingsOpen(false);
     setIsPreviewOpen(false);
     handleNewSession();
   };
@@ -80,7 +87,6 @@ export default function App() {
     }
   };
 
-  // Auto-fetch preview status when active session changes or run completes
   useEffect(() => {
     refreshPreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,8 +125,14 @@ export default function App() {
             onSelectFile={handleFileSelect}
             onNewSession={handleCreateNewSession}
             onOpenPreview={() => {
+              setIsSettingsOpen(false);
               handleClose();
               setIsPreviewOpen(true);
+            }}
+            onOpenSettings={() => {
+              setIsPreviewOpen(false);
+              handleClose();
+              setIsSettingsOpen(true);
             }}
             selectedFilePath={selectedFile?.path}
             previewInfo={previewInfo}
@@ -135,6 +147,8 @@ export default function App() {
               error={fileError}
               onClose={handleClose}
             />
+          ) : isSettingsOpen ? (
+            <SettingsPanel onBack={() => setIsSettingsOpen(false)} />
           ) : isPreviewOpen ? (
             <PreviewPanel
               projectId={activeSession?.projectId ?? ""}
