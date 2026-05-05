@@ -37,8 +37,8 @@ Field semantics (IMPORTANT):
 - task: MUST be written to function/interface signature level — not vague descriptions
   - For types: list every interface/type name and its fields
   - For implementation: list every function/class name, its parameters and return type
-  - For imports: explicitly state "import X, Y from output/foo.ts"
-  - Example (good): "Implement UserService class with: createUser(data: {name:string,email:string}): Promise<{id:string,name:string,email:string}>, getUserById(id: string): Promise<{...} | null>. Import User type from output/types.ts."
+  - For imports: use relative paths WITHOUT file extensions — e.g. "import { User } from './types'" (NOT "from output/types.ts")
+  - Example (good): "Implement UserService class with: createUser(data: {name:string,email:string}): Promise<{id:string,name:string,email:string}>, getUserById(id: string): Promise<{...} | null>. Import { User } from './types'."
   - Example (bad): "Implement user service layer"
 - acceptanceCriteria: what "done" means for THIS step only — scoped to this single file, NOT the whole project
   - List exactly which exports, behaviors, or checks must pass for this file
@@ -51,6 +51,7 @@ General rules:
 - Each step produces ONE file with unique path
 - File extension: .ts for TypeScript (default), .py for Python, .go for Go — match the spec's language
 - outputFile MUST use the "Output directory" prefix given in the input
+- All import paths in task descriptions MUST be relative (e.g. './types', '../common/utils') without file extensions — never use absolute or output-dir-prefixed paths
 - dependsOn: list of step IDs whose output files this step needs to IMPORT
 - Maximize parallelism: steps with no shared dependencies should have empty dependsOn
 - Step count: use as many as needed (no artificial limit), but avoid splitting trivial logic
@@ -92,6 +93,13 @@ Rules:
 - For React JSX return types, use 'React.JSX.Element' or 'React.ReactElement' — NEVER use 'JSX.Element' (removed in React 19)
 - If the spec mentions a specific algorithm or approach, implement that exact approach
 - Keep functions focused — split large functions into well-named helpers
+
+CRITICAL — Write a test file:
+- For each implementation file you create (e.g. record-repository.ts), you MUST also write a corresponding test file (e.g. record-repository.test.ts)
+- The test file must import from your implementation file and run actual assertions
+- Use simple assertions: if (!condition) { console.error(...); process.exit(1); } then console.log("PASS")
+- Test the main exported functions/classes with real inputs — cover the happy path and at least one edge case
+- The test file will be executed by the verification runner — it must exit with code 0 on success, non-zero on failure
 `.trim();
 
 export const CLARIFIER_PROMPT = `

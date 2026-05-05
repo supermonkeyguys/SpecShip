@@ -45,6 +45,13 @@ Rules:
 - Generate ALL files needed: package.json, vite.config.ts, tsconfig.json, index.html, src/main.tsx, src/App.tsx, and any component files
 - Run "npm install" after writing package.json, then "npm run build" to verify compilation
 - JSX must use React.JSX.Element not global JSX.Element (React 19 breaking change)
+
+CRITICAL — Write a test file:
+- For each implementation file you create (e.g. record-repository.ts), you MUST also write a corresponding test file (e.g. record-repository.test.ts)
+- The test file must import from your implementation file and run actual assertions
+- Use simple assertions: if (!condition) { console.error(...); process.exit(1); } then console.log("PASS")
+- Test the main exported functions/classes with real inputs — cover the happy path and at least one edge case
+- The test file will be executed by the verification runner — it must exit with code 0 on success, non-zero on failure
 `.trim();
 
 const REACT_APP_REVIEWER_PROMPT = `

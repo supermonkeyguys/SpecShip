@@ -67,7 +67,10 @@
       "Bash(docker *)",
       "Bash(podman *)",
       "Bash(python *)",
-      "Bash(awk '{print $NF}')"
+      "Bash(awk '{print $NF}')",
+      "WebSearch",
+      "Bash(mkdir -p \"D:\\\\AI\\\\Project\\\\SpecShip\\\\.claude\\\\skills\\\\screenshot-to-code\")",
+      "Bash(cp \"C:\\\\Users\\\\30959\\\\.claude\\\\skills\\\\screenshot-to-code\\\\SKILL.md\" \"D:\\\\AI\\\\Project\\\\SpecShip\\\\.claude\\\\skills\\\\screenshot-to-code\\\\SKILL.md\")"
     ]
   }
 }

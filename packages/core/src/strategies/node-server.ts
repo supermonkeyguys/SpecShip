@@ -47,6 +47,13 @@ Rules:
 - All files go in the output directory with relative paths
 - Generate ALL files needed: package.json, tsconfig.json, server.ts, and route files
 - Run "npm install" after writing package.json to install dependencies
+
+CRITICAL — Write a test file:
+- For each implementation file you create (e.g. record-repository.ts), you MUST also write a corresponding test file (e.g. record-repository.test.ts)
+- The test file must import from your implementation file and run actual assertions
+- Use simple assertions: if (!condition) { console.error(...); process.exit(1); } then console.log("PASS")
+- Test the main exported functions/classes with real inputs — cover the happy path and at least one edge case
+- The test file will be executed by the verification runner — it must exit with code 0 on success, non-zero on failure
 `.trim();
 
 const NODE_SERVER_REVIEWER_PROMPT = `

@@ -62,8 +62,8 @@ Given a spec fragment AND the actual implementation code, output ONLY a JSON arr
     "type": "behavior",
     "hardness": "hard" | "soft",
     "testCase": {
-      "input": "addTwoNumbers(1, 2)",
-      "expectedOutput": "3",
+      "input": "create({ patientId: 'p1', measuredAt: '2024-01-01', glucoseValue: 5.5, unit: 'mmol/L' })",
+      "expectedOutput": "{\\"id\\":\\"...\\",\\"patientId\\":\\"p1\\"}",
       "expectError": null
     }
   }
@@ -73,26 +73,33 @@ hardness:
 - "hard": must pass — objective correctness (returns exact value, throws specific error)
 - "soft": best-effort — subjective or approximate (output contains string, result is truthy)
 
-CRITICAL rules for testCase.input:
-- SCAN the implementation code for exported function/class names
-- Use the EXACT exported name — never guess or abbreviate
-- Input must be a valid expression that can be evaluated in Node.js
-- Use simple, concrete values (numbers, strings, booleans) — no complex objects unless required
-- If the function is async, the test runner handles await automatically
+CRITICAL rules for testCase.input — you MUST use one of these two formats:
+
+Format A — Simple call expression (PREFERRED for exported functions/classes):
+  "create({ patientId: 'p1', glucoseValue: 5.5, unit: 'mmol/L' })"
+  The test runner will prefix this with the module import, producing: mod.create(...).
+  - Start with the exported function/method/constructor name
+  - Use ONLY simple literal values (strings, numbers, booleans, plain objects/arrays)
+  - NO variable declarations (no const/let/var), NO IIFEs, NO inline async
+
+Format B — Standalone expression (use ONLY when setup is unavoidable):
+  "new GlucoseRecordRepository().create({ patientId: 'p1', glucoseValue: 5.5, unit: 'mmol/L' })"
+  The test runner will execute this expression directly without any prefix.
+  - Must be a single self-contained expression, NOT a block or script
+  - Still no const/let/var, no async/await keywords (the runner handles async)
+
+NEVER generate these:
+  - IIFEs: (async () => { ... })()  — WRONG
+  - Variable declarations: const x = ... — WRONG
+  - Multi-statement blocks           — WRONG
 
 Rules:
+- SCAN the implementation code for exported function/class names — use EXACT names
 - Extract ONLY behaviors explicitly stated in the spec
 - Generate 1-3 behavior criteria — quality over quantity
-- Each criterion must be independently executable
 - If spec is purely about types/interfaces with no runtime behavior, return []
-- expectedOutput: use JSON-serializable value (number, string, boolean, null, array, object)
+- expectedOutput: a substring to match in the stringified result, or null to just check no-throw
 `.trim();
-
-const BEHAVIOR_SEMANTIC_REGEX = /(returns?|throws?|errors?|success|failure|返回|抛错|抛出|错误|成功|失败)/i;
-
-function hasBehaviorSemantics(specFragment: string): boolean {
-  return BEHAVIOR_SEMANTIC_REGEX.test(specFragment);
-}
 
 export async function extractVerificationCriteria(
   specFragment: string,
@@ -103,7 +110,7 @@ export async function extractVerificationCriteria(
   const codeContext = outputFiles
     ?.filter((f) => fs.existsSync(f))
     .map((f) => {
-      const content = fs.readFileSync(f, "utf-8").slice(0, 1000);
+      const content = fs.readFileSync(f, "utf-8").slice(0, 6000);
       return `// ${path.basename(f)}\n${content}`;
     })
     .join("\n\n") ?? "";
@@ -147,47 +154,99 @@ export function runBehaviorVerification(
 
   const tc = criterion.testCase;
 
-  // 生成一个临时测试文件
-  const imports = outputFiles
-    .map((f) => {
-      const rel = path.relative(workDir, f).replace(/\\/g, "/").replace(/\.ts$/, "");
-      return `import * as mod_${path.basename(f, ".ts")} from "./${rel}";`;
-    })
-    .join("\n");
+  // ── 安全筛查：黑名单，只拦截真正危险的模式 ──
+  const DANGEROUS_PATTERNS = [
+    [/\brequire\s*\(/, "require()"],
+    [/\bimport\s*\(/, "dynamic import()"],
+    [/\bprocess\.exit\b/, "process.exit"],
+    [/\bchild_process\b/, "child_process"],
+    [/\beval\s*\(/, "eval()"],
+    [/\bFunction\s*\(/, "new Function()"],
+  ] as const;
 
-  const SAFE_INPUT_PATTERN = /^[\w.[\]()"'\s\-+\d.,true|false|null|undefined]+$/;
-  if (!SAFE_INPUT_PATTERN.test(tc.input)) {
-    return {
-      type: "test",
-      passed: false,
-      output: `Unsafe testCase.input rejected: ${tc.input.slice(0, 100)}`,
-      durationMs: 0,
-      timestamp: new Date().toISOString(),
-    };
+  for (const [pattern, label] of DANGEROUS_PATTERNS) {
+    if (pattern.test(tc.input)) {
+      return {
+        type: "test", passed: false,
+        output: `Unsafe testCase.input rejected (${label} detected): ${tc.input.slice(0, 150)}`,
+        durationMs: 0, timestamp: new Date().toISOString(),
+      };
+    }
   }
 
-  // 把 input 里的函数名解析出来，找到导出该函数的模块
-  const funcName = tc.input.match(/^(\w+)\(/)?.[1] ?? "";
-  const matchingModule = outputFiles.find((f) => {
-    if (!fs.existsSync(f)) return false;
+  // ── 为每一个真实存在且无重复的输出文件生成命名导入 ──
+  // key=alias, value={ filePath, rel, exports: string[] }
+  interface ModuleInfo { file: string; rel: string; exports: string[] }
+  const modules: Map<string, ModuleInfo> = new Map();
+
+  for (const f of outputFiles) {
+    if (!fs.existsSync(f)) continue;
+    const alias = `__m${modules.size}`;
+    if ([...modules.values()].some((m) => m.file === f)) continue; // 去重
+    const rel = path.relative(workDir, f).replace(/\\/g, "/").replace(/\.ts$/, "");
+
     const content = fs.readFileSync(f, "utf-8");
-    // 检查文件是否导出了该函数
-    return content.includes(`export function ${funcName}`) ||
-           content.includes(`export const ${funcName}`) ||
-           content.includes(`export { ${funcName}`);
-  }) ?? outputFiles[0]; // fallback 到第一个文件
-  const moduleAlias = matchingModule ? `mod_${path.basename(matchingModule, ".ts")}` : "mod";
+    const exports = new Set<string>();
+    for (const re of [/export function (\w+)/g, /export const (\w+)/g, /export class (\w+)/g]) {
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(content)) !== null) exports.add(m[1]);
+    }
+    const exportListRe = /export \{ ([\w\s,]+) \}/g;
+    let m2: RegExpExecArray | null;
+    while ((m2 = exportListRe.exec(content)) !== null) {
+      m2[1].split(",").forEach((s) => exports.add(s.trim()));
+    }
+    modules.set(alias, { file: f, rel, exports: [...exports] });
+  }
+
+  // 生成 import 语句，如果有命名导出则用命名导入，否则用命名空间导入
+  const importLines: string[] = [];
+  const bareExportLines: string[] = [];
+
+  for (const [alias, { rel, exports: names }] of modules) {
+    if (names.length > 0) {
+      importLines.push(`import { ${names.join(", ")} } from "./${rel}";`);
+    } else {
+      importLines.push(`import * as ${alias} from "./${rel}";`);
+    }
+  }
+
+  // 如果 input 以 "exportedFunction(...)" 形式开头，且能找到匹配模块，拼接命名空间前缀
+  // 否则直接用裸表达式（命名导入已将所有导出暴露到作用域）
+  const funcName = tc.input.match(/^(\w+)\(/)?.[1] ?? "";
+  const matchingModule = funcName
+    ? [...modules.values()].find((m) => {
+        const content = fs.readFileSync(m.file, "utf-8");
+        return content.includes(`export function ${funcName}`) ||
+               content.includes(`export const ${funcName}`) ||
+               content.includes(`export { ${funcName}`);
+      })
+    : undefined;
+
+  let callExpr: string;
+  if (matchingModule) {
+    // 找到该函数名所在的模块别名
+    const alias = [...modules.entries()].find(([, v]) => v === matchingModule)?.[0] ?? "";
+    callExpr = alias ? `${alias}.${tc.input}` : tc.input;
+  } else {
+    callExpr = tc.input;
+  }
+
+  // 将 expectedOutput 安全地嵌入为 JS 字面量
+  const expectedLiteral = tc.expectedOutput != null
+    ? JSON.stringify(tc.expectedOutput)
+    : null;
 
   const testCode = `
-${imports}
+${importLines.join("\n")}
 
 async function runTest() {
   try {
-    const result = await ${moduleAlias}.${tc.input};
+    const result = await ${callExpr};
     ${tc.expectError
       ? `console.error("FAIL: expected error ${tc.expectError} but got result:", result); process.exit(1);`
-      : tc.expectedOutput
-        ? `const expected = ${tc.expectedOutput};
+      : expectedLiteral
+        ? `const expected = ${expectedLiteral};
     const ok = JSON.stringify(result) === JSON.stringify(expected) || String(result).includes(String(expected));
     if (!ok) { console.error("FAIL: expected", expected, "got", result); process.exit(1); }
     console.log("PASS");`
@@ -211,9 +270,30 @@ runTest().catch(e => { console.error(e); process.exit(1); });
 `.trim();
 
   const tmpFile = path.join(workDir, `.shipyard-verify-${Date.now()}.ts`);
+  let keepFile = false;
 
   try {
     fs.writeFileSync(tmpFile, testCode);
+
+    // 预验证：tsc --noEmit，尽早暴露语法错误
+    try {
+      execSync(
+        `npx tsc --noEmit --target ES2022 --moduleResolution bundler --esModuleInterop --skipLibCheck "${tmpFile}"`,
+        { cwd: workDir, encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] }
+      );
+    } catch (e: unknown) {
+      keepFile = true;
+      const err = e as { stdout?: string; stderr?: string };
+      const raw = [err.stdout, err.stderr].filter(Boolean).join("\n").trim();
+      const tsErrors = raw.split("\n").filter((l) => /error TS\d+/.test(l)).join("\n");
+      return {
+        type: "test", passed: false,
+        output: `Compile error in generated test (file kept: ${path.basename(tmpFile)}):\n${(tsErrors || raw).slice(0, 800)}`,
+        durationMs: Date.now() - start, timestamp: new Date().toISOString(),
+      };
+    }
+
+    // 运行
     const compilerOptions = JSON.stringify({ module: "commonjs", esModuleInterop: true }).replace(/"/g, '\\"');
     const output = execSync(
       `npx ts-node --skipProject --compiler-options "${compilerOptions}" "${tmpFile}"`,
@@ -221,11 +301,18 @@ runTest().catch(e => { console.error(e); process.exit(1); });
     );
     return { type: "test", passed: true, output: output.trim().slice(0, 200), durationMs: Date.now() - start, timestamp };
   } catch (e: unknown) {
+    keepFile = true;
     const err = e as { stdout?: string; stderr?: string };
-    const output = [err.stdout, err.stderr].filter(Boolean).join("\n").trim().slice(0, 300);
-    return { type: "test", passed: false, output, durationMs: Date.now() - start, timestamp };
+    const raw = [err.stdout, err.stderr].filter(Boolean).join("\n").trim();
+    const tsErrors = raw.split(/\n(?=\.|\w+\.ts)/).filter((l) => l.includes("error TS"));
+    const output = (tsErrors.length > 0 ? tsErrors.join("\n") : raw).slice(0, 800);
+    return {
+      type: "test", passed: false,
+      output: `Runtime error (file kept: ${path.basename(tmpFile)}):\n${output}`,
+      durationMs: Date.now() - start, timestamp: new Date().toISOString(),
+    };
   } finally {
-    if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+    if (!keepFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
   }
 }
 
@@ -336,6 +423,7 @@ async function runTesterNodeVerification(
   const monorepoRoot = path.resolve(__dirname, "../../../../");
   const nmLink = path.join(outputDir, "node_modules");
   const vitestConfigPath = path.join(outputDir, "__shipyard_vitest.config.ts");
+  const setupFilePath = path.join(outputDir, "__shipyard_vitest.setup.ts");
 
   let createdNmLink = false;
 
@@ -349,7 +437,10 @@ async function runTesterNodeVerification(
       }
     }
 
-    // 2. 在 output/ 生成 vitest.config.ts（无需 alias，node_modules 已在同目录）
+    // 2. 生成 vitest setup 文件（自动注入 jest-dom matchers，tester LLM 无需手动 import）
+    fs.writeFileSync(setupFilePath, "import '@testing-library/jest-dom/vitest';\n");
+
+    // 3. 在 output/ 生成 vitest.config.ts（无需 alias，node_modules 已在同目录）
     const testFilePaths = JSON.stringify(testFiles.map((f) => path.resolve(f)));
     // 用 node require 解析 react 真实物理路径（避免 pnpm symlink 导致多实例）
     const webNM = path.resolve(monorepoRoot, "apps/web/node_modules");
@@ -369,7 +460,7 @@ async function runTesterNodeVerification(
       "    environment: 'jsdom',",
       "    globals: true,",
       `    include: ${testFilePaths},`,
-      "    setupFiles: [],",
+      `    setupFiles: [${JSON.stringify(setupFilePath)}],`,
       "  },",
       "});",
     ].join("\n");
@@ -393,9 +484,10 @@ async function runTesterNodeVerification(
       return { passed: false, records, summary: `Tests failed: ${output.split("\n")[0]}` };
     }
   } finally {
-    // 清理：只删 symlink 和临时 config，不动 output/ 里的代码文件
+    // 清理：只删 symlink 和临时 config/setup，不动 output/ 里的代码文件
     try { if (createdNmLink && fs.lstatSync(nmLink).isSymbolicLink()) fs.unlinkSync(nmLink); } catch { /**/ }
     try { if (fs.existsSync(vitestConfigPath)) fs.unlinkSync(vitestConfigPath); } catch { /**/ }
+    try { if (fs.existsSync(setupFilePath)) fs.unlinkSync(setupFilePath); } catch { /**/ }
   }
 }
 
@@ -431,66 +523,35 @@ export async function verifyNode(
     }
   }
 
-  // 2. 检查文件是否有可执行的实现（纯类型文件跳过行为验证）
+  // 2. 检查文件是否有可执行的实现
   const hasImplementation = outputFiles.some((f) => {
     if (!fs.existsSync(f)) return false;
     const content = fs.readFileSync(f, "utf-8");
     return content.includes("export function") || content.includes("export const") || content.includes("export class");
   });
 
+  // 纯类型文件没有运行时行为，跳过验证
   if (!hasImplementation) {
-    return { passed: true, records, summary: `Compile passed (types-only file, skipping behavior tests)` };
+    return { passed: true, records, summary: `Compile passed (types-only file)` };
   }
 
-  // 3. 从 spec 提取行为验证标准（仅在 spec 明确包含行为语义且 VerifierConfig 启用时触发）
-  if (verifierConfig.behavior) {
-    const shouldExtractBehaviorCriteria = hasBehaviorSemantics(specFragment);
-    const criteria = shouldExtractBehaviorCriteria
-      ? await extractVerificationCriteria(specFragment, config, outputFiles)
-      : [];
-    const behaviorCriteria = criteria.filter((c) => c.type === "behavior");
-
-    // 含行为语义但无法提取任何行为验证标准时，视为验证失败，走重试链
-    if (shouldExtractBehaviorCriteria && behaviorCriteria.length === 0) {
-      records.push({
-        type: "spec_check",
-        passed: false,
-        output: "Spec contains behavior semantics but no executable verification criteria were extracted",
-        durationMs: 0,
-        timestamp: new Date().toISOString(),
-      });
-
-      return {
-        passed: false,
-        records,
-        summary: "Behavioral spec check failed: no verification criteria extracted",
-      };
-    }
-
-    // 4. 运行行为验证（区分 hard/soft）
-    const behaviorResults: Array<{ criterion: VerificationCriterion; record: VerificationRecord }> = [];
-    for (const criterion of behaviorCriteria) {
-      const result = runBehaviorVerification(criterion, outputFiles, workDir);
-      records.push(result);
-      behaviorResults.push({ criterion, record: result });
-      const isHard = criterion.hardness !== "soft";
-      console.log(`    ${result.passed ? "✅" : isHard ? "❌" : "⚠️ "} ${criterion.description}${!isHard ? " (soft)" : ""}`);
-    }
-
-    const hardBehaviorFailed = behaviorResults.some(({ criterion, record }) => !record.passed && criterion.hardness !== "soft");
-    if (hardBehaviorFailed) {
-      const failCount = records.filter((record) => !record.passed).length;
-      return { passed: false, records, summary: `${failCount}/${records.length} check(s) failed` };
-    }
-  }
-
-  // 5. 执行已有 *.test.ts 文件（如果存在）
+  // 3. 执行 *.test.ts / *.spec.ts 文件（implementer 负责编写）
+  //    不再用 LLM 提取测试标准——implementer 直接写测试文件，verifier 只负责运行
   const testFileRecords: VerificationRecord[] = [];
   const testFiles = outputFiles.flatMap((f) => {
     const base = f.replace(/\.ts$/, "");
     const candidates = [`${base}.test.ts`, `${base}.spec.ts`];
     return candidates.filter((c) => fs.existsSync(c));
   });
+
+  if (verifierConfig.behavior && testFiles.length === 0) {
+    return {
+      passed: false,
+      records,
+      summary: `No test file found. The implementer must write a .test.ts (or .spec.ts) file alongside the implementation. Expected: ${outputFiles.map((f) => path.basename(f).replace(/\.ts$/, "") + ".test.ts").join(" or ")}`,
+    };
+  }
+
 
   for (const testFile of testFiles) {
     const start = Date.now();

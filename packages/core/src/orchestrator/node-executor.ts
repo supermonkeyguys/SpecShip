@@ -28,7 +28,7 @@ function buildDependencyContext(node: GraphNode, graph: ExecutionGraph, workDir:
       if (!depFile) return "";
       const fullPath = path.resolve(workDir, depFile);
       if (!fs.existsSync(fullPath)) return "";
-      return `// From ${depFile}:\n${fs.readFileSync(fullPath, "utf-8").slice(0, 2000)}`;
+      return `// From ${depFile}:\n${fs.readFileSync(fullPath, "utf-8").slice(0, 8000)}`;
     })
     .filter(Boolean)
     .join("\n\n");
@@ -37,7 +37,7 @@ function buildDependencyContext(node: GraphNode, graph: ExecutionGraph, workDir:
 function readPreviousFileContent(node: GraphNode, workDir: string): string | null {
   if (!node.lastError || !node.outputs.files?.[0]) return null;
   const filePath = path.resolve(workDir, node.outputs.files[0]);
-  return fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf-8").slice(0, 3000) : null;
+  return fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf-8").slice(0, 8000) : null;
 }
 
 /**
@@ -123,8 +123,8 @@ ${previousFileContent
 `.trim();
 }
 
-function normalizeToolRelativePath(filePath: string): string {
-  return path.posix.normalize(filePath.replace(/\\/g, "/"));
+function normalizeToolRelativePath(filePath: string, workDir: string): string {
+  return path.resolve(workDir, filePath);
 }
 
 function ensureWritesStayWithinExpectedOutputs(
@@ -133,11 +133,29 @@ function ensureWritesStayWithinExpectedOutputs(
   config: ShipyardConfig
 ): void {
   const expectedPaths = node.outputs.files ?? [];
-  const expectedOutputFiles = new Set(expectedPaths.map(normalizeToolRelativePath));
+  const expectedOutputFiles = new Set(expectedPaths.map((p) => normalizeToolRelativePath(p, config.workDir)));
+
+  // Implementer 需要为每个实现文件编写对应的 .test.ts/.spec.ts 文件
+  const allowedTestFiles = new Set(
+    expectedPaths.flatMap((p) => {
+      const dotIdx = p.lastIndexOf(".");
+      if (dotIdx <= 0) return [];
+      const base = p.slice(0, dotIdx);
+      const ext = p.slice(dotIdx);
+      return [
+        normalizeToolRelativePath(`${base}.test${ext}`, config.workDir),
+        normalizeToolRelativePath(`${base}.spec${ext}`, config.workDir),
+      ];
+    })
+  );
+
   const invalidWrite = toolExecutions.find((execution) => {
     if (execution.tool !== "write_file" || !execution.filePath) return false;
-    const normalizedPath = normalizeToolRelativePath(execution.filePath);
-    return !expectedOutputFiles.has(normalizedPath) || validateOutputPath(normalizedPath, config) !== null;
+    const normalizedPath = normalizeToolRelativePath(execution.filePath, config.workDir);
+    if (expectedOutputFiles.has(normalizedPath) || allowedTestFiles.has(normalizedPath)) {
+      return validateOutputPath(normalizedPath, config) !== null;
+    }
+    return true;
   });
 
   if (invalidWrite?.filePath) {

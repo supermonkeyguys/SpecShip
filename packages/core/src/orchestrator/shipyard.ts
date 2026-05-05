@@ -1,3 +1,6 @@
+import * as fs from "fs";
+import * as path from "path";
+import { execSync } from "child_process";
 import { ShipyardConfig } from "../config";
 import {
   ExecutionGraph, GraphNode, NodeStatus, Evidence,
@@ -41,6 +44,39 @@ export type {
 
 export { executeNode } from "./node-executor";
 export { detectStrategy, getStrategy, listStrategies } from "../strategies";
+
+// ---- 集成编译检查 ----
+
+function collectOutputFiles(graph: ExecutionGraph, workDir: string): string[] {
+  const files = new Set<string>();
+  for (const node of graph.nodes.values()) {
+    for (const f of node.outputs.files ?? []) {
+      const abs = path.resolve(workDir, f);
+      if (fs.existsSync(abs)) files.add(abs);
+    }
+  }
+  return Array.from(files);
+}
+
+function runIntegrationCompileCheck(graph: ExecutionGraph, workDir: string): string | null {
+  const files = collectOutputFiles(graph, workDir);
+  if (files.length === 0) return null;
+
+  const hasTsx = files.some((f) => f.endsWith(".tsx"));
+  const jsxFlags = hasTsx ? "--jsx react --allowImportingTsExtensions" : "";
+
+  try {
+    execSync(
+      `npx tsc --noEmit --target ES2022 --moduleResolution bundler --esModuleInterop --skipLibCheck ${jsxFlags} ${files.join(" ")}`,
+      { cwd: workDir, encoding: "utf-8", timeout: 60_000, stdio: ["pipe", "pipe", "pipe"] }
+    );
+    return null;
+  } catch (e: unknown) {
+    const err = e as { stdout?: string; stderr?: string };
+    const output = [err.stdout, err.stderr].filter(Boolean).join("\n").trim();
+    return output.slice(0, 2000);
+  }
+}
 
 // ---- 主调度循环 ----
 
@@ -237,6 +273,19 @@ export async function run(
 
   const stats = graph.stats;
   const allDone = stats.byStatus.done === stats.total;
+
+  if (allDone) {
+    const integrationError = runIntegrationCompileCheck(graph, config.workDir);
+    if (integrationError) {
+      console.error(`\n[INTEGRATION] Cross-file compile check failed:\n${integrationError}`);
+      graph = { ...graph, status: "failed", completedAt: new Date().toISOString() };
+      logger?.log({ event: "session_done", status: "failed", totalMs: Date.now(), doneCount: stats.byStatus.done, failedCount: stats.byStatus.failed });
+      checkpoint();
+      return graph;
+    }
+    console.log("[INTEGRATION] Cross-file compile check passed");
+  }
+
   graph = { ...graph, status: allDone ? "done" : "failed", completedAt: new Date().toISOString() };
   logger?.log({ event: "session_done", status: allDone ? "done" : "failed", totalMs: Date.now(), doneCount: stats.byStatus.done, failedCount: stats.byStatus.failed });
   checkpoint();

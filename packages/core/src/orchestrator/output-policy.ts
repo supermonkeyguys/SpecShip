@@ -7,13 +7,9 @@ function isSubPath(targetPath: string, rootPath: string): boolean {
 }
 
 export function validateOutputPath(outputFile: string, config: ShipyardConfig): string | null {
-  if (path.isAbsolute(outputFile)) {
-    return `Output file must be relative to workDir: ${outputFile}`;
-  }
-
   const outputDir = config.outputDir ?? "output";
   const outputRoot = path.resolve(config.workDir, outputDir);
-  const resolvedOutput = path.resolve(config.workDir, outputFile);
+  const resolvedOutput = path.isAbsolute(outputFile) ? path.resolve(outputFile) : path.resolve(config.workDir, outputFile);
 
   if (!isSubPath(resolvedOutput, outputRoot)) {
     return `Output file must stay within outputDir "${outputDir}": ${outputFile}`;

@@ -41,6 +41,13 @@ Rules:
 - JavaScript should be clean, use modern syntax, and handle errors gracefully
 - All files go in the output directory with relative paths
 - index.html is the entry point and must link to other files with correct relative paths
+
+CRITICAL — Write a test file:
+- For each JavaScript implementation file you create (e.g. app.js), you MUST also write a corresponding test file (e.g. app.test.js)
+- The test file must be a self-contained Node.js script that imports or inlines the logic to test
+- Use simple assertions: if (!condition) { console.error(...); process.exit(1); } then console.log("PASS")
+- Test the main exported functions/classes with real inputs — cover the happy path and at least one edge case
+- The test file will be executed with Node.js — it must exit with code 0 on success, non-zero on failure
 `.trim();
 
 const STATIC_WEB_REVIEWER_PROMPT = `
