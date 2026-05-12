@@ -20,7 +20,7 @@ export interface ToolDef {
 export interface VerifierConfig {
   /** Run tsc --noEmit compile check */
   compile: boolean;
-  /** Run LLM-extracted behavior tests */
+  /** Run behavior verification when explicit tests or tester nodes exist */
   behavior: boolean;
   /** Run eslint (soft-failure, does not block) */
   lint: boolean;
@@ -62,6 +62,8 @@ export interface TaskStrategy {
   preview: () => PreviewerConfig;
   /** Implementer system prompt */
   implementerPrompt: string;
+  /** Tester system prompt (optional; falls back to implementerPrompt when omitted) */
+  testerPrompt?: string;
   /** Reviewer system prompt */
   reviewerPrompt: string;
 }

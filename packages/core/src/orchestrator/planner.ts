@@ -8,8 +8,41 @@ import { extractRepoContext } from "../context/repo";
 import { ExecutionGraph, createGraph, addNode } from "../graph";
 import { runAgent as defaultRunAgent } from "../ai/llm";
 import { makeLLMConfig } from "../ai/llm-config";
-import { validateOutputPath } from "./output-policy";
+import { getExecutionMode, normalizeSandboxOutputFile, validateOutputPath } from "./output-policy";
+import { routeModel } from "./model-router";
 import type { AgentRunner, ClarificationResult } from "./runtime-types";
+
+type PlannerStep = {
+  id: string;
+  title: string;
+  specFragment: string;
+  nodeRole?: string;
+  task?: string;
+  acceptanceCriteria?: string;
+  acceptance?: {
+    summary: string;
+    exports?: string[];
+    compileRequired?: boolean;
+    testsRequired?: boolean;
+    requiredFiles?: string[];
+    forbiddenDependencies?: string[];
+    allowedWriteGlobs?: string[];
+    forbiddenEdits?: string[];
+  };
+  skills?: string[];
+  description: string;
+  outputFile: string;
+  dependsOn: string[];
+  role: string;
+};
+
+type PlannerPlan = {
+  title: string;
+  ambiguities: string[];
+  steps: PlannerStep[];
+};
+
+const MAX_PLANNER_ATTEMPTS = 4;
 
 function findDuplicates(values: string[]): string[] {
   const counts = new Map<string, number>();
@@ -19,6 +52,152 @@ function findDuplicates(values: string[]): string[] {
   return Array.from(counts.entries())
     .filter(([, count]) => count > 1)
     .map(([value]) => value);
+}
+
+function normalizeStepOutputFile(outputFile: string, config: ShipyardConfig): string {
+  return normalizeSandboxOutputFile(outputFile, config);
+}
+
+function normalizePlanData(planData: PlannerPlan, config: ShipyardConfig): PlannerPlan {
+  return {
+    ...planData,
+    ambiguities: planData.ambiguities ?? [],
+    steps: (planData.steps ?? []).map((step) => ({
+      ...step,
+      dependsOn: step.dependsOn ?? [],
+      outputFile: normalizeStepOutputFile(step.outputFile, config),
+    })),
+  };
+}
+
+function parsePlanData(finalText: string): PlannerPlan {
+  const match = finalText.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("No JSON in response");
+  return JSON.parse(match[0]) as PlannerPlan;
+}
+
+function validatePlanData(planData: PlannerPlan, config: ShipyardConfig, strategy?: TaskStrategy): string[] {
+  const issues: string[] = [];
+
+  const duplicateStepIds = findDuplicates(planData.steps.map((s) => s.id));
+  if (duplicateStepIds.length) {
+    issues.push(`Duplicate step ids: ${duplicateStepIds.join(", ")}`);
+  }
+
+  const duplicateFiles = findDuplicates(planData.steps.map((s) => s.outputFile));
+  if (duplicateFiles.length) {
+    issues.push(`Duplicate files: ${duplicateFiles.join(", ")}`);
+  }
+
+  const allowedExtensions = new Set((strategy ?? typescriptLibStrategy).plan(config).allowedExtensions);
+  for (const step of planData.steps) {
+    const outputPathError = validateOutputPath(step.outputFile, config);
+    if (outputPathError) {
+      issues.push(`Step "${step.id}" has invalid outputFile: ${outputPathError}`);
+    }
+
+    if (step.role !== "checkpoint") {
+      const ext = path.extname(step.outputFile);
+      if (!ext || !allowedExtensions.has(ext)) {
+        issues.push(`Step "${step.id}" has unsupported output extension "${ext || "(none)"}" for strategy ${(strategy ?? typescriptLibStrategy).id}`);
+      }
+    }
+  }
+
+  const stepIds = new Set(planData.steps.map((s) => s.id));
+  for (const step of planData.steps) {
+    const invalidDeps = step.dependsOn.filter((d) => !stepIds.has(d));
+    if (invalidDeps.length) {
+      issues.push(`Step "${step.id}" has unknown dependsOn: ${invalidDeps.join(", ")}`);
+    }
+  }
+
+  const cycle = detectDependencyCycle(planData.steps);
+  if (cycle) {
+    issues.push(`Dependency cycle detected: ${cycle.join(" -> ")}`);
+  }
+
+  return issues;
+}
+
+function logPlanIssues(issues: string[]): void {
+  for (const issue of issues) {
+    console.error(`  ✗ ${issue}`);
+  }
+}
+
+function buildPlannerRepairInput(originalInput: string, invalidPlanText: string, issues: string[]): string {
+  return `${originalInput}
+
+Your previous plan was invalid. Rebuild the FULL plan from scratch and fix every validation error below.
+
+Validation errors:
+${issues.map((issue) => `- ${issue}`).join("\n")}
+
+Previous invalid plan:
+${invalidPlanText.slice(0, 8000)}
+
+Hard requirements:
+- Output ONLY a JSON object, no markdown
+- Each step id must be unique
+- Each step outputFile must be unique
+- Each step must write exactly one file
+- dependsOn may reference ONLY existing step ids
+- No dependency cycles
+- outputFile must stay within the provided Output directory
+- Keep the same project intent, but correct the structure so the plan is executable`;
+}
+
+function normalizeAcceptance(
+  step: {
+    title: string;
+    outputFile: string;
+    acceptanceCriteria?: string;
+    acceptance?: {
+      summary: string;
+      exports?: string[];
+      compileRequired?: boolean;
+      testsRequired?: boolean;
+      requiredFiles?: string[];
+      forbiddenDependencies?: string[];
+      allowedWriteGlobs?: string[];
+      forbiddenEdits?: string[];
+    };
+  }
+): {
+  summary: string;
+  exports?: string[];
+  compileRequired?: boolean;
+  testsRequired?: boolean;
+  requiredFiles?: string[];
+  forbiddenDependencies?: string[];
+  allowedWriteGlobs?: string[];
+  forbiddenEdits?: string[];
+} | undefined {
+  const base = step.acceptance;
+  const summary = base?.summary?.trim() || step.acceptanceCriteria?.trim() || `Complete ${step.title}`;
+  const normalized = {
+    ...base,
+    summary,
+    exports: base?.exports?.filter(Boolean),
+    requiredFiles: base?.requiredFiles?.filter(Boolean),
+    forbiddenDependencies: base?.forbiddenDependencies?.filter(Boolean),
+    allowedWriteGlobs: base?.allowedWriteGlobs?.filter(Boolean),
+    forbiddenEdits: base?.forbiddenEdits?.filter(Boolean),
+  };
+
+  const hasMeaningfulField = Boolean(
+    normalized.summary ||
+    normalized.exports?.length ||
+    normalized.requiredFiles?.length ||
+    normalized.forbiddenDependencies?.length ||
+    normalized.allowedWriteGlobs?.length ||
+    normalized.forbiddenEdits?.length ||
+    normalized.compileRequired !== undefined ||
+    normalized.testsRequired !== undefined
+  );
+
+  return hasMeaningfulField ? normalized : undefined;
 }
 
 function detectDependencyCycle(steps: Array<{ id: string; dependsOn: string[] }>): string[] | null {
@@ -65,7 +244,8 @@ export async function clarifySpec(
   config: ShipyardConfig,
   agentRunner: AgentRunner = defaultRunAgent
 ): Promise<ClarificationResult> {
-  const llmConfig = makeLLMConfig(config.models.planning, config);
+  const clarifierRoute = routeModel(config, { phase: "clarify", executionMode: config.executionMode ?? "sandbox-output" });
+  const llmConfig = makeLLMConfig(clarifierRoute.model, config);
   const { finalText } = await agentRunner(CLARIFIER_PROMPT, spec, config.workDir, llmConfig, false);
 
   try {
@@ -105,9 +285,17 @@ export async function buildGraph(
     }
   }
 
+  const executionMode = getExecutionMode(config);
+  if (executionMode === "repo-edit" && !config.repoPath) {
+    console.error("  ✗ repo-edit mode requires repoPath");
+    return null;
+  }
+
   // outputDir：session 模式下用独立目录，否则用默认 output/
   const outputDir = config.outputDir ?? "output";
-  fs.mkdirSync(path.join(config.workDir, outputDir), { recursive: true });
+  if (executionMode === "sandbox-output") {
+    fs.mkdirSync(path.join(config.workDir, outputDir), { recursive: true });
+  }
 
   // 如果有仓库路径，提取上下文注入 spec
   let enrichedSpec = spec;
@@ -124,66 +312,51 @@ export async function buildGraph(
   // 告诉 Planner 文件应该写在哪个目录
   const plannerInput = `Output directory: ${outputDir}\n\n${enrichedSpec}`;
 
-  const llmConfig = makeLLMConfig(config.models.planning, config);
+  const plannerRoute = routeModel(config, { phase: "plan", executionMode: config.executionMode ?? "sandbox-output" });
+  const llmConfig = makeLLMConfig(plannerRoute.model, config);
   const plannerPrompt = (strategy ?? typescriptLibStrategy).plan(config).systemPrompt;
-  const { finalText } = await agentRunner(plannerPrompt, plannerInput, config.workDir, llmConfig, false);
 
-  let planData: {
-    title: string;
-    ambiguities: string[];
-    steps: Array<{
-      id: string; title: string; specFragment: string;
-      nodeRole?: string; task?: string; acceptanceCriteria?: string; skills?: string[];
-      description: string; outputFile: string; dependsOn: string[]; role: string;
-    }>;
-  };
+  let planData: PlannerPlan | null = null;
+  let currentPlannerInput = plannerInput;
 
-  try {
-    const match = finalText.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("No JSON in response");
-    planData = JSON.parse(match[0]);
-  } catch (e) {
-    console.error(`  ✗ Failed to parse plan: ${(e as Error).message}`);
-    console.error(`  Raw: ${finalText.slice(0, 300)}`);
-    return null;
-  }
+  for (let attempt = 1; attempt <= MAX_PLANNER_ATTEMPTS; attempt += 1) {
+    const { finalText } = await agentRunner(plannerPrompt, currentPlannerInput, config.workDir, llmConfig, false);
 
-  // step id 唯一性校验
-  const duplicateStepIds = findDuplicates(planData.steps.map((s) => s.id));
-  if (duplicateStepIds.length) {
-    console.error(`  ✗ Duplicate step ids: ${duplicateStepIds.join(", ")}`);
-    return null;
-  }
+    let parsed: PlannerPlan;
+    try {
+      parsed = normalizePlanData(parsePlanData(finalText), config);
+    } catch (e) {
+      if (attempt < MAX_PLANNER_ATTEMPTS) {
+        const issue = `Planner response was not valid JSON: ${(e as Error).message}`;
+        console.warn(`  ⚠️  ${issue}. Retrying planner (${attempt}/${MAX_PLANNER_ATTEMPTS})...`);
+        currentPlannerInput = buildPlannerRepairInput(plannerInput, finalText, [issue]);
+        continue;
+      }
 
-  // 文件唯一性校验
-  const duplicateFiles = findDuplicates(planData.steps.map((s) => s.outputFile));
-  if (duplicateFiles.length) {
-    console.error(`  ✗ Duplicate files: ${duplicateFiles.join(", ")}`);
-    return null;
-  }
-
-  // outputDir 边界校验
-  for (const step of planData.steps) {
-    const outputPathError = validateOutputPath(step.outputFile, config);
-    if (outputPathError) {
-      console.error(`  ✗ Step "${step.id}" has invalid outputFile: ${outputPathError}`);
+      console.error(`  ✗ Failed to parse plan: ${(e as Error).message}`);
+      console.error(`  Raw: ${finalText.slice(0, 300)}`);
       return null;
     }
-  }
 
-  // dependsOn 合法性校验
-  const stepIds = new Set(planData.steps.map((s) => s.id));
-  for (const step of planData.steps) {
-    const invalidDeps = step.dependsOn.filter((d) => !stepIds.has(d));
-    if (invalidDeps.length) {
-      console.error(`  ✗ Step "${step.id}" has unknown dependsOn: ${invalidDeps.join(", ")}`);
-      return null;
+    const issues = validatePlanData(parsed, config, strategy);
+    if (issues.length === 0) {
+      planData = parsed;
+      break;
     }
+
+    if (attempt < MAX_PLANNER_ATTEMPTS) {
+      console.warn(`  ⚠️  Planner produced invalid plan. Retrying planner (${attempt}/${MAX_PLANNER_ATTEMPTS})...`);
+      issues.forEach((issue) => console.warn(`     - ${issue}`));
+      currentPlannerInput = buildPlannerRepairInput(plannerInput, JSON.stringify(parsed, null, 2), issues);
+      continue;
+    }
+
+    logPlanIssues(issues);
+    return null;
   }
 
-  const cycle = detectDependencyCycle(planData.steps);
-  if (cycle) {
-    console.error(`  ✗ Dependency cycle detected: ${cycle.join(" -> ")}`);
+  if (!planData) {
+    console.error("  ✗ Planner did not produce a valid executable plan");
     return null;
   }
 
@@ -207,6 +380,7 @@ export async function buildGraph(
       task: step.task ?? step.description,
       acceptanceCriteria: step.acceptanceCriteria ??
         `SCOPE: Review ONLY ${step.outputFile}. Check: (1) file is syntactically valid and compiles, (2) implements what "${step.title}" describes. Do NOT require other files or a complete application.`,
+      acceptance: normalizeAcceptance(step),
       skills: step.skills ?? [],
       dependsOn: step.dependsOn,
       inputs: { description: step.description },

@@ -27,6 +27,8 @@ Rules:
 - Output files can be .html, .css, or .js only
 - Keep it simple: one HTML file, one CSS file, one JS file unless the spec demands more
 - External resources (fonts, CDN links) are allowed via <link> or <script> tags
+- index.html, styles.css, and app.js must each appear at most once in the plan unless the spec explicitly requires a different filename
+- Never create two steps that write the same outputFile
 `.trim();
 
 const STATIC_WEB_IMPLEMENTER_PROMPT = `
@@ -42,12 +44,11 @@ Rules:
 - All files go in the output directory with relative paths
 - index.html is the entry point and must link to other files with correct relative paths
 
-CRITICAL — Write a test file:
-- For each JavaScript implementation file you create (e.g. app.js), you MUST also write a corresponding test file (e.g. app.test.js)
-- The test file must be a self-contained Node.js script that imports or inlines the logic to test
-- Use simple assertions: if (!condition) { console.error(...); process.exit(1); } then console.log("PASS")
-- Test the main exported functions/classes with real inputs — cover the happy path and at least one edge case
-- The test file will be executed with Node.js — it must exit with code 0 on success, non-zero on failure
+Verification priorities:
+- First ensure the generated files are structurally correct: HTML/CSS/JS syntax is valid and file references are wired correctly
+- You MAY add lightweight test files for isolated JavaScript utilities when straightforward
+- Do NOT block delivery on writing browser behavior tests in this pass; those can be added later if needed
+- Prefer modular, decoupled JavaScript so later tests are easy to add
 `.trim();
 
 const STATIC_WEB_REVIEWER_PROMPT = `

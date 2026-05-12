@@ -98,13 +98,27 @@ function buildCommandForOutput(outputDir: string, port: number): PreviewCommand 
 }
 
 function isViteReactOutput(outputDir: string): boolean {
-  const mainTsx = path.join(outputDir, "main.tsx");
-  if (!fs.existsSync(mainTsx)) return false;
-  try {
-    return fs.readdirSync(outputDir).some((f) => f.endsWith(".tsx") && f !== "main.tsx");
-  } catch {
-    return false;
+  const rootMainTsx = path.join(outputDir, "main.tsx");
+  const srcDir = path.join(outputDir, "src");
+  const srcMainTsx = path.join(srcDir, "main.tsx");
+
+  if (fs.existsSync(rootMainTsx)) {
+    try {
+      return fs.readdirSync(outputDir).some((f) => f.endsWith(".tsx") && f !== "main.tsx");
+    } catch {
+      return false;
+    }
   }
+
+  if (fs.existsSync(srcMainTsx)) {
+    try {
+      return fs.readdirSync(srcDir).some((f) => f.endsWith(".tsx") && f !== "main.tsx");
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 function injectViteScaffold(outputDir: string): void {

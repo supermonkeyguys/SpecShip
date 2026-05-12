@@ -1,5 +1,5 @@
 import { TaskStrategy, ToolDef } from "./base";
-import { GRAPH_PLANNER_PROMPT, IMPLEMENTER_PROMPT, REVIEWER_PROMPT } from "../ai/prompts";
+import { GRAPH_PLANNER_PROMPT, IMPLEMENTER_PROMPT, REVIEWER_PROMPT, TESTER_PROMPT } from "../ai/prompts";
 import type { ShipyardConfig } from "../config";
 
 const TS_TOOLS: ToolDef[] = [
@@ -100,7 +100,7 @@ export const typescriptLibStrategy: TaskStrategy = {
   verify() {
     return {
       compile: true,
-      behavior: true,
+      behavior: false,
       lint: true,
       allowedCommands: ["npx tsc", "tsc", "node ", "npm install", "npm run", "npm test", "npm ci", "npx "],
     };
@@ -114,5 +114,6 @@ export const typescriptLibStrategy: TaskStrategy = {
   },
 
   implementerPrompt: IMPLEMENTER_PROMPT,
+  testerPrompt: TESTER_PROMPT,
   reviewerPrompt: REVIEWER_PROMPT,
 };

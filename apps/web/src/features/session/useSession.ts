@@ -5,13 +5,14 @@
  * 让 Canvas 和 Log 能展示对应 session 的历史内容。
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useExecutionStore } from "../../domains/execution/store";
 import type { GraphRunStatus } from "../../domains/execution/types";
 import { fetchJSON } from "../../utils/fetchJSON";
 import type { StatusResponse, NodeStatus } from "../../types";
-import type { ActiveSession } from "./types";
+import type { ActiveSession, SessionRef } from "./types";
 import { useWorkspaceStore } from "../../domains/workspace/store";
+import { selectResumeTargetRef } from "../../domains/session/selectors";
 
 export interface UseSessionReturn {
   activeSession: ActiveSession | null;
@@ -34,19 +35,24 @@ interface ActivateSessionOptions {
   optimisticRunStatus?: GraphRunStatus;
 }
 
+function asSessionRef(session: ActiveSession | SessionRef | null): SessionRef | null {
+  return session ? { projectId: session.projectId, sessionId: session.sessionId } : null;
+}
+
 export function useSession(): UseSessionReturn {
-  const [activeSession, setActiveSessionRaw] = useState<ActiveSession | null>(null);
-  const [resumeInfo, setResumeInfo] = useState<StatusResponse | null>(null);
   const sessionRequestIdRef = useRef(0);
+  const activeSession = useWorkspaceStore((state) => state.activeSession);
+  const resumeInfo = useWorkspaceStore((state) => state.resumeInfo);
   const setWorkspaceActiveSession = useWorkspaceStore((state) => state.setActiveSession);
   const setWorkspaceResumeInfo = useWorkspaceStore((state) => state.setResumeInfo);
+  const resetSessionScopedView = useWorkspaceStore((state) => state.resetSessionScopedView);
+  const resetCreationFlow = useWorkspaceStore((state) => state.resetCreationFlow);
 
   // 启动时检查是否有可恢复的任务
   useEffect(() => {
     fetchJSON<StatusResponse>("/api/status")
       .then((data) => {
         if (data.canResume) {
-          setResumeInfo(data);
           setWorkspaceResumeInfo(data);
         }
       })
@@ -54,20 +60,21 @@ export function useSession(): UseSessionReturn {
   }, [setWorkspaceResumeInfo]);
 
   async function loadSessionIntoStore(
-    session: ActiveSession | null,
+    session: SessionRef | null,
     options?: ActivateSessionOptions
   ): Promise<void> {
     const requestId = ++sessionRequestIdRef.current;
     const executionStore = useExecutionStore.getState();
 
-    setActiveSessionRaw(session);
     setWorkspaceActiveSession(session);
-    executionStore.activateSession(session);
+    resetSessionScopedView();
 
     if (!session) return;
 
+    executionStore.ensureSession(session);
+
     if (options?.optimisticRunStatus) {
-      executionStore.setSessionRunStatus(session.sessionId, options.optimisticRunStatus);
+      executionStore.setSessionRunStatus(session, options.optimisticRunStatus);
     }
 
     try {
@@ -82,50 +89,43 @@ export function useSession(): UseSessionReturn {
           optimisticRunStatus: options?.optimisticRunStatus,
         });
       } else if (!options?.optimisticRunStatus) {
-        executionStore.setSessionRunStatus(session.sessionId, "idle");
+        executionStore.setSessionRunStatus(session, "idle");
       }
     } catch {
-      if (sessionRequestIdRef.current !== requestId) return;
+      if (sessionRequestIdRef.current != requestId) return;
       if (!options?.optimisticRunStatus) {
-        executionStore.setSessionRunStatus(session.sessionId, "idle");
+        executionStore.setSessionRunStatus(session, "idle");
       }
       // 加载失败不阻塞，画板保持空白/已有缓存
     }
   }
 
   const setActiveSession = async (session: ActiveSession | null) => {
-    await loadSessionIntoStore(session);
+    await loadSessionIntoStore(asSessionRef(session));
   };
 
   const activateStartedSession = async (session: ActiveSession) => {
     const executionStore = useExecutionStore.getState();
-    setResumeInfo(null);
+    const ref = asSessionRef(session)!;
     setWorkspaceResumeInfo(null);
-    executionStore.setLiveSession(session);
-    executionStore.setSessionRunStatus(session.sessionId, "running");
-    await loadSessionIntoStore(session, { optimisticRunStatus: "running" });
+    executionStore.setLiveSession(ref);
+    executionStore.setSessionRunStatus(ref, "running");
+    await loadSessionIntoStore(ref, { optimisticRunStatus: "running" });
   };
 
   const handleResume = async () => {
     const executionStore = useExecutionStore.getState();
-    setResumeInfo(null);
     setWorkspaceResumeInfo(null);
 
-    const resumeTarget = activeSession ?? (resumeInfo?.projectId && resumeInfo?.sessionId
-      ? {
-          projectId: resumeInfo.projectId,
-          sessionId: resumeInfo.sessionId,
-          spec: resumeInfo.spec ?? "Resumed session",
-        }
-      : null);
+    const fallbackTarget = selectResumeTargetRef(useWorkspaceStore.getState());
+    const resumeTarget = activeSession ?? fallbackTarget;
 
     if (resumeTarget) {
+      executionStore.ensureSession(resumeTarget);
       executionStore.setLiveSession(resumeTarget);
-      executionStore.setSessionRunStatus(resumeTarget.sessionId, "running");
+      executionStore.setSessionRunStatus(resumeTarget, "running");
       if (!activeSession) {
-        setActiveSessionRaw(resumeTarget);
         setWorkspaceActiveSession(resumeTarget);
-        executionStore.activateSession(resumeTarget);
       }
     }
 
@@ -138,20 +138,19 @@ export function useSession(): UseSessionReturn {
       }),
     }).catch(() => {
       if (resumeTarget) {
-        executionStore.setSessionRunStatus(resumeTarget.sessionId, "failed");
+        executionStore.setSessionRunStatus(resumeTarget, "failed");
       }
     });
   };
 
   const handleNewSession = () => {
     sessionRequestIdRef.current += 1;
-    setActiveSessionRaw(null);
     setWorkspaceActiveSession(null);
-    useExecutionStore.getState().activateSession(null);
+    resetSessionScopedView();
+    resetCreationFlow();
   };
 
   const dismissResume = () => {
-    setResumeInfo(null);
     setWorkspaceResumeInfo(null);
   };
 

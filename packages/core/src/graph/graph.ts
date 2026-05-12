@@ -50,6 +50,9 @@ export interface Evidence {
   reasoning: string;          // agent 的推理过程
   promptUsed: string;         // 实际使用的 prompt（截断版）
   modelUsed: string;          // 使用的模型
+  modelRouteReason?: string;   // 为什么选这个模型
+  modelRouteComplexity?: "small" | "medium" | "high";
+  modelRouteRisk?: "low" | "medium" | "high";
 
   // 执行记录：做了什么
   toolCalls: ToolCallRecord[];
@@ -100,6 +103,19 @@ export type NodeType =
 // 节点（Node）
 // ─────────────────────────────────────────
 
+export interface StructuredAcceptance {
+  summary: string;
+  exports?: string[];
+  compileRequired?: boolean;
+  testsRequired?: boolean;
+  requiredFiles?: string[];
+  forbiddenDependencies?: string[];
+  allowedWriteGlobs?: string[];
+  forbiddenEdits?: string[];
+}
+
+// ─────────────────────────────────────────
+
 export interface GraphNode {
   // 身份
   id: string;                 // 唯一 ID，格式: "plan-1", "impl-auth-2"
@@ -114,6 +130,7 @@ export interface GraphNode {
   nodeRole: string;           // 执行者身份：types | implementer | tester | reviewer | integrator
   task: string;               // 要做什么：具体任务描述（实现什么函数/接口/逻辑）
   acceptanceCriteria: string; // 做到什么标准：这个节点完成的验收标准（reviewer 专用）
+  acceptance?: StructuredAcceptance;
   skills: string[];           // 可插拔规范：执行时参考的 skill 列表（如代码规范、UI规范）
 
   // 依赖关系

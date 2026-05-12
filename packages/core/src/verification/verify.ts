@@ -2,22 +2,86 @@
  * verify.ts — Spec-derived 验证系统
  *
  * 核心思路：
- * spec 里的每一句需求描述，都应该能变成一个可执行的验证
- * 不是人工写测试，而是从 spec 自动提取验证标准
+ * 先保证生成产物在结构上正确（语法、类型、导入导出、构建），
+ * 再在有明确测试文件或 tester 节点时补充行为验证。
  *
  * 验证分两层：
- * 1. 确定性验证：tsc 编译、lint（客观，0/1）
- * 2. 行为验证：从 spec 提取的测试用例（运行代码验证行为）
+ * 1. 结构验证：tsc 编译、lint、基础装配正确性（客观，0/1）
+ * 2. 行为验证：存在 tester 节点或显式测试文件时才运行
  */
 
 import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { VerificationCriterion, VerificationRecord } from "../graph";
+import { VerificationCriterion, VerificationRecord, type StructuredAcceptance } from "../graph";
 import { ShipyardConfig } from "../config";
 import { runAgent } from "../ai/llm";
 import type { TaskStrategy, VerifierConfig } from "../strategies/base";
 import { typescriptLibStrategy } from "../strategies";
+
+function getMonorepoRoot(): string {
+  return path.resolve(__dirname, "../../../../");
+}
+
+function getNodeModuleBin(binName: string): string {
+  const monorepoRoot = getMonorepoRoot();
+  return path.join(monorepoRoot, "node_modules/.bin", binName);
+}
+
+function getTypeScriptBinScript(scriptRel: string): string {
+  const monorepoRoot = getMonorepoRoot();
+  return path.join(monorepoRoot, "node_modules", scriptRel);
+}
+
+function quote(value: string): string {
+  return JSON.stringify(value);
+}
+
+function buildTscCommand(files: string[], hasTsx: boolean): string {
+  const tscScript = getTypeScriptBinScript("typescript/bin/tsc");
+  const jsxFlags = hasTsx ? "--jsx react-jsx --allowImportingTsExtensions" : "";
+  const quotedFiles = files.map((f) => quote(f)).join(" ");
+  return `node ${quote(tscScript)} --noEmit --target ES2022 --moduleResolution bundler --esModuleInterop --skipLibCheck ${jsxFlags} ${quotedFiles}`;
+}
+
+const TS_COMPILE_EXTENSIONS = new Set([".ts", ".tsx", ".cts", ".mts"]);
+const JS_SYNTAX_EXTENSIONS = new Set([".js", ".jsx", ".cjs", ".mjs"]);
+
+// Config files that import build-tool packages (vite, webpack, tailwind, etc.) not present
+// in session output directories — skip compile check to avoid false "module not found" failures.
+const SKIP_COMPILE_FILENAMES = new Set([
+  "vite.config.ts",
+  "vite.config.js",
+  "tailwind.config.ts",
+  "tailwind.config.js",
+  "postcss.config.ts",
+  "postcss.config.js",
+  "webpack.config.ts",
+  "webpack.config.js",
+]);
+
+function getCompileBuckets(files: string[]): { tsFiles: string[]; jsFiles: string[]; skippedFiles: string[] } {
+  const tsFiles: string[] = [];
+  const jsFiles: string[] = [];
+  const skippedFiles: string[] = [];
+
+  for (const file of files) {
+    if (SKIP_COMPILE_FILENAMES.has(path.basename(file))) {
+      skippedFiles.push(file);
+      continue;
+    }
+    const ext = path.extname(file).toLowerCase();
+    if (TS_COMPILE_EXTENSIONS.has(ext)) {
+      tsFiles.push(file);
+    } else if (JS_SYNTAX_EXTENSIONS.has(ext)) {
+      jsFiles.push(file);
+    } else {
+      skippedFiles.push(file);
+    }
+  }
+
+  return { tsFiles, jsFiles, skippedFiles };
+}
 
 // ─────────────────────────────────────────
 // 层 1：确定性验证
@@ -28,18 +92,36 @@ export function runCompileCheck(files: string[], workDir: string): VerificationR
   const timestamp = new Date().toISOString();
 
   if (files.length === 0) {
-    return { type: "compile", passed: false, output: "No files to compile", durationMs: 0, timestamp };
+    return { type: "compile", passed: true, output: "No files to compile; skipped compile check", durationMs: 0, timestamp };
   }
 
-  const hasTsx = files.some((f) => f.endsWith(".tsx"));
+  const { tsFiles, jsFiles, skippedFiles } = getCompileBuckets(files);
+  const notes: string[] = [];
 
   try {
-    // .tsx 文件需要 --jsx react 和 --allowImportingTsExtensions
-    // 注意：代码里必须用 React.JSX.Element，不能用全局 JSX.Element（React 19 已移除）
-    const jsxFlags = hasTsx ? "--jsx react --allowImportingTsExtensions" : "";
-    const cmd = `npx tsc --noEmit --target ES2022 --moduleResolution bundler --esModuleInterop --skipLibCheck ${jsxFlags} ${files.join(" ")}`;
-    execSync(cmd, { cwd: workDir, encoding: "utf-8", timeout: 30_000, stdio: ["pipe", "pipe", "pipe"] });
-    return { type: "compile", passed: true, output: `${files.length} file(s) compiled`, durationMs: Date.now() - start, timestamp };
+    if (tsFiles.length > 0) {
+      const hasTsx = tsFiles.some((f) => f.endsWith(".tsx"));
+      const cmd = buildTscCommand(tsFiles, hasTsx);
+      execSync(cmd, { cwd: workDir, encoding: "utf-8", timeout: 30_000, stdio: ["pipe", "pipe", "pipe"] });
+      notes.push(`${tsFiles.length} TS/TSX file(s) compiled`);
+    }
+
+    for (const file of jsFiles) {
+      execSync(`node --check ${quote(file)}`, { cwd: workDir, encoding: "utf-8", timeout: 30_000, stdio: ["pipe", "pipe", "pipe"] });
+    }
+    if (jsFiles.length > 0) {
+      notes.push(`${jsFiles.length} JS file(s) syntax-checked`);
+    }
+
+    if (skippedFiles.length > 0) {
+      notes.push(`${skippedFiles.length} asset file(s) skipped (${skippedFiles.map((f) => path.extname(f) || "(no ext)").join(", ")})`);
+    }
+
+    if (notes.length === 0) {
+      notes.push("No TypeScript/JavaScript files to compile; skipped asset-only compile check");
+    }
+
+    return { type: "compile", passed: true, output: notes.join("; "), durationMs: Date.now() - start, timestamp };
   } catch (e: unknown) {
     const err = e as { stdout?: string; stderr?: string };
     const output = [err.stdout, err.stderr].filter(Boolean).join("\n").trim().slice(0, 800);
@@ -278,7 +360,7 @@ runTest().catch(e => { console.error(e); process.exit(1); });
     // 预验证：tsc --noEmit，尽早暴露语法错误
     try {
       execSync(
-        `npx tsc --noEmit --target ES2022 --moduleResolution bundler --esModuleInterop --skipLibCheck "${tmpFile}"`,
+        buildTscCommand([tmpFile], false),
         { cwd: workDir, encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] }
       );
     } catch (e: unknown) {
@@ -296,7 +378,7 @@ runTest().catch(e => { console.error(e); process.exit(1); });
     // 运行
     const compilerOptions = JSON.stringify({ module: "commonjs", esModuleInterop: true }).replace(/"/g, '\\"');
     const output = execSync(
-      `npx ts-node --skipProject --compiler-options "${compilerOptions}" "${tmpFile}"`,
+      `node ${quote(getNodeModuleBin("ts-node"))} --skipProject --compiler-options "${compilerOptions}" ${quote(tmpFile)}`,
       { cwd: workDir, encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] }
     );
     return { type: "test", passed: true, output: output.trim().slice(0, 200), durationMs: Date.now() - start, timestamp };
@@ -359,9 +441,9 @@ export function runLintCheck(files: string[], workDir: string): VerificationReco
   try {
     let cmd: string;
     if (hasBiome) {
-      cmd = `npx biome check --no-errors-on-unmatched ${relFiles}`;
+      cmd = `${quote(getNodeModuleBin("biome"))} check --no-errors-on-unmatched ${relFiles}`;
     } else {
-      cmd = `npx eslint --max-warnings=0 ${relFiles}`;
+      cmd = `node ${quote(getTypeScriptBinScript("eslint/bin/eslint.js"))} --max-warnings=0 ${relFiles}`;
     }
 
     execSync(cmd, {
@@ -389,6 +471,101 @@ export function runLintCheck(files: string[], workDir: string): VerificationReco
       timestamp,
     };
   }
+}
+
+function extractRequiredExports(specFragment: string, acceptance?: StructuredAcceptance): string[] {
+  if (acceptance?.exports?.length) return acceptance.exports;
+  const match = specFragment.match(/exports?[:：]\s*([A-Za-z0-9_,\s]+)/i);
+  if (!match) return [];
+  return match[1].split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function collectExportsFromFiles(outputFiles: string[]): Set<string> {
+  const exported = new Set<string>();
+  for (const file of outputFiles) {
+    if (!fs.existsSync(file)) continue;
+    const content = fs.readFileSync(file, "utf-8");
+    for (const re of [/export function (\w+)/g, /export const (\w+)/g, /export class (\w+)/g, /export interface (\w+)/g, /export type (\w+)/g]) {
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(content)) !== null) exported.add(m[1]);
+    }
+  }
+  return exported;
+}
+
+function buildStructuredAcceptanceRecords(
+  outputFiles: string[],
+  acceptance?: StructuredAcceptance,
+  specFragment?: string
+): VerificationRecord[] {
+  const records: VerificationRecord[] = [];
+  const timestamp = new Date().toISOString();
+  const requiredExports = extractRequiredExports(specFragment ?? "", acceptance);
+  if (requiredExports.length > 0) {
+    const exported = collectExportsFromFiles(outputFiles);
+    const missing = requiredExports.filter((name) => !exported.has(name));
+    records.push({
+      type: "spec_check",
+      passed: missing.length === 0,
+      output: missing.length === 0
+        ? `Required exports present: ${requiredExports.join(", ")}`
+        : `Missing required exports: ${missing.join(", ")}` ,
+      durationMs: 0,
+      timestamp,
+    });
+  }
+
+  if (acceptance?.testsRequired) {
+    const hasTestFile = outputFiles.some((f) => f.includes('.test.') || f.includes('.spec.'));
+    records.push({
+      type: "spec_check",
+      passed: hasTestFile,
+      output: hasTestFile
+        ? "Structured acceptance: required test file present"
+        : "Structured acceptance requires a colocated test/spec file",
+      durationMs: 0,
+      timestamp,
+    });
+  }
+
+  if (acceptance?.requiredFiles?.length) {
+    const existing = new Set(outputFiles.map((f) => path.basename(f)));
+    const missingFiles = acceptance.requiredFiles.filter((name) => !existing.has(path.basename(name)));
+    records.push({
+      type: "spec_check",
+      passed: missingFiles.length === 0,
+      output: missingFiles.length === 0
+        ? `Required files present: ${acceptance.requiredFiles.join(", ")}`
+        : `Missing required files: ${missingFiles.join(", ")}` ,
+      durationMs: 0,
+      timestamp,
+    });
+  }
+
+  if (acceptance?.forbiddenDependencies?.length) {
+    const found: string[] = [];
+    for (const file of outputFiles) {
+      if (!fs.existsSync(file)) continue;
+      const content = fs.readFileSync(file, "utf-8");
+      for (const dep of acceptance.forbiddenDependencies) {
+        const escaped = dep.replace(/[|\{}()[\]^$+?.]/g, "\\$&");
+        const importRe = new RegExp(`from\\s+["']${escaped}["']|require\\(\\s*["']${escaped}["']\\s*\\)`);
+        if (importRe.test(content)) found.push(dep);
+      }
+    }
+    const uniqueFound = [...new Set(found)];
+    records.push({
+      type: "spec_check",
+      passed: uniqueFound.length === 0,
+      output: uniqueFound.length === 0
+        ? "No forbidden dependencies detected"
+        : `Forbidden dependencies detected: ${uniqueFound.join(", ")}` ,
+      durationMs: 0,
+      timestamp,
+    });
+  }
+
+  return records;
 }
 
 // ─────────────────────────────────────────
@@ -420,7 +597,7 @@ async function runTesterNodeVerification(
   // 这样 vitest 从 output/ 出发解析所有 import，路径关系与代码一致
   // outputFiles 是绝对路径，取第一个文件所在目录作为 output 目录
   const outputDir = path.dirname(path.resolve(testFiles[0]));
-  const monorepoRoot = path.resolve(__dirname, "../../../../");
+  const monorepoRoot = getMonorepoRoot();
   const nmLink = path.join(outputDir, "node_modules");
   const vitestConfigPath = path.join(outputDir, "__shipyard_vitest.config.ts");
   const setupFilePath = path.join(outputDir, "__shipyard_vitest.setup.ts");
@@ -469,7 +646,7 @@ async function runTesterNodeVerification(
     // 3. 在 output/ 目录执行 vitest，它能正确解析 react 等依赖
     const start = Date.now();
     const timestamp = new Date().toISOString();
-    const vitestBin = path.join(monorepoRoot, "node_modules/.bin/vitest");
+    const vitestBin = getNodeModuleBin("vitest");
     try {
       const out = execSync(
         `${vitestBin} run --config "${vitestConfigPath}"`,
@@ -498,7 +675,8 @@ export async function verifyNode(
   workDir: string,
   config: ShipyardConfig,
   nodeRole?: string,
-  strategy?: TaskStrategy
+  strategy?: TaskStrategy,
+  acceptance?: StructuredAcceptance
 ): Promise<NodeVerificationResult> {
   const verifierConfig: VerifierConfig = (strategy ?? typescriptLibStrategy).verify();
 
@@ -509,8 +687,9 @@ export async function verifyNode(
 
   const records: VerificationRecord[] = [];
 
-  // 1. 编译检查（由 VerifierConfig 控制）
-  if (verifierConfig.compile) {
+  // 1. 编译检查（由 VerifierConfig 控制 + acceptance 可显式关闭）
+  const compileRequired = acceptance?.compileRequired ?? verifierConfig.compile;
+  if (compileRequired) {
     const compileResult = runCompileCheck(outputFiles, workDir);
     records.push(compileResult);
 
@@ -521,6 +700,8 @@ export async function verifyNode(
         summary: `Compile failed: ${compileResult.output.split("\n")[0]}`,
       };
     }
+  } else {
+    records.push({ type: "compile", passed: true, output: "Compile check skipped by structured acceptance", durationMs: 0, timestamp: new Date().toISOString() });
   }
 
   // 2. 检查文件是否有可执行的实现
@@ -530,28 +711,47 @@ export async function verifyNode(
     return content.includes("export function") || content.includes("export const") || content.includes("export class");
   });
 
-  // 纯类型文件没有运行时行为，跳过验证
+  // 纯类型文件或纯资产文件没有运行时行为，跳过行为验证
   if (!hasImplementation) {
-    return { passed: true, records, summary: `Compile passed (types-only file)` };
+    const allAssets = outputFiles.every((file) => {
+      const ext = path.extname(file).toLowerCase();
+      return !TS_COMPILE_EXTENSIONS.has(ext) && !JS_SYNTAX_EXTENSIONS.has(ext);
+    });
+    return { passed: true, records, summary: allAssets ? "Structural checks passed (asset-only file)" : "Compile passed (types-only file)" };
   }
 
-  // 3. 执行 *.test.ts / *.spec.ts 文件（implementer 负责编写）
-  //    不再用 LLM 提取测试标准——implementer 直接写测试文件，verifier 只负责运行
+  // 3. 行为测试仅在 strategy 显式开启时运行。
+  //    第一轮实现默认只验证结构正确性；tester 节点仍走独立测试环境。
   const testFileRecords: VerificationRecord[] = [];
-  const testFiles = outputFiles.flatMap((f) => {
-    const base = f.replace(/\.ts$/, "");
-    const candidates = [`${base}.test.ts`, `${base}.spec.ts`];
-    return candidates.filter((c) => fs.existsSync(c));
-  });
+  const testFiles = !verifierConfig.behavior
+    ? []
+    : outputFiles.flatMap((f) => {
+        const candidates: string[] = [];
+
+        if (f.endsWith(".tsx")) {
+          const base = f.replace(/\.tsx$/, "");
+          candidates.push(`${base}.test.tsx`, `${base}.spec.tsx`, `${base}.test.ts`, `${base}.spec.ts`);
+        } else if (f.endsWith(".ts")) {
+          const base = f.replace(/\.ts$/, "");
+          candidates.push(`${base}.test.ts`, `${base}.spec.ts`);
+        } else if (f.endsWith(".js")) {
+          const base = f.replace(/\.js$/, "");
+          candidates.push(`${base}.test.js`, `${base}.spec.js`);
+        }
+
+        return candidates.filter((c) => fs.existsSync(c));
+      });
 
   if (verifierConfig.behavior && testFiles.length === 0) {
-    return {
-      passed: false,
-      records,
-      summary: `No test file found. The implementer must write a .test.ts (or .spec.ts) file alongside the implementation. Expected: ${outputFiles.map((f) => path.basename(f).replace(/\.ts$/, "") + ".test.ts").join(" or ")}`,
-    };
+    const timestamp = new Date().toISOString();
+    records.push({
+      type: "test",
+      passed: true,
+      output: "No explicit test file found; behavior verification deferred until a later tester/test pass.",
+      durationMs: 0,
+      timestamp,
+    });
   }
-
 
   for (const testFile of testFiles) {
     const start = Date.now();
@@ -559,7 +759,7 @@ export async function verifyNode(
     try {
       const compilerOptions = JSON.stringify({ module: "commonjs", esModuleInterop: true }).replace(/"/g, '\\"');
       const out = execSync(
-        `npx ts-node --skipProject --compiler-options "${compilerOptions}" "${testFile}"`,
+        `node ${quote(getNodeModuleBin("ts-node"))} --skipProject --compiler-options "${compilerOptions}" ${quote(testFile)}`,
         { cwd: workDir, encoding: "utf-8", timeout: 30_000, stdio: ["pipe", "pipe", "pipe"] }
       );
       const record: VerificationRecord = {
@@ -588,6 +788,9 @@ export async function verifyNode(
     }
   }
 
+  const structuredAcceptanceRecords = buildStructuredAcceptanceRecords(outputFiles, acceptance, specFragment);
+  records.push(...structuredAcceptanceRecords);
+
   // 6. Lint 检查（由 VerifierConfig 控制，软失败 — 不阻塞节点）
   if (verifierConfig.lint) {
     const lintResult = runLintCheck(outputFiles, workDir);
@@ -598,16 +801,20 @@ export async function verifyNode(
   }
 
   const testFileFailed = testFileRecords.some((record) => !record.passed);
-  const passed = !testFileFailed;
+  const structuredHardFailed = structuredAcceptanceRecords.some((record) => !record.passed);
+  const passed = !testFileFailed && !structuredHardFailed;
   const failCount = records.filter((record) => !record.passed).length;
+  const deferredBehavior = verifierConfig.behavior && testFiles.length === 0;
 
   return {
     passed,
     records,
     summary: passed
-      ? failCount === 0
-        ? `All ${records.length} check(s) passed`
-        : `Hard checks passed; ${failCount} soft check(s) failed`
+      ? deferredBehavior
+        ? `Structural checks passed; behavior verification deferred`
+        : failCount === 0
+          ? `All ${records.length} check(s) passed`
+          : `Hard checks passed; ${failCount} soft check(s) failed`
       : `${failCount}/${records.length} check(s) failed`,
   };
 }

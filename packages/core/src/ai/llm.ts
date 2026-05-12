@@ -128,6 +128,10 @@ const TOOLS = [
 
 // ---- 工具执行 ----
 
+export interface ToolRuntimeContext {
+  allowedCommands?: string[];
+}
+
 export interface ToolExecution {
   tool: string;
   input: Record<string, string>;
@@ -139,7 +143,8 @@ export interface ToolExecution {
 function executeTool(
   name: string,
   args: Record<string, string>,
-  workDir: string
+  workDir: string,
+  runtimeContext?: ToolRuntimeContext
 ): { output: string; success: boolean; filePath?: string } {
   try {
     if (name === "write_file") {
@@ -162,7 +167,7 @@ function executeTool(
     }
 
     if (name === "run_command") {
-      const allowed = ["npx tsc", "tsc", "node ", "npm install", "npm run", "npm test", "npm ci", "npx "];
+      const allowed = runtimeContext?.allowedCommands ?? ["npx tsc", "tsc", "node ", "npm install", "npm run", "npm test", "npm ci", "npx "];
       if (!allowed.some((a) => args.command.startsWith(a))) {
         return { output: "Blocked: only tsc/node/npm/npx commands allowed", success: false };
       }
@@ -596,31 +601,52 @@ function assembleFromSseChunks(sseBody: string, endpoint: string): EndpointChoic
   };
 }
 
+function isRetryableError(message: string): boolean {
+  return /503|429|overload|rate.?limit|too.?many.?request|cpu.?overload|capacity/i.test(message);
+}
+
 async function callModelEndpoint(
   messages: Message[],
   withTools: boolean,
   config: LLMClientConfig,
   toolsOverride?: ToolDef[]
 ): Promise<EndpointChoiceResult> {
-  const errors: string[] = [];
+  const MAX_ATTEMPTS = 4;
+  const BASE_DELAY_MS = 2000;
   const forceChatCompletions = process.env.FORCE_CHAT_COMPLETIONS === "1";
 
-  if (!forceChatCompletions) {
-    try {
-      return await callResponsesAPI(messages, withTools, config, toolsOverride);
-    } catch (e) {
-      errors.push(`responses: ${(e as Error).message}`);
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const errors: string[] = [];
+
+    if (!forceChatCompletions) {
+      try {
+        return await callResponsesAPI(messages, withTools, config, toolsOverride);
+      } catch (e) {
+        errors.push(`responses: ${(e as Error).message}`);
+      }
     }
+
+    try {
+      return await callChatCompletionsAPI(messages, withTools, config, toolsOverride);
+    } catch (e) {
+      errors.push(`chat_completions: ${(e as Error).message}`);
+    }
+
+    const combined = errors.join(" | ");
+    const retryable = errors.some((e) => isRetryableError(e));
+
+    if (!retryable || attempt === MAX_ATTEMPTS) {
+      console.error("[LLM] All endpoints failed:", combined, "| baseURL:", config.baseURL, "| apiKey:", config.apiKey ? config.apiKey.slice(0, 8) + "..." : "(empty)");
+      throw new Error(`All endpoints failed. ${combined}`);
+    }
+
+    const delay = BASE_DELAY_MS * 2 ** (attempt - 1); // 2s, 4s, 8s
+    console.warn(`[LLM] Retryable error (attempt ${attempt}/${MAX_ATTEMPTS - 1}), retrying in ${delay / 1000}s... ${combined}`);
+    await new Promise((resolve) => setTimeout(resolve, delay));
   }
 
-  try {
-    return await callChatCompletionsAPI(messages, withTools, config, toolsOverride);
-  } catch (e) {
-    errors.push(`chat_completions: ${(e as Error).message}`);
-  }
-
-  console.error("[LLM] All endpoints failed:", errors.join(" | "), "| baseURL:", config.baseURL, "| apiKey:", config.apiKey ? config.apiKey.slice(0, 8) + "..." : "(empty)");
-  throw new Error(`All endpoints failed. ${errors.join(" | ")}`);
+  // unreachable
+  throw new Error("callModelEndpoint: unexpected exit");
 }
 
 // ---- Agent Loop ----
@@ -638,7 +664,8 @@ export async function runAgent(
   config: LLMClientConfig,
   withTools = true,
   onToolCall?: (execution: ToolExecution) => void,
-  toolsOverride?: ToolDef[]
+  toolsOverride?: ToolDef[],
+  toolRuntimeContext?: ToolRuntimeContext
 ): Promise<AgentRunResult> {
   const messages: Message[] = [
     { role: "system", content: systemPrompt },
@@ -671,7 +698,7 @@ export async function runAgent(
         args = {};
       }
 
-      const result = executeTool(tc.function.name, args, workDir);
+      const result = executeTool(tc.function.name, args, workDir, toolRuntimeContext);
 
       toolExecutions.push({
         tool: tc.function.name,

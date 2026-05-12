@@ -1,6 +1,6 @@
 import type { ShipyardConfig } from "../config";
-import type { Evidence, GraphNode } from "../graph";
-import type { LLMClientConfig, AgentRunResult, ToolExecution } from "../ai/llm";
+import type { Evidence, GraphNode, StructuredAcceptance } from "../graph";
+import type { LLMClientConfig, AgentRunResult, ToolExecution, ToolRuntimeContext } from "../ai/llm";
 import type { NodeVerificationResult } from "../verification/verify";
 import type { ToolDef, TaskStrategy } from "../strategies/base";
 
@@ -13,7 +13,8 @@ export type AgentRunner = (
   config: LLMClientConfig,
   withTools?: boolean,
   onToolCall?: (execution: ToolExecution) => void,
-  toolsOverride?: ToolDef[]
+  toolsOverride?: ToolDef[],
+  toolRuntimeContext?: ToolRuntimeContext
 ) => Promise<AgentRunResult>;
 
 // NodeVerifier 是验证步骤的抽象接口。
@@ -24,7 +25,8 @@ export type NodeVerifier = (
   workDir: string,
   config: ShipyardConfig,
   nodeRole?: string,
-  strategy?: TaskStrategy
+  strategy?: TaskStrategy,
+  acceptance?: StructuredAcceptance
 ) => Promise<NodeVerificationResult>;
 
 export interface ClarificationQuestion {

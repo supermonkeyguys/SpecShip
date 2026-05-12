@@ -5,70 +5,56 @@
  * 业务状态全部委托给各 feature 的 hook。
  */
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSSE } from "./hooks/useSSE";
 import { useExecutionStore } from "./domains/execution/store";
-import { selectHeaderRunStatus } from "./domains/execution/selectors";
 import { useSession } from "./features/session/useSession";
+import { useWorkspaceSync } from "./domains/workspace/controller";
 import { useFilePreview } from "./features/files/useFilePreview";
 import { ProjectPanel } from "./features/session/ProjectPanel";
+import { useWorkspaceShell } from "./features/workspace/useWorkspaceShell";
 import { ResumeBar } from "./features/session/ResumeBar";
-import { Canvas } from "./features/canvas/Canvas";
-import { FilePreview } from "./features/files/FilePreview";
-import { PreviewPanel } from "./features/preview/PreviewPanel";
-import { SettingsPanel } from "./features/settings/SettingsPanel";
 import { Chat } from "./features/chat/Chat";
+import { CenterSurface } from "./features/workspace/CenterSurface";
 import { StatusBadge } from "./components/StatusBadge";
 
 import { useWorkspaceStore } from "./domains/workspace/store";
 import { fetchSessionPreview } from "./shared/api/previewClient";
-import type { ActiveSession } from "./features/session/types";
+import { selectHeaderRunStatus } from "./domains/session/selectors";
+import { selectShouldShowExecutionRail, selectSurface } from "./domains/workspace/selectors";
 
 export default function App() {
   useSSE();
+  useWorkspaceSync();
 
-  const runStatus = useExecutionStore(selectHeaderRunStatus);
+  const activeSession = useWorkspaceStore((state) => state.activeSession);
+  const surface = useWorkspaceStore(selectSurface);
+  const shouldShowExecutionRail = useWorkspaceStore(selectShouldShowExecutionRail);
+  const previewInfo = useWorkspaceStore((state) => state.previewInfo);
+  const setPreviewInfo = useWorkspaceStore((state) => state.setPreviewInfo);
+  const runStatus = useExecutionStore((execution) =>
+    selectHeaderRunStatus(useWorkspaceStore.getState(), execution)
+  );
   const {
-    activeSession, resumeInfo,
+    resumeInfo,
     setActiveSession, activateStartedSession, handleResume, handleNewSession, dismissResume,
   } = useSession();
   const { selectedFile, fileContent, fileError, handleFileSelect, handleClose } = useFilePreview();
-  const previewInfo = useWorkspaceStore((state) => state.previewInfo);
-  const setPreviewInfo = useWorkspaceStore((state) => state.setPreviewInfo);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const clearSelectedFileIfSessionMismatch = useWorkspaceStore(
-    (state) => state.clearSelectedFileIfSessionMismatch
-  );
-
-  useEffect(() => {
-    clearSelectedFileIfSessionMismatch(activeSession);
-  }, [activeSession, clearSelectedFileIfSessionMismatch]);
-
-  const handleSelectSession = async (session: ActiveSession | null) => {
-    setIsSettingsOpen(false);
-    setIsPreviewOpen(false);
-    await setActiveSession(session);
-  };
-
-  const handleActivateStartedSession = async (session: ActiveSession) => {
-    setIsSettingsOpen(false);
-    setIsPreviewOpen(false);
-    await activateStartedSession(session);
-    handleClose();
-  };
-
-  const handleResumeSession = async () => {
-    setIsSettingsOpen(false);
-    setIsPreviewOpen(false);
-    await handleResume();
-  };
-
-  const handleCreateNewSession = () => {
-    setIsSettingsOpen(false);
-    setIsPreviewOpen(false);
-    handleNewSession();
-  };
+  const {
+    handleCloseTransientSurface,
+    handleSelectSession,
+    handleActivateStartedSession,
+    handleResumeSession,
+    handleCreateNewSession,
+    handleOpenPreview,
+    handleOpenSettings,
+  } = useWorkspaceShell({
+    onSelectSession: setActiveSession,
+    onActivateStartedSession: activateStartedSession,
+    onResumeSession: handleResume,
+    onCreateNewSession: handleNewSession,
+    closeFilePreview: handleClose,
+  });
 
   const refreshPreview = async (next?: import("./types").PreviewStatusResponse) => {
     if (next) {
@@ -90,7 +76,7 @@ export default function App() {
   useEffect(() => {
     refreshPreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSession?.sessionId]);
+  }, [activeSession?.projectId, activeSession?.sessionId]);
 
   useEffect(() => {
     if (runStatus === "done" || runStatus === "failed") {
@@ -124,51 +110,37 @@ export default function App() {
             onSelectSession={handleSelectSession}
             onSelectFile={handleFileSelect}
             onNewSession={handleCreateNewSession}
-            onOpenPreview={() => {
-              setIsSettingsOpen(false);
-              handleClose();
-              setIsPreviewOpen(true);
-            }}
-            onOpenSettings={() => {
-              setIsPreviewOpen(false);
-              handleClose();
-              setIsSettingsOpen(true);
-            }}
+            onOpenPreview={handleOpenPreview}
+            onOpenSettings={handleOpenSettings}
             selectedFilePath={selectedFile?.path}
             previewInfo={previewInfo}
           />
         </div>
 
-        <section className="flex-1 overflow-hidden" aria-label="Canvas or file preview">
-          {selectedFile ? (
-            <FilePreview
-              filePath={selectedFile.path}
-              content={fileContent}
-              error={fileError}
-              onClose={handleClose}
-            />
-          ) : isSettingsOpen ? (
-            <SettingsPanel onBack={() => setIsSettingsOpen(false)} />
-          ) : isPreviewOpen ? (
-            <PreviewPanel
-              projectId={activeSession?.projectId ?? ""}
-              sessionId={activeSession?.sessionId ?? ""}
-              info={previewInfo}
-              onClose={() => setIsPreviewOpen(false)}
-              onRefresh={refreshPreview}
-            />
-          ) : (
-            <Canvas />
-          )}
+        <section className="flex-1 overflow-hidden" aria-label="Workspace center surface">
+          <CenterSurface
+            surface={surface}
+            activeSession={activeSession}
+            selectedFile={selectedFile}
+            fileContent={fileContent}
+            fileError={fileError}
+            previewInfo={previewInfo}
+            onCloseFile={handleClose}
+            onCloseTransientSurface={handleCloseTransientSurface}
+            onRefreshPreview={refreshPreview}
+            onRunStarted={handleActivateStartedSession}
+          />
         </section>
 
-        <aside className="w-80 flex-shrink-0" aria-label="Chat and logs">
-          <Chat
-            sessionId={activeSession?.sessionId}
-            onRunStarted={handleActivateStartedSession}
-            onResumeRequested={handleResumeSession}
-          />
-        </aside>
+        {shouldShowExecutionRail ? (
+          <aside className="w-80 flex-shrink-0" aria-label="Chat and logs">
+            <Chat
+              sessionRef={activeSession ?? undefined}
+              onRunStarted={handleActivateStartedSession}
+              onResumeRequested={handleResumeSession}
+            />
+          </aside>
+        ) : null}
       </main>
     </div>
   );

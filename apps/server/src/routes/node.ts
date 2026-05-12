@@ -7,9 +7,9 @@
 
 import { Router, Request, Response } from "express";
 import { loadGraphCheckpoint, saveGraphCheckpoint } from "../checkpoint";
-import { transitionNode } from "../graph";
+import { transitionNode, replaceGraphNodes } from "../graph";
 import { RetryResponse, NodeEditRequest, NodeEditResponse } from "../types";
-import { getSessionGraphPath } from "../project";
+import { getSession, getSessionGraphPath, updateSession } from "../project";
 import { appendSessionOperation, getSessionRevision } from "../op-log";
 import { activeSession, activeWorkflowId } from "./run";
 import { runResumeSession } from "./resume";
@@ -53,6 +53,102 @@ function appendShadowOperation(
     });
   }
 }
+
+nodeRouter.post("/session/retry", async (req: Request, res: Response) => {
+  const { projectId, sessionId } = req.body as { projectId?: string; sessionId?: string };
+
+  if (!projectId || !sessionId) {
+    res.status(400).json({ ok: false, error: "projectId and sessionId are required" } satisfies RetryResponse);
+    return;
+  }
+
+  const workDir = process.env.WORK_DIR ?? process.cwd();
+  const graphPath = getSessionGraphPath(workDir, projectId, sessionId);
+
+  try {
+    let graph;
+    try {
+      graph = loadGraphCheckpoint(workDir, graphPath);
+    } catch (e) {
+      const session = getSession(workDir, projectId, sessionId);
+      if (!session) {
+        throw e;
+      }
+      res.status(409).json({ ok: false, error: "Session has no saved execution graph yet. Start a new run instead of retrying this failed planning attempt." } satisfies RetryResponse);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nodes = new Map(graph.nodes);
+    let changed = false;
+
+    for (const [nodeId, node] of graph.nodes.entries()) {
+      if (node.status === "failed") {
+        nodes.set(nodeId, {
+          ...node,
+          status: "ready",
+          error: undefined,
+          lastError: undefined,
+          lastErrorKind: undefined,
+          updatedAt: now,
+        });
+        changed = true;
+      } else if (node.status === "blocked") {
+        nodes.set(nodeId, {
+          ...node,
+          status: "pending",
+          error: undefined,
+          updatedAt: now,
+        });
+        changed = true;
+      }
+    }
+
+    if (!changed && graph.status !== "failed") {
+      res.status(400).json({ ok: false, error: "Session has no failed nodes to retry" } satisfies RetryResponse);
+      return;
+    }
+
+    const updatedGraph = replaceGraphNodes(graph, nodes, { status: "running", completedAt: undefined });
+    saveGraphCheckpoint(workDir, updatedGraph, graphPath);
+    updateSession(workDir, projectId, sessionId, { status: "running" });
+
+    appendShadowOperation(workDir, projectId, sessionId, "retry", "session.status_set", {
+      status: "running",
+    }, "user");
+
+    for (const [nodeId, node] of updatedGraph.nodes.entries()) {
+      if (node.status === "ready" && node.retryCount > 0) {
+        appendShadowOperation(workDir, projectId, sessionId, "retry", "node.retry_scheduled", {
+          nodeId,
+          retryCount: node.retryCount,
+          maxRetries: node.maxRetries,
+        }, "user");
+      }
+      if (node.status === "ready" || node.status === "pending") {
+        appendShadowOperation(workDir, projectId, sessionId, "retry", "node.status_set", {
+          nodeId,
+          title: node.title,
+          nodeType: node.type,
+          specFragment: node.specFragment,
+          dependsOn: node.dependsOn,
+          status: node.status,
+          retryCount: node.retryCount,
+          maxRetries: node.maxRetries,
+          error: node.error?.message,
+          errorCategory: node.error?.category,
+          errorRecoverable: node.error?.recoverable,
+          durationMs: node.evidence?.durationMs,
+        }, "user");
+      }
+    }
+
+    res.json({ ok: true, graphId: updatedGraph.id, projectId, sessionId } satisfies RetryResponse);
+    runResumeSession(projectId, sessionId).catch(() => {});
+  } catch (e) {
+    res.status(500).json({ ok: false, error: (e as Error).message } satisfies RetryResponse);
+  }
+});
 
 nodeRouter.post("/node/:id/retry", async (req: Request, res: Response) => {
   const id = req.params["id"] as string;
@@ -107,7 +203,18 @@ nodeRouter.post("/node/:id/retry", async (req: Request, res: Response) => {
   const graphPath = getSessionGraphPath(workDir, projectId, sessionId);
 
   try {
-    const graph = loadGraphCheckpoint(workDir, graphPath);
+    let graph;
+    try {
+      graph = loadGraphCheckpoint(workDir, graphPath);
+    } catch (e) {
+      const session = getSession(workDir, projectId, sessionId);
+      if (!session) {
+        throw e;
+      }
+      res.status(409).json({ ok: false, error: "Node retry is unavailable because this session never produced a saved execution graph. Start a new run instead." } satisfies RetryResponse);
+      return;
+    }
+
     const node = graph.nodes.get(id);
 
     if (!node) {
@@ -217,3 +324,4 @@ nodeRouter.post("/node/:id/edit", async (req: Request, res: Response) => {
     res.status(500).json({ ok: false, error: (e as Error).message } satisfies NodeEditResponse);
   }
 });
+

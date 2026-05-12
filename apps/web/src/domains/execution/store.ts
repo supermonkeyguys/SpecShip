@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import type { SSEEvent } from "../../types";
+import { sessionRefFromKey, toSessionKey, type SessionKey, type SessionRef } from "../../features/session/types";
 import type {
   ChatMessage,
   GraphRunStatus,
   SessionExecutionState,
   SessionGraphSnapshot,
-  SessionRef,
   StreamStatus,
 } from "./types";
 
@@ -17,7 +17,7 @@ function createEmptySession(ref: SessionRef): SessionExecutionState {
   return {
     projectId: ref.projectId,
     sessionId: ref.sessionId,
-    title: ref.spec ?? "",
+    title: "",
     nodes: {},
     logs: [],
     summary: null,
@@ -43,75 +43,87 @@ function resolveRunStatus(snapshotStatus: string, optimistic?: GraphRunStatus): 
   return optimistic ?? "idle";
 }
 
+function resolveSessionKey(session: SessionRef | SessionKey): SessionKey {
+  return typeof session === "string" ? session : toSessionKey(session);
+}
+
+function resolveSessionRef(session: SessionRef | SessionKey): SessionRef {
+  return typeof session === "string" ? sessionRefFromKey(session) : session;
+}
+
 export interface ExecutionStoreState {
-  sessions: Record<string, SessionExecutionState>;
-  activeSessionId: string | null;
-  liveSessionId: string | null;
+  sessions: Record<SessionKey, SessionExecutionState>;
+  liveSessionKey: SessionKey | null;
   streamStatus: StreamStatus;
-  activateSession: (session: SessionRef | null) => void;
+  ensureSession: (session: SessionRef) => void;
+  clearSession: (session: SessionRef | SessionKey) => void;
   setLiveSession: (session: SessionRef | null) => void;
   setStreamStatus: (status: StreamStatus) => void;
-  setSessionRunStatus: (sessionId: string, status: GraphRunStatus) => void;
-  appendSessionLog: (sessionId: string, message: string) => void;
+  setSessionRunStatus: (session: SessionRef | SessionKey, status: GraphRunStatus) => void;
+  appendSessionLog: (session: SessionRef | SessionKey, message: string) => void;
   replaceSessionSnapshot: (
     session: SessionRef,
     snapshot: SessionGraphSnapshot,
     options?: { optimisticRunStatus?: GraphRunStatus }
   ) => void;
-  applyRealtimeEvent: (event: SSEEvent, targetSessionId?: string) => void;
-  appendChatMessage: (sessionId: string, message: ChatMessage) => void;
-  setChatMessages: (sessionId: string, messages: ChatMessage[]) => void;
+  applyRealtimeEvent: (event: SSEEvent) => void;
+  appendChatMessage: (session: SessionRef | SessionKey, message: ChatMessage) => void;
+  setChatMessages: (session: SessionRef | SessionKey, messages: ChatMessage[]) => void;
 }
 
 export const useExecutionStore = create<ExecutionStoreState>((set) => ({
   sessions: {},
-  activeSessionId: null,
-  liveSessionId: null,
+  liveSessionKey: null,
   streamStatus: "disconnected",
 
-  activateSession: (session) =>
+  ensureSession: (session) =>
     set((state) => {
-      if (!session) {
-        return { activeSessionId: null };
-      }
-
+      const key = toSessionKey(session);
+      if (state.sessions[key]) return state;
       return {
-        activeSessionId: session.sessionId,
-        sessions: state.sessions[session.sessionId]
-          ? state.sessions
-          : {
-              ...state.sessions,
-              [session.sessionId]: createEmptySession(session),
-            },
+        sessions: {
+          ...state.sessions,
+          [key]: createEmptySession(session),
+        },
+      };
+    }),
+
+  clearSession: (session) =>
+    set((state) => {
+      const key = resolveSessionKey(session);
+      const next = { ...state.sessions };
+      delete next[key];
+      return {
+        sessions: next,
+        liveSessionKey: state.liveSessionKey === key ? null : state.liveSessionKey,
       };
     }),
 
   setLiveSession: (session) =>
     set((state) => {
-      if (!session) return { liveSessionId: null };
+      if (!session) return { liveSessionKey: null };
+      const key = toSessionKey(session);
       return {
-        liveSessionId: session.sessionId,
-        sessions: state.sessions[session.sessionId]
+        liveSessionKey: key,
+        sessions: state.sessions[key]
           ? state.sessions
           : {
               ...state.sessions,
-              [session.sessionId]: createEmptySession(session),
+              [key]: createEmptySession(session),
             },
       };
     }),
 
   setStreamStatus: (status) => set({ streamStatus: status }),
 
-  setSessionRunStatus: (sessionId, status) =>
+  setSessionRunStatus: (session, status) =>
     set((state) => {
-      const existing = state.sessions[sessionId] ?? createEmptySession({
-        projectId: "",
-        sessionId,
-      });
+      const key = resolveSessionKey(session);
+      const existing = state.sessions[key] ?? createEmptySession(resolveSessionRef(session));
       return {
         sessions: {
           ...state.sessions,
-          [sessionId]: {
+          [key]: {
             ...existing,
             runStatus: status,
             lastUpdatedAt: Date.now(),
@@ -120,16 +132,14 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
       };
     }),
 
-  appendSessionLog: (sessionId, message) =>
+  appendSessionLog: (session, message) =>
     set((state) => {
-      const existing = state.sessions[sessionId] ?? createEmptySession({
-        projectId: "",
-        sessionId,
-      });
+      const key = resolveSessionKey(session);
+      const existing = state.sessions[key] ?? createEmptySession(resolveSessionRef(session));
       return {
         sessions: {
           ...state.sessions,
-          [sessionId]: {
+          [key]: {
             ...existing,
             logs: [...existing.logs, message],
             lastUpdatedAt: Date.now(),
@@ -140,16 +150,17 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
 
   replaceSessionSnapshot: (session, snapshot, options) =>
     set((state) => {
-      const existing = state.sessions[session.sessionId] ?? createEmptySession(session);
+      const key = toSessionKey(session);
+      const existing = state.sessions[key] ?? createEmptySession(session);
       const nextRevision = typeof snapshot.revision === "number" ? snapshot.revision : existing.revision;
       return {
         sessions: {
           ...state.sessions,
-          [session.sessionId]: {
+          [key]: {
             ...existing,
             projectId: session.projectId,
             sessionId: session.sessionId,
-            title: snapshot.title || existing.title || session.spec || "",
+            title: snapshot.title || existing.title || "",
             nodes: toNodeMap(snapshot.nodes ?? []),
             logs: existing.logs,
             summary: existing.summary,
@@ -164,20 +175,16 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
       };
     }),
 
-  applyRealtimeEvent: (event, targetSessionId) =>
+  applyRealtimeEvent: (event) =>
     set((state) => {
-      const resolvedSessionId = targetSessionId ?? state.liveSessionId ?? state.activeSessionId;
-      if (!resolvedSessionId) return state;
+      const explicitKey = event.projectId && event.sessionId ? toSessionKey(event.projectId, event.sessionId) : null;
+      const resolvedKey = explicitKey ?? state.liveSessionKey;
+      if (!resolvedKey) return state;
 
-      const existingProjectId = state.sessions[resolvedSessionId]?.projectId;
-      const resolvedProjectId = (event as { projectId?: string }).projectId ?? existingProjectId ?? "";
-      const existing = state.sessions[resolvedSessionId] ?? createEmptySession({
-        projectId: resolvedProjectId,
-        sessionId: resolvedSessionId,
-      });
-      const patchedExisting = !existingProjectId && resolvedProjectId
-        ? { ...existing, projectId: resolvedProjectId }
-        : existing;
+      const resolvedRef = explicitKey && event.projectId && event.sessionId
+        ? { projectId: event.projectId, sessionId: event.sessionId }
+        : sessionRefFromKey(resolvedKey);
+      const existing = state.sessions[resolvedKey] ?? createEmptySession(resolvedRef);
 
       switch (event.type) {
         case "node_update": {
@@ -185,12 +192,12 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
           return {
             sessions: {
               ...state.sessions,
-              [resolvedSessionId]: {
-                ...patchedExisting,
-                nodes: { ...patchedExisting.nodes, [node.id]: node },
+              [resolvedKey]: {
+                ...existing,
+                nodes: { ...existing.nodes, [node.id]: node },
                 runStatus:
-                  patchedExisting.runStatus === "done" || patchedExisting.runStatus === "failed"
-                    ? patchedExisting.runStatus
+                  existing.runStatus === "done" || existing.runStatus === "failed"
+                    ? existing.runStatus
                     : "running",
                 source: "realtime",
                 lastUpdatedAt: Date.now(),
@@ -201,11 +208,11 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
         case "graph_done":
         case "graph_failed": {
           return {
-            liveSessionId: state.liveSessionId === resolvedSessionId ? null : state.liveSessionId,
+            liveSessionKey: state.liveSessionKey === resolvedKey ? null : state.liveSessionKey,
             sessions: {
               ...state.sessions,
-              [resolvedSessionId]: {
-                ...patchedExisting,
+              [resolvedKey]: {
+                ...existing,
                 summary: event.payload as SessionExecutionState["summary"],
                 runStatus: event.type === "graph_done" ? "done" : "failed",
                 source: "realtime",
@@ -218,9 +225,9 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
           return {
             sessions: {
               ...state.sessions,
-              [resolvedSessionId]: {
-                ...patchedExisting,
-                logs: [...patchedExisting.logs, event.payload as string],
+              [resolvedKey]: {
+                ...existing,
+                logs: [...existing.logs, event.payload as string],
                 source: "realtime",
                 lastUpdatedAt: Date.now(),
               },
@@ -231,13 +238,15 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
           return state;
       }
     }),
-  appendChatMessage: (sessionId, message) =>
+
+  appendChatMessage: (session, message) =>
     set((state) => {
-      const existing = state.sessions[sessionId] ?? createEmptySession({ projectId: "", sessionId });
+      const key = resolveSessionKey(session);
+      const existing = state.sessions[key] ?? createEmptySession(resolveSessionRef(session));
       return {
         sessions: {
           ...state.sessions,
-          [sessionId]: {
+          [key]: {
             ...existing,
             chatMessages: [...existing.chatMessages, message],
           },
@@ -245,13 +254,14 @@ export const useExecutionStore = create<ExecutionStoreState>((set) => ({
       };
     }),
 
-  setChatMessages: (sessionId, messages) =>
+  setChatMessages: (session, messages) =>
     set((state) => {
-      const existing = state.sessions[sessionId] ?? createEmptySession({ projectId: "", sessionId });
+      const key = resolveSessionKey(session);
+      const existing = state.sessions[key] ?? createEmptySession(resolveSessionRef(session));
       return {
         sessions: {
           ...state.sessions,
-          [sessionId]: {
+          [key]: {
             ...existing,
             chatMessages: messages,
           },

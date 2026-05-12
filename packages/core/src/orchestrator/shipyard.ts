@@ -1,6 +1,22 @@
 import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
+
+function getMonorepoRootForCore(): string {
+  return path.resolve(__dirname, "../../../../");
+}
+
+function quoteArg(value: string): string {
+  return JSON.stringify(value);
+}
+
+function buildCoreTscCommand(files: string[], hasTsx: boolean): string {
+  const monorepoRoot = getMonorepoRootForCore();
+  const tscScript = path.join(monorepoRoot, "node_modules/typescript/bin/tsc");
+  const jsxFlags = hasTsx ? "--jsx react-jsx --allowImportingTsExtensions" : "";
+  const quotedFiles = files.map((f) => quoteArg(f)).join(" ");
+  return `node ${quoteArg(tscScript)} --noEmit --target ES2022 --moduleResolution bundler --esModuleInterop --skipLibCheck ${jsxFlags} ${quotedFiles}`;
+}
 import { ShipyardConfig } from "../config";
 import {
   ExecutionGraph, GraphNode, NodeStatus, Evidence,
@@ -21,6 +37,8 @@ import {
 import { getSessionGraphPath } from "../persistence/project";
 import { buildGraph, clarifySpec } from "./planner";
 import { handleCompletedNodeResult } from "./post-node-handler";
+import { appendDeferredTesterNodes } from "./tester-pass";
+import { routeModel } from "./model-router";
 import type { TaskStrategy } from "../strategies/base";
 import type {
   AgentRunner,
@@ -51,7 +69,10 @@ function collectOutputFiles(graph: ExecutionGraph, workDir: string): string[] {
   const files = new Set<string>();
   for (const node of graph.nodes.values()) {
     for (const f of node.outputs.files ?? []) {
+      if (f.includes(".test.") || f.includes(".spec.")) continue;
       const abs = path.resolve(workDir, f);
+      const ext = path.extname(abs).toLowerCase();
+      if (![".ts", ".tsx", ".cts", ".mts"].includes(ext)) continue;
       if (fs.existsSync(abs)) files.add(abs);
     }
   }
@@ -63,11 +84,10 @@ function runIntegrationCompileCheck(graph: ExecutionGraph, workDir: string): str
   if (files.length === 0) return null;
 
   const hasTsx = files.some((f) => f.endsWith(".tsx"));
-  const jsxFlags = hasTsx ? "--jsx react --allowImportingTsExtensions" : "";
 
   try {
     execSync(
-      `npx tsc --noEmit --target ES2022 --moduleResolution bundler --esModuleInterop --skipLibCheck ${jsxFlags} ${files.join(" ")}`,
+      buildCoreTscCommand(files, hasTsx),
       { cwd: workDir, encoding: "utf-8", timeout: 60_000, stdio: ["pipe", "pipe", "pipe"] }
     );
     return null;
@@ -195,7 +215,8 @@ export async function run(
       graph = transitionNode(graph, node.id, "running");
       checkpoint();
       console.log(`  ▶ [${node.id}] ${node.title}`);
-      logger?.log({ event: "node_start", nodeId: node.id, title: node.title, nodeRole: node.nodeRole, task: node.task, retryCount: node.retryCount });
+      const route = routeModel(config, { phase: "execute", nodeRole: node.nodeRole, retryCount: node.retryCount, dependsOnCount: node.dependsOn.length, lastErrorKind: node.lastErrorKind, executionMode: config.executionMode ?? "sandbox-output" });
+      logger?.log({ event: "node_start", nodeId: node.id, title: node.title, nodeRole: node.nodeRole, task: node.task, retryCount: node.retryCount, selectedModel: route.model, routeReason: route.reason, complexity: route.complexity, risk: route.risk });
       running.set(node.id, executeNode(node, graph, config, agentRunner, (nodeId, accumulatedToolCalls) => {
         // 把中途累积的 toolCalls 注入节点快照，触发 SSE 推送
         const liveNode = graph.nodes.get(nodeId);
@@ -275,6 +296,17 @@ export async function run(
   const allDone = stats.byStatus.done === stats.total;
 
   if (allDone) {
+    const activeStrategy = strategy?.id ?? "typescript-lib";
+    if (activeStrategy === "typescript-lib" || activeStrategy === "react-app") {
+      const deferredTesterPass = appendDeferredTesterNodes(graph, config.workDir, strategy);
+      if (deferredTesterPass.added.length > 0) {
+        console.log(`[TESTER PASS] Added ${deferredTesterPass.added.length} deferred tester node(s): ${deferredTesterPass.added.join(", ")}`);
+        graph = { ...deferredTesterPass.graph, status: "running" };
+        checkpoint();
+        return run(spec, config, graph, onUpdate, agentRunner, nodeVerifier, onCheckpoint, onClarify, strategy);
+      }
+    }
+
     const integrationError = runIntegrationCompileCheck(graph, config.workDir);
     if (integrationError) {
       console.error(`\n[INTEGRATION] Cross-file compile check failed:\n${integrationError}`);

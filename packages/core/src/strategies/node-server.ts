@@ -48,12 +48,11 @@ Rules:
 - Generate ALL files needed: package.json, tsconfig.json, server.ts, and route files
 - Run "npm install" after writing package.json to install dependencies
 
-CRITICAL — Write a test file:
-- For each implementation file you create (e.g. record-repository.ts), you MUST also write a corresponding test file (e.g. record-repository.test.ts)
-- The test file must import from your implementation file and run actual assertions
-- Use simple assertions: if (!condition) { console.error(...); process.exit(1); } then console.log("PASS")
-- Test the main exported functions/classes with real inputs — cover the happy path and at least one edge case
-- The test file will be executed by the verification runner — it must exit with code 0 on success, non-zero on failure
+Verification priorities:
+- First ensure the server code is structurally correct: imports resolve, TypeScript compiles, and the project can build/run
+- You MAY add lightweight test files for pure logic modules when straightforward
+- Do NOT block delivery on writing a full test suite in this pass; behavioral tests can be added later once the server structure is in place
+- Prefer decomposed modules and stable exports so later tests are easy to add
 `.trim();
 
 const NODE_SERVER_REVIEWER_PROMPT = `

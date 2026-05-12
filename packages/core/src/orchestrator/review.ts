@@ -2,15 +2,29 @@ import * as fs from "fs";
 import * as path from "path";
 import { ShipyardConfig } from "../config";
 import type { GraphNode } from "../graph";
-import { REVIEWER_PROMPT } from "../ai/prompts";
 import { runAgent as defaultRunAgent } from "../ai/llm";
 import { makeLLMConfig } from "../ai/llm-config";
+import { routeModel } from "./model-router";
 import type { AgentRunner } from "./runtime-types";
 import type { TaskStrategy } from "../strategies/base";
 import { typescriptLibStrategy } from "../strategies";
 import type { ExecutionLogger } from "./execution-logger";
 
 const REVIEW_SCOPE_NOTE = "Import path style is not blocking if the file compiles; only flag actual acceptance-criteria violations.";
+
+function formatStructuredAcceptance(node: GraphNode): string {
+  if (!node.acceptance) return "";
+  const parts: string[] = [];
+  parts.push(`Structured acceptance summary: ${node.acceptance.summary}`);
+  if (node.acceptance.exports?.length) parts.push(`Required exports: ${node.acceptance.exports.join(", ")}`);
+  if (node.acceptance.compileRequired !== undefined) parts.push(`Compile required: ${String(node.acceptance.compileRequired)}`);
+  if (node.acceptance.testsRequired !== undefined) parts.push(`Tests required: ${String(node.acceptance.testsRequired)}`);
+  if (node.acceptance.requiredFiles?.length) parts.push(`Required files: ${node.acceptance.requiredFiles.join(", ")}`);
+  if (node.acceptance.forbiddenDependencies?.length) parts.push(`Forbidden dependencies: ${node.acceptance.forbiddenDependencies.join(", ")}`);
+  if (node.acceptance.allowedWriteGlobs?.length) parts.push(`Allowed write globs: ${node.acceptance.allowedWriteGlobs.join(", ")}`);
+  if (node.acceptance.forbiddenEdits?.length) parts.push(`Forbidden edits: ${node.acceptance.forbiddenEdits.join(", ")}`);
+  return parts.join("\n");
+}
 
 export async function runCodeReview(
   node: GraphNode,
@@ -20,7 +34,6 @@ export async function runCodeReview(
   logger?: ExecutionLogger,
   strategy?: TaskStrategy
 ): Promise<{ passed: boolean; blockingIssues: string }> {
-  // 每个文件最多读 6000 字节，避免截断导致 reviewer 误判"代码不完整"
   const fileContents = outputFiles
     .filter((f) => fs.existsSync(f))
     .map((f) => `// ${path.relative(config.workDir, f)}\n${fs.readFileSync(f, "utf-8").slice(0, 15000)}`)
@@ -29,25 +42,32 @@ export async function runCodeReview(
   if (!fileContents) return { passed: true, blockingIssues: "" };
 
   try {
-    // acceptanceCriteria 可能在旧 session 的 graph.json 中不存在（字段迁移前生成的节点）
-    const criteria = node.acceptanceCriteria && node.acceptanceCriteria !== "undefined"
-      ? `${node.acceptanceCriteria}\n${REVIEW_SCOPE_NOTE}`
-      // fallback：明确限制 reviewer 只检查"编译通过 + 内容与节点职责一致"，禁止跨节点评判
+    const structuredAcceptance = formatStructuredAcceptance(node);
+    const criteriaBase = node.acceptanceCriteria && node.acceptanceCriteria !== "undefined"
+      ? node.acceptanceCriteria
       : `SCOPE: Review ONLY this single file. Task title: "${node.title}". ` +
         `Check: (1) file is syntactically valid and compiles, ` +
         `(2) file content matches what the title describes. ` +
         `Do NOT fail for missing features that belong to other files/steps. ` +
-        `Do NOT require a complete working application from a single file. ${REVIEW_SCOPE_NOTE}`;
+        `Do NOT require a complete working application from a single file.`;
+    const criteria = `${criteriaBase}${structuredAcceptance ? `\n${structuredAcceptance}` : ""}\n${REVIEW_SCOPE_NOTE}`;
+
     const role = node.nodeRole && node.nodeRole !== "undefined" ? node.nodeRole : "implementer";
     const taskDesc = node.task && node.task !== "undefined" ? node.task : node.inputs?.description ?? node.title;
 
+    const reviewRoute = routeModel(config, {
+      phase: "review",
+      nodeRole: node.nodeRole,
+      retryCount: node.retryCount,
+      executionMode: config.executionMode ?? "sandbox-output",
+    });
     logger?.log({ event: "review_input", nodeId: node.id, criteria, role, task: taskDesc, codeSnippet: fileContents.slice(0, 500) });
 
     const { finalText } = await agentRunner(
       (strategy ?? typescriptLibStrategy).reviewerPrompt,
       `Acceptance criteria for this step:\n${criteria}\n\nNode role: ${role}\nTask: ${taskDesc}\n\nCode:\n${fileContents}`,
       config.workDir,
-      makeLLMConfig(config.models.review ?? config.models.planning, config),
+      makeLLMConfig(reviewRoute.model, config),
       false
     );
 
@@ -70,6 +90,6 @@ export async function runCodeReview(
       blockingIssues: (result.blocking ?? []).join("; "),
     };
   } catch {
-    return { passed: true, blockingIssues: "" }; // review 出错不阻塞
+    return { passed: true, blockingIssues: "" };
   }
 }

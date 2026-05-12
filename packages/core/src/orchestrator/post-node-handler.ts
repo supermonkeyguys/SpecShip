@@ -174,7 +174,7 @@ export async function handleCompletedNodeResult(context: PostNodeHandlingContext
 
   let verifyingGraph = transitionNode(graph, nodeId, "verifying");
   const node = verifyingGraph.nodes.get(nodeId)!;
-  const verifyResult = await nodeVerifier(node.specFragment, outputFiles, config.workDir, config, node.nodeRole, strategy);
+  const verifyResult = await nodeVerifier(node.specFragment, outputFiles, config.workDir, config, node.nodeRole, strategy, node.acceptance);
   const fullEvidence: Evidence = { ...evidence, verifications: verifyResult.records };
   logger?.log({ event: "verify_result", nodeId, passed: verifyResult.passed, errors: verifyResult.records.filter(r => !r.passed).map(r => r.output).join("\n").slice(0, 1000) });
 

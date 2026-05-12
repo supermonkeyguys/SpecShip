@@ -163,6 +163,16 @@ export function listSessions(workDir: string, projectId: string): SessionMeta[] 
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+export function getSession(workDir: string, projectId: string, sessionId: string): SessionMeta | null {
+  try {
+    return JSON.parse(
+      fs.readFileSync(path.join(getSessionDir(workDir, projectId, sessionId), "session.json"), "utf-8")
+    ) as SessionMeta;
+  } catch {
+    return null;
+  }
+}
+
 export function deleteSession(workDir: string, projectId: string, sessionId: string): void {
   const dir = getSessionDir(workDir, projectId, sessionId);
   fs.rmSync(dir, { recursive: true, force: true });

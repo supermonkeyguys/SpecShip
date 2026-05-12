@@ -12,6 +12,9 @@ export interface NodeStatus {
   title: string;
   status: "pending" | "ready" | "running" | "verifying" | "done" | "failed" | "blocked" | "skipped";
   nodeType: "implement" | "checkpoint";
+  nodeRole?: string;
+  task?: string;
+  acceptanceCriteria?: string;
   specFragment: string;
   dependsOn: string[];
   filesWritten: string[];
@@ -25,6 +28,7 @@ export interface NodeStatus {
   verifications: Array<{ type: string; passed: boolean; summary: string }>;
   retryCount: number;
   maxRetries: number;
+  promptUsed?: string;
   error?: string;
   errorCategory?: "compile" | "api" | "logic" | "timeout" | "unknown";
   errorRecoverable?: boolean;
@@ -102,6 +106,9 @@ export interface ProjectsResponse {
 
 export interface RetryResponse {
   ok: boolean;
+  graphId?: string;
+  projectId?: string;
+  sessionId?: string;
   error?: string;
 }
 
@@ -135,6 +142,24 @@ export interface PreviewStatusResponse {
   liveError?: string;
 }
 
+
+// ---- PRD API ----
+
+export interface PRDRequest {
+  spec: string;
+  projectId?: string;
+  sessionId?: string;
+  llm?: {
+    baseURL?: string;
+    apiKey?: string;
+  };
+}
+
+export interface PRDResponse {
+  ok: boolean;
+  prd?: string;
+  error?: string;
+}
 
 // ---- Clarify API ----
 

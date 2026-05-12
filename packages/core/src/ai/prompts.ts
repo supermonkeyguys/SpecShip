@@ -16,6 +16,12 @@ Output ONLY a JSON object, no markdown:
       "nodeRole": "types",
       "task": "Define TypeScript interfaces: User { id, name, email }, Post { id, title, content, authorId }. Export all from types.ts.",
       "acceptanceCriteria": "types.ts exports User and Post interfaces with correct field types. File compiles without errors. Types only — no implementation logic.",
+      "acceptance": {
+        "summary": "types.ts exports User and Post interfaces with correct field types",
+        "exports": ["User", "Post"],
+        "compileRequired": true,
+        "testsRequired": false
+      },
       "skills": [],
       "description": "detailed description of what to implement, including key interfaces/functions",
       "outputFile": "output/types.ts",
@@ -44,6 +50,14 @@ Field semantics (IMPORTANT):
   - List exactly which exports, behaviors, or checks must pass for this file
   - Reference the exact symbol names from task (same names, no guessing)
   - Do NOT copy the whole project requirement — only what this one file must satisfy
+- acceptance: OPTIONAL but strongly preferred structured acceptance object for deterministic validation
+  - summary: one-sentence completion definition for this step
+  - exports: exact exported symbol names that must exist in the file
+  - compileRequired: true/false depending on whether this file must compile in the current pass
+  - testsRequired: true when a colocated test/spec file is required for this step
+  - requiredFiles: additional files that must be produced for this step (rare; keep scoped)
+  - forbiddenDependencies: packages/modules that this step must not import
+  - allowedWriteGlobs / forbiddenEdits: only include when the spec explicitly constrains write scope
 - skills: optional named conventions (e.g. "ts-strict", "rest-naming") — use [] if none
 
 General rules:
@@ -56,8 +70,10 @@ General rules:
 - Maximize parallelism: steps with no shared dependencies should have empty dependsOn
 - Step count: use as many as needed (no artificial limit), but avoid splitting trivial logic
 - role / nodeRole: types | implementation | test | util | integration | checkpoint
+- When the step has objective requirements (export names, required tests, forbidden deps), include them in the 'acceptance' object instead of only burying them in prose
 - For tester nodes (nodeRole=tester): you MAY import @testing-library/react, vitest, jsdom — a dedicated test environment with node_modules is provided at verify time
 - If spec mentions existing repo context, reference existing file paths in dependsOn where appropriate
+- NEVER include steps that produce build-tool config files: vite.config.ts/js, tailwind.config.ts/js, postcss.config.ts/js, webpack.config.ts/js — these are injected automatically by the runtime scaffold and MUST NOT be written by implementation steps
 
 File size / granularity rules (CRITICAL — prevents LLM output truncation):
 - One file = one responsibility: one component, one class, or one cohesive set of related functions
@@ -93,13 +109,28 @@ Rules:
 - For React JSX return types, use 'React.JSX.Element' or 'React.ReactElement' — NEVER use 'JSX.Element' (removed in React 19)
 - If the spec mentions a specific algorithm or approach, implement that exact approach
 - Keep functions focused — split large functions into well-named helpers
+- OUTPUT TRUNCATION PREVENTION: If the file you are about to write exceeds ~120 lines, you MUST split the logic into multiple smaller helper modules and have this file import them. A truncated file is ALWAYS worse than a correctly split file. Never rely on the reviewer to catch truncation — prevent it by splitting.
+- If you realize mid-implementation that the file is growing too large, stop and restructure: extract helpers to separate write_file calls first, then write the main file importing them
 
-CRITICAL — Write a test file:
-- For each implementation file you create (e.g. record-repository.ts), you MUST also write a corresponding test file (e.g. record-repository.test.ts)
-- The test file must import from your implementation file and run actual assertions
-- Use simple assertions: if (!condition) { console.error(...); process.exit(1); } then console.log("PASS")
-- Test the main exported functions/classes with real inputs — cover the happy path and at least one edge case
-- The test file will be executed by the verification runner — it must exit with code 0 on success, non-zero on failure
+Verification priorities (IMPORTANT):
+- First make the implementation structurally correct: valid syntax, correct imports/exports, compileable code, and clear module boundaries
+- If the task is naturally testable with a lightweight adjacent test file, you MAY write one
+- Do NOT block implementation completeness on writing tests for UI-heavy, DOM-dependent, or environment-dependent files
+- Prefer small, decoupled modules with stable exported symbols so tests can be added in a later pass
+`.trim();
+
+export const TESTER_PROMPT = `
+You are a senior software test engineer. Your job is to add focused test files for already-implemented code.
+
+Rules:
+- Write ONLY test files or minimal test-only support files
+- Do NOT rewrite implementation files unless absolutely necessary to make them testable, and prefer not to
+- Prefer colocated tests: foo.ts -> foo.test.ts, foo.tsx -> foo.test.tsx, foo.js -> foo.test.js
+- For React/UI files, use vitest + @testing-library/react when appropriate
+- For pure TypeScript/JavaScript logic, write lightweight direct tests with clear assertions
+- Keep tests focused on critical happy paths and 1-2 key edge cases
+- Assume the implementation already exists; import it via relative paths without file extensions
+- The goal of this pass is behavioral coverage, not structural refactoring
 `.trim();
 
 export const CLARIFIER_PROMPT = `
@@ -174,4 +205,36 @@ IMPORTANT — do NOT flag these as blocking:
 - Extra defensive code (empty-state handling, null checks, fallbacks) — these are good practices, not violations
 - Implementation details not explicitly forbidden by the criteria (e.g. how a placeholder renders internally)
 - Style choices, naming conventions, extra comments — put these in warnings only
+`.trim();
+
+export const PRD_GENERATOR_PROMPT = `
+You are a senior product manager. Given a rough idea or requirement, produce a comprehensive but concise Product Requirements Document (PRD) in Markdown.
+
+The PRD should be written so a developer can hand it directly to an AI coding agent as a spec. Be specific and concrete — avoid vague language.
+
+Output ONLY a Markdown document with these sections (use ## headings):
+
+## 背景与目标
+One paragraph: what problem this solves and what success looks like.
+
+## 功能列表
+Bullet list of features. Each item must be specific enough to implement:
+- Feature name: exact behavior, inputs, outputs, edge cases
+
+## 技术约束
+- Tech stack, libraries, and any explicit constraints
+- What is explicitly OUT of scope
+
+## 验收标准
+Numbered list. Each criterion must be objectively verifiable:
+1. Given X, when Y, then Z
+
+## 假设
+Bullet list of assumptions made to fill gaps in the original request.
+
+Rules:
+- Be concrete: "user can filter by date range" not "user can search"
+- Keep it tight: no fluff, no "nice to have" sections
+- If the original request already specifies something, preserve it exactly
+- Write in Chinese if the original request is in Chinese, English otherwise
 `.trim();

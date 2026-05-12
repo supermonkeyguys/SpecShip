@@ -1,25 +1,49 @@
+import type { SessionRef } from "../../features/session/types";
+import { toSessionKey } from "../../features/session/types";
 import type { ExecutionStoreState } from "./store";
-import type { SessionExecutionState, GraphRunStatus } from "./types";
+import type { ChatMessage, GraphRunStatus, SessionExecutionState } from "./types";
 
-export function selectActiveExecution(state: ExecutionStoreState): SessionExecutionState | null {
-  if (!state.activeSessionId) return null;
-  return state.sessions[state.activeSessionId] ?? null;
-}
-
-export function selectExecutionBySessionId(
+export function selectExecutionByKey(
   state: ExecutionStoreState,
-  sessionId: string | null | undefined
+  key: import("../../features/session/types").SessionKey | null | undefined
 ): SessionExecutionState | null {
-  if (!sessionId) return null;
-  return state.sessions[sessionId] ?? null;
+  if (!key) return null;
+  return state.sessions[key] ?? null;
 }
 
-export function selectHeaderRunStatus(state: ExecutionStoreState): GraphRunStatus {
-  if (state.liveSessionId) {
-    return state.sessions[state.liveSessionId]?.runStatus ?? "running";
+export function selectExecutionByRef(
+  state: ExecutionStoreState,
+  session: SessionRef | null | undefined
+): SessionExecutionState | null {
+  if (!session) return null;
+  return state.sessions[toSessionKey(session)] ?? null;
+}
+
+export function selectLiveExecution(state: ExecutionStoreState): SessionExecutionState | null {
+  if (!state.liveSessionKey) return null;
+  return state.sessions[state.liveSessionKey] ?? null;
+}
+
+export function selectRunStatusByRef(
+  state: ExecutionStoreState,
+  session: SessionRef | null | undefined
+): GraphRunStatus {
+  return selectExecutionByRef(state, session)?.runStatus ?? "idle";
+}
+
+export function selectChatMessagesByRef(
+  state: ExecutionStoreState,
+  session: SessionRef | null | undefined
+): ChatMessage[] | null {
+  return selectExecutionByRef(state, session)?.chatMessages ?? null;
+}
+
+export function selectHeaderRunStatus(
+  state: ExecutionStoreState,
+  activeSession: SessionRef | null | undefined
+): GraphRunStatus {
+  if (state.liveSessionKey) {
+    return state.sessions[state.liveSessionKey]?.runStatus ?? "running";
   }
-  if (state.activeSessionId) {
-    return state.sessions[state.activeSessionId]?.runStatus ?? "idle";
-  }
-  return "idle";
+  return selectRunStatusByRef(state, activeSession);
 }

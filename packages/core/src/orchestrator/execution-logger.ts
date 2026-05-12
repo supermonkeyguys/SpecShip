@@ -10,8 +10,8 @@ import * as path from "path";
 
 export type LogEvent =
   | { event: "plan_complete"; title: string; nodeCount: number; nodes: Array<{ id: string; title: string; nodeRole: string; task: string; acceptanceCriteria: string; dependsOn: string[]; outputFile: string }> }
-  | { event: "node_start"; nodeId: string; title: string; nodeRole: string; task: string; retryCount: number }
-  | { event: "node_prompt"; nodeId: string; prompt: string }
+  | { event: "node_start"; nodeId: string; title: string; nodeRole: string; task: string; retryCount: number; selectedModel?: string; routeReason?: string; complexity?: string; risk?: string }
+  | { event: "node_prompt"; nodeId: string; prompt: string; selectedModel?: string; routeReason?: string; complexity?: string; risk?: string }
   | { event: "verify_result"; nodeId: string; passed: boolean; errors: string }
   | { event: "review_input"; nodeId: string; criteria: string; role: string; task: string; codeSnippet: string }
   | { event: "review_result"; nodeId: string; passed: boolean; blocking: string[]; warnings: string[]; summary: string }

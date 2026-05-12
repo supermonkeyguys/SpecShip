@@ -1,7 +1,7 @@
 import type { ActiveSession } from "../../features/session/types";
-import type { ChatIntent, ClarifyQuestion, NodeStatus } from "../../types";
+import type { ChatIntent, NodeStatus } from "../../types";
 import { chatIntent } from "../../shared/api/chatClient";
-import { clarifySpec } from "../../shared/api/clarifyClient";
+import { generatePRD } from "../../shared/api/prdClient";
 import { retryNode } from "../../shared/api/nodeClient";
 import { runSpec } from "../../shared/api/runClient";
 
@@ -14,9 +14,8 @@ interface SendContext {
   activeSession: ActiveSession | null;
 }
 
-export interface ClarificationPending {
-  baseSpec: string;
-  questions: ClarifyQuestion[];
+export interface PRDPending {
+  originalSpec: string;
   repoPath?: string;
 }
 
@@ -31,7 +30,7 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
       const d = await runSpec({ spec, repoPath });
       if (!d.ok) return { ok: false, error: d.error ?? "Run failed" };
       if (d.projectId && d.sessionId) {
-        await deps.onRunStarted?.({ projectId: d.projectId, sessionId: d.sessionId, spec });
+        await deps.onRunStarted?.({ projectId: d.projectId, sessionId: d.sessionId });
       }
       return { ok: true };
     } catch (e) {
@@ -41,7 +40,7 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
 
   async function send(input: SendContext): Promise<
     | { type: "reply"; text: string }
-    | { type: "clarification"; text: string; pending: ClarificationPending; questions: ClarifyQuestion[] }
+    | { type: "prd"; text: string; prd: string; pending: PRDPending }
     | { type: "error"; text: string }
   > {
     try {
@@ -82,29 +81,25 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
       if (intent.type === "new_run") {
         const nextSpec = intent.spec;
 
+        console.debug(DEBUG_PREFIX, "prd:generate", { spec: nextSpec });
         try {
-          const clarify = await clarifySpec(nextSpec);
-          console.debug(DEBUG_PREFIX, "clarify:response", clarify);
-          if (clarify.needsClarification && clarify.questions?.length) {
-            return {
-              type: "clarification",
-              text,
-              pending: { baseSpec: nextSpec, questions: clarify.questions, repoPath: intent.repoPath },
-              questions: clarify.questions,
-            };
-          }
+          const prd = await generatePRD(nextSpec);
+          return {
+            type: "prd",
+            text,
+            prd,
+            pending: { originalSpec: nextSpec, repoPath: intent.repoPath },
+          };
         } catch (e) {
-          console.debug(DEBUG_PREFIX, "clarify:error", e);
+          // PRD 生成失败时降级：直接执行原始 spec
+          console.debug(DEBUG_PREFIX, "prd:error — falling back to direct run", e);
+          const runResult = await runSpecAndActivate(nextSpec, intent.repoPath);
+          if (!runResult.ok) return { type: "error", text: `Failed: ${runResult.error ?? "unknown"}` };
+          return { type: "reply", text };
         }
-
-        console.debug(DEBUG_PREFIX, "run:direct", { spec: nextSpec, repoPath: intent.repoPath });
-        const runResult = await runSpecAndActivate(nextSpec, intent.repoPath);
-        if (!runResult.ok) return { type: "error", text: `Failed: ${runResult.error}` };
-        return { type: "reply", text };
       }
 
       if (intent.type === "resume") {
-        // activeSession 不存在时不触发 resume 请求，直接展示 reply
         if (!input.activeSession?.sessionId) {
           return { type: "reply", text };
         }
@@ -122,30 +117,19 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
     }
   }
 
-  async function confirmClarification(pending: ClarificationPending, answers: Record<string, string>) {
-    const clarificationLines = pending.questions
-      .map((question) => {
-        const answer = answers[question.id];
-        return answer ? `- ${question.text}: ${answer}` : null;
-      })
-      .filter((line): line is string => line !== null);
-
-    const enrichedSpec = clarificationLines.length
-      ? `${pending.baseSpec}\n\nClarifications:\n${clarificationLines.join("\n")}`
-      : pending.baseSpec;
-
-    console.debug(DEBUG_PREFIX, "clarify:confirm", { answers, enrichedSpec, repoPath: pending.repoPath });
-    return runSpecAndActivate(enrichedSpec, pending.repoPath);
+  async function confirmPRD(prd: string, pending: PRDPending) {
+    console.debug(DEBUG_PREFIX, "prd:confirm", { repoPath: pending.repoPath });
+    return runSpecAndActivate(prd, pending.repoPath);
   }
 
-  async function skipClarification(pending: ClarificationPending) {
-    console.debug(DEBUG_PREFIX, "clarify:skip", { baseSpec: pending.baseSpec, repoPath: pending.repoPath });
-    return runSpecAndActivate(pending.baseSpec, pending.repoPath);
+  async function discardPRD(pending: PRDPending) {
+    console.debug(DEBUG_PREFIX, "prd:discard", { originalSpec: pending.originalSpec });
+    return runSpecAndActivate(pending.originalSpec, pending.repoPath);
   }
 
   return {
     send,
-    confirmClarification,
-    skipClarification,
+    confirmPRD,
+    discardPRD,
   };
 }

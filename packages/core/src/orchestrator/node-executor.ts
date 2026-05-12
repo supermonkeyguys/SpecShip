@@ -7,6 +7,8 @@ import type { Evidence, ExecutionGraph, GraphNode } from "../graph";
 import { runAgent as defaultRunAgent } from "../ai/llm";
 import { makeLLMConfig } from "../ai/llm-config";
 import { validateOutputPath } from "./output-policy";
+import { routeModel } from "./model-router";
+import { getNodeRolePolicy } from "./node-role-policy";
 import type { AgentRunner } from "./runtime-types";
 import type { TaskStrategy } from "../strategies/base";
 import { typescriptLibStrategy } from "../strategies";
@@ -99,11 +101,16 @@ export function enrichAcceptanceCriteriaFromDeps(
   return { ...node, acceptanceCriteria: enriched };
 }
 
+function isTruncationError(lastError: string): boolean {
+  return /truncat|incomplete|ends inside|syntactically incomplete|cut off|ends abruptly/i.test(lastError);
+}
+
 function buildImplementationPrompt(
   node: GraphNode,
   dependencyContext: string,
   previousFileContent: string | null
 ): string {
+  const truncation = node.lastError && isTruncationError(node.lastError);
   return `
 Role: ${node.nodeRole}
 Task: ${node.task}
@@ -116,6 +123,14 @@ ${node.lastError ? `
 \`\`\`
 ${node.lastError.slice(0, 1500)}
 \`\`\`
+${truncation ? `
+🚨 FILE TRUNCATION DETECTED: Your previous output was cut off mid-file. The file is too large to write in one pass.
+You MUST split the implementation across multiple files:
+1. Extract large sections (helpers, renderers, data configs) into separate files using write_file
+2. Keep the main output file (${node.outputs.files?.[0]}) as a thin orchestrator that imports from those helper files
+3. Each helper file should be under 80 lines
+Do NOT attempt to write the entire implementation in a single file again — it will be truncated again.
+` : ""}
 ${previousFileContent
   ? `The file you wrote last time (which has the above issues):\n\`\`\`\n${previousFileContent}\n\`\`\`\n\nAnalyze the issues carefully, then rewrite the complete corrected file.`
   : "Rewrite the file fixing all issues above."}
@@ -124,7 +139,8 @@ ${previousFileContent
 }
 
 function normalizeToolRelativePath(filePath: string, workDir: string): string {
-  return path.resolve(workDir, filePath);
+  const normalized = filePath.replace(/[\\/]+/g, path.sep);
+  return path.resolve(workDir, normalized);
 }
 
 function ensureWritesStayWithinExpectedOutputs(
@@ -135,7 +151,7 @@ function ensureWritesStayWithinExpectedOutputs(
   const expectedPaths = node.outputs.files ?? [];
   const expectedOutputFiles = new Set(expectedPaths.map((p) => normalizeToolRelativePath(p, config.workDir)));
 
-  // Implementer 需要为每个实现文件编写对应的 .test.ts/.spec.ts 文件
+  // Implementer MAY write adjacent test files, but behavioral testing is typically deferred to a later tester/test pass
   const allowedTestFiles = new Set(
     expectedPaths.flatMap((p) => {
       const dotIdx = p.lastIndexOf(".");
@@ -188,6 +204,9 @@ function buildSuccessEvidence(
   node: GraphNode,
   prompt: string,
   modelUsed: string,
+  modelRouteReason: string,
+  modelRouteComplexity: Evidence["modelRouteComplexity"],
+  modelRouteRisk: Evidence["modelRouteRisk"],
   toolExecutions: Array<{ tool: string; input: Record<string, unknown>; output: string; success: boolean }>,
   filesWritten: Evidence["filesWritten"],
   startedAt: string
@@ -196,6 +215,9 @@ function buildSuccessEvidence(
     reasoning: `Implementing: ${node.inputs.description}`,
     promptUsed: prompt.slice(0, 300),
     modelUsed,
+    modelRouteReason,
+    modelRouteComplexity,
+    modelRouteRisk,
     toolCalls: toolExecutions.map((t) => ({
       tool: t.tool,
       input: t.input,
@@ -211,11 +233,20 @@ function buildSuccessEvidence(
   };
 }
 
-function buildFailedEvidence(modelUsed: string, startedAt: string): Evidence {
+function buildFailedEvidence(
+  modelUsed: string,
+  modelRouteReason: string,
+  modelRouteComplexity: Evidence["modelRouteComplexity"],
+  modelRouteRisk: Evidence["modelRouteRisk"],
+  startedAt: string
+): Evidence {
   return {
     reasoning: "",
     promptUsed: "",
     modelUsed,
+    modelRouteReason,
+    modelRouteComplexity,
+    modelRouteRisk,
     toolCalls: [],
     filesWritten: [],
     verifications: [],
@@ -244,13 +275,16 @@ export async function executeNode(
     // 用依赖文件的真实导出符号增强 acceptanceCriteria，避免 reviewer 因符号名对不上而误判
     const enrichedNode = enrichAcceptanceCriteriaFromDeps(node, graph, config.workDir);
     const prompt = buildImplementationPrompt(enrichedNode, dependencyContext, previousFileContent);
-    logger?.log({ event: "node_prompt", nodeId: node.id, prompt });
-    const llmConfig = makeLLMConfig(config.models.implementation, config);
-
     const activeStrategy = strategy ?? typescriptLibStrategy;
+    const route = routeModel(config, { phase: "execute", nodeRole: node.nodeRole, retryCount: node.retryCount, dependsOnCount: node.dependsOn.length, dependencyContextChars: dependencyContext.length, lastErrorKind: node.lastErrorKind, executionMode: config.executionMode ?? "sandbox-output" });
+    const rolePolicy = getNodeRolePolicy(node.nodeRole, activeStrategy);
+    logger?.log({ event: "node_prompt", nodeId: node.id, prompt, selectedModel: route.model, routeReason: route.reason, complexity: route.complexity, risk: route.risk });
+    const llmConfig = makeLLMConfig(route.model, config);
+
     const accumulatedToolCalls: Evidence["toolCalls"] = [];
+
     const { toolExecutions } = await agentRunner(
-      activeStrategy.implementerPrompt,
+      rolePolicy.systemPrompt,
       prompt,
       config.workDir,
       llmConfig,
@@ -268,21 +302,22 @@ export async function executeNode(
         });
         onToolCallComplete?.(node.id, [...accumulatedToolCalls]);
       },
-      activeStrategy.tools()
+      rolePolicy.tools,
+      { allowedCommands: activeStrategy.verify().allowedCommands }
     );
 
     ensureWritesStayWithinExpectedOutputs(node, toolExecutions, config);
 
     const filesWritten = collectWrittenFiles(toolExecutions, config.workDir);
     const outputFiles = filesWritten.map((f) => path.resolve(config.workDir, f.path));
-    const evidence = buildSuccessEvidence(node, prompt, config.models.implementation, toolExecutions, filesWritten, startedAt);
+    const evidence = buildSuccessEvidence(node, prompt, route.model, route.reason, route.complexity, route.risk, toolExecutions, filesWritten, startedAt);
 
     return { evidence, outputFiles };
   } catch (e) {
     const msg = (e as Error).message ?? String(e);
     console.error(`  💥 [${node.id}] executeNode fatal: ${msg}`);
     return {
-      evidence: buildFailedEvidence(config.models.implementation, startedAt),
+      evidence: (() => { const failedRoute = routeModel(config, { phase: "execute", nodeRole: node.nodeRole, retryCount: node.retryCount, dependsOnCount: node.dependsOn.length, lastErrorKind: node.lastErrorKind, executionMode: config.executionMode ?? "sandbox-output" }); return buildFailedEvidence(failedRoute.model, failedRoute.reason, failedRoute.complexity, failedRoute.risk, startedAt); })(),
       outputFiles: [],
       fatalError: msg,
     };

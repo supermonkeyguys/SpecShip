@@ -6,6 +6,7 @@
  */
 
 import { useEffect } from "react";
+import { sessionRefFromKey } from "../features/session/types";
 import { useExecutionStore } from "../domains/execution/store";
 import type { SSEEvent } from "../types";
 
@@ -23,8 +24,7 @@ export function useSSE(): void {
     es.onmessage = (e) => {
       try {
         const event = JSON.parse(e.data) as SSEEvent;
-        const targetSessionId = event.sessionId;
-        useExecutionStore.getState().applyRealtimeEvent(event, targetSessionId);
+        useExecutionStore.getState().applyRealtimeEvent(event);
       } catch {
         // 忽略格式错误的消息
       }
@@ -33,9 +33,9 @@ export function useSSE(): void {
     es.onerror = () => {
       const current = useExecutionStore.getState();
       current.setStreamStatus("error");
-      const targetSessionId = current.liveSessionId ?? current.activeSessionId;
-      if (targetSessionId) {
-        current.appendSessionLog(targetSessionId, "[SSE] Connection error, retrying...");
+      const liveKey = current.liveSessionKey;
+      if (liveKey) {
+        current.appendSessionLog(sessionRefFromKey(liveKey), "[SSE] Connection error, retrying...");
       }
     };
 

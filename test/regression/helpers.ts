@@ -67,7 +67,7 @@ export function makeMockAgentRunner(opts: {
     }
 
     // Reviewer
-    if (systemPrompt.includes("strict code reviewer")) {
+    if (systemPrompt.includes("code reviewer") || systemPrompt.includes("strict code reviewer")) {
       return {
         finalText: JSON.stringify({ passed: true, blocking: [], warnings: [], summary: "ok" }),
         toolExecutions: [],
@@ -169,6 +169,13 @@ export function makeTestConfig(suffix = ""): { config: ShipyardConfig; cleanup: 
     baseURL: "http://mock",
     apiKey: "mock-key",
     models: {
+      clarifier: "mock-model",
+      planner: "mock-model",
+      implementer: "mock-model",
+      reviewer: "mock-model",
+      tester: "mock-model",
+      integrator: "mock-model",
+      utility: "mock-model",
       planning: "mock-model",
       implementation: "mock-model",
       review: "mock-model",

@@ -1,0 +1,784 @@
+{
+  "id": "graph-1778576099588",
+  "title": "SaaS 企业风格落地页",
+  "originalSpec": "## 背景与目标\n构建一个面向 SaaS 产品的企业风格落地页，用于清晰展示产品价值、单一套餐价格和常见问题，帮助访客快速理解产品并完成转化。成功标准是页面在桌面端和移动端均能正常展示，信息层级清晰，价格与 FAQ 易于查找，且整体视觉呈现专业、可信。\n\n## 功能列表\n- 首屏 Hero 区：展示产品名称、简短价值主张、核心 CTA 按钮；支持桌面端与移动端自适应排版。\n- 单一价格卡片：仅展示 1 个套餐，包含套餐名称、价格、计费周期、主要包含内容、CTA 按钮；价格信息需突出显示。\n- 价格说明：在价格卡片下方显示简短补充说明（如是否含税、是否支持取消、是否有试用），若无明确内容则显示默认占位文案且不误导用户。\n- FAQ 区域：以手风琴或折叠列表形式展示常见问题，每个问题可展开/收起；默认至少包含 3-5 条问题。\n- CTA 跳转：页面中的主要按钮可跳转到指定注册/联系入口（若未提供实际链接，则使用占位链接并可配置）。\n- 响应式布局：在移动端将价格卡片、FAQ 与 Hero 重新排版，保证可读性与可点击性。\n- 企业风格视觉：使用克制、专业的配色、字号与间距；避免过于活泼的装饰元素。\n- 基础可访问性：按钮、FAQ 触发器需支持键盘操作与可读的语义结构，FAQ 展开状态需对屏幕阅读器可识别。\n\n## 技术约束\n- 使用常见前端栈实现（如 React/Next.js 任选其一），页面为静态优先渲染。\n- 样式建议使用 CSS Modules、Tailwind 或等效方案，需保证响应式实现简单直接。\n- FAQ 折叠交互不依赖重型第三方库，优先使用原生状态管理实现。\n- 不强制接入支付、登录、表单提交或后端接口。\n- 不强制实现多套餐、折扣、优惠码、计费切换（月付/年付）等复杂定价功能。\n- 不包含博客、客户案例、导航栏多页面体系、产品演示视频等额外模块。\n\n## 验收标准\n1. 给定页面初次加载完成时，Hero、单一价格卡片、FAQ 三个核心区域均可见或可滚动到达，且无布局错位。\n2. 给定桌面端浏览器宽度，页面内容居中、层级清晰，价格卡片与 FAQ 文案可正常阅读。\n3. 给定移动端浏览器宽度，页面自动适配为单列布局，文字不溢出，按钮可点击。\n4. 给定用户点击 FAQ 问题标题时，对应答案展开；再次点击时答案收起。\n5. 给定用户通过键盘 Tab 导航时，Hero CTA、价格卡 CTA、FAQ 触发器均可聚焦并操作。\n6. 给定单一套餐展示区域，页面仅显示一个价格方案，不出现多套餐或对比表。\n7. 给定未提供实际跳转链接时，CTA 使用可配置占位链接且不会导致页面报错。\n8. 给定页面渲染完成时，整体视觉风格符合企业/专业定位，不出现明显卡通、游戏化或娱乐化元素。\n\n## 假设\n- 落地页仅做单页展示，不包含注册/登录/结算流程。\n- 产品名称、具体文案、FAQ 问题与答案可由后续内容补充；当前实现可使用占位内容。\n- 单一套餐的价格、货币单位和计费周期会在实现时由配置传入。\n- CTA 的最终去向链接会在后续提供，当前先支持可配置占位。\n- 暂不实现除 pricing 和 FAQ 以外的额外内容区块。",
+  "nodes": [
+    [
+      "setup-package-json",
+      {
+        "id": "setup-package-json",
+        "type": "implement",
+        "title": "配置 Vite + React + TypeScript 项目依赖",
+        "specFragment": "使用常见前端栈实现（如 React/Next.js 任选其一），页面为静态优先渲染。",
+        "nodeRole": "implementer",
+        "task": "编写 package.json，包含 name、private、version、scripts（dev/build/preview）以及 dependencies: react、react-dom；devDependencies 至少包含 vite、@vitejs/plugin-react、typescript、@types/react、@types/react-dom。",
+        "acceptanceCriteria": "package.json 可用于安装依赖；包含 react、react-dom 依赖；包含 vite 与 @vitejs/plugin-react 开发依赖；脚本可支持本地开发与构建。",
+        "acceptance": {
+          "summary": "package.json 可用于安装依赖；包含 react、react-dom 依赖；包含 vite 与 @vitejs/plugin-react 开发依赖；脚本可支持本地开发与构建。"
+        },
+        "skills": [
+          "使用 Vite 项目约定",
+          "依赖声明准确且精简",
+          "仅使用常见前端基础依赖"
+        ],
+        "dependsOn": [],
+        "inputs": {
+          "description": "创建项目的 package.json，包含 Vite、React、TypeScript 所需依赖与基础脚本，满足静态前端落地页构建需求。"
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/package.json",
+          "files": [
+            ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/package.json"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-12T08:54:59.588Z",
+        "updatedAt": "2026-05-12T08:55:17.764Z",
+        "evidence": {
+          "reasoning": "Implementing: 创建项目的 package.json，包含 Vite、React、TypeScript 所需依赖与基础脚本，满足静态前端落地页构建需求。",
+          "promptUsed": "Role: implementer\nTask: 编写 package.json，包含 name、private、version、scripts（dev/build/preview）以及 dependencies: react、react-dom；devDependencies 至少包含 vite、@vitejs/plugin-react、typescript、@types/react、@types/react-dom。\nOutput file: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/pa",
+          "modelUsed": "gpt-5.4",
+          "modelRouteReason": "phase=execute role=implementer complexity=small risk=low -> implementer model",
+          "modelRouteComplexity": "small",
+          "modelRouteRisk": "low",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "{\n  \"name\": \"proj-1778575858526\",\n  \"private\": true,\n  \"version\": \"0.0.0\",\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"vite\",\n    \"build\": \"tsc -b && vite build\",\n    \"preview\": \"vite preview\"\n  },\n  \"dependencies\": {\n    \"react\": \"^19.0.0\",\n    \"react-dom\": \"^19.0.0\"\n  },\n  \"devDependencies\": {\n    \"@types/react\": \"^19.0.0\",\n    \"@types/react-dom\": \"^19.0.0\",\n    \"@vitejs/plugin-react\": \"^4.3.4\",\n    \"typescript\": \"^5.6.3\",\n    \"vite\": \"^5.4.10\"\n  }\n}\n",
+                "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/package.json"
+              },
+              "output": "Written: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/package.json (23 lines)",
+              "success": true,
+              "timestamp": "2026-05-12T08:55:13.903Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/package.json",
+              "operation": "create",
+              "sizeBytes": 460,
+              "checksum": "15107e3b4171e1c1",
+              "timestamp": "2026-05-12T08:55:13.903Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 349,
+              "timestamp": "2026-05-12T08:55:13.904Z"
+            }
+          ],
+          "startedAt": "2026-05-12T08:54:59.604Z",
+          "completedAt": "2026-05-12T08:55:13.903Z",
+          "durationMs": 14299
+        }
+      }
+    ],
+    [
+      "setup-tsconfig",
+      {
+        "id": "setup-tsconfig",
+        "type": "implement",
+        "title": "创建 TypeScript 编译配置",
+        "specFragment": "tsconfig.json must target ES2022 with jsx: \"react-jsx\"",
+        "nodeRole": "implementer",
+        "task": "编写 tsconfig.json，target 设置为 ES2022，jsx 设置为 react-jsx，并包含适合 Vite 的 module、moduleResolution、strict、lib、types 等基础配置。",
+        "acceptanceCriteria": "tsconfig.json 中 target 为 ES2022；jsx 为 react-jsx；配置可支持 src 下 .ts/.tsx 文件编译。",
+        "acceptance": {
+          "summary": "tsconfig.json 中 target 为 ES2022；jsx 为 react-jsx；配置可支持 src 下 .ts/.tsx 文件编译。"
+        },
+        "skills": [
+          "遵循 React + TypeScript 最佳实践",
+          "使用现代 ES2022 目标",
+          "配置保持简洁可用"
+        ],
+        "dependsOn": [
+          "setup-package-json"
+        ],
+        "inputs": {
+          "description": "提供适用于 Vite + React 的 TypeScript 配置，确保 JSX、模块解析和现代浏览器目标正常工作。"
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/tsconfig.json",
+          "files": [
+            ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/tsconfig.json"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-12T08:54:59.588Z",
+        "updatedAt": "2026-05-12T08:55:36.105Z",
+        "evidence": {
+          "reasoning": "Implementing: 提供适用于 Vite + React 的 TypeScript 配置，确保 JSX、模块解析和现代浏览器目标正常工作。",
+          "promptUsed": "Role: implementer\nTask: 编写 tsconfig.json，target 设置为 ES2022，jsx 设置为 react-jsx，并包含适合 Vite 的 module、moduleResolution、strict、lib、types 等基础配置。\nOutput file: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/tsconfig.json\nFollow these conventions: 遵循 React + TypeScript 最佳实践, 使用现代 ES2",
+          "modelUsed": "gpt-5.4",
+          "modelRouteReason": "phase=execute role=implementer complexity=medium risk=medium -> implementer model",
+          "modelRouteComplexity": "medium",
+          "modelRouteRisk": "medium",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "{\n  \"compilerOptions\": {\n    \"target\": \"ES2022\",\n    \"useDefineForClassFields\": true,\n    \"lib\": [\"ES2022\", \"DOM\", \"DOM.Iterable\"],\n    \"module\": \"ESNext\",\n    \"moduleResolution\": \"Bundler\",\n    \"allowImportingTsExtensions\": false,\n    \"resolveJsonModule\": true,\n    \"isolatedModules\": true,\n    \"noEmit\": true,\n    \"jsx\": \"react-jsx\",\n    \"strict\": true,\n    \"noUnusedLocals\": true,\n    \"noUnusedParameters\": true,\n    \"noFallthroughCasesInSwitch\": true,\n    \"types\": [\"vite/client\"]\n  },\n  \"include\": [\"src\"],\n  \"references\": []\n}\n",
+                "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/tsconfig.json"
+              },
+              "output": "Written: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/tsconfig.json (22 lines)",
+              "success": true,
+              "timestamp": "2026-05-12T08:55:30.847Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/tsconfig.json",
+              "operation": "create",
+              "sizeBytes": 533,
+              "checksum": "47a65cd959fcb526",
+              "timestamp": "2026-05-12T08:55:30.847Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 355,
+              "timestamp": "2026-05-12T08:55:30.847Z"
+            }
+          ],
+          "startedAt": "2026-05-12T08:55:17.781Z",
+          "completedAt": "2026-05-12T08:55:30.847Z",
+          "durationMs": 13066
+        }
+      }
+    ],
+    [
+      "setup-vite-config",
+      {
+        "id": "setup-vite-config",
+        "type": "implement",
+        "title": "配置 Vite React 插件",
+        "specFragment": "vite.config.ts must use @vitejs/plugin-react",
+        "nodeRole": "implementer",
+        "task": "编写 vite.config.ts，使用 defineConfig 和 react() 插件导出配置，不添加与需求无关的复杂构建选项。",
+        "acceptanceCriteria": "vite.config.ts 成功引入并使用 @vitejs/plugin-react；配置结构清晰简洁。",
+        "acceptance": {
+          "summary": "vite.config.ts 成功引入并使用 @vitejs/plugin-react；配置结构清晰简洁。"
+        },
+        "skills": [
+          "遵循 Vite 官方配置方式",
+          "避免无关复杂配置"
+        ],
+        "dependsOn": [
+          "setup-package-json"
+        ],
+        "inputs": {
+          "description": "创建 Vite 配置文件并启用 React 插件，保证开发与构建流程可运行。"
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/vite.config.ts",
+          "files": [
+            ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/vite.config.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-05-12T08:54:59.588Z",
+        "updatedAt": "2026-05-12T08:56:37.236Z",
+        "evidence": {
+          "reasoning": "Implementing: 创建 Vite 配置文件并启用 React 插件，保证开发与构建流程可运行。",
+          "promptUsed": "Role: implementer\nTask: 编写 vite.config.ts，使用 defineConfig 和 react() 插件导出配置，不添加与需求无关的复杂构建选项。\nOutput file: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/vite.config.ts\nFollow these conventions: 遵循 Vite 官方配置方式, 避免无关复杂配置\n\nDependency reference snippets (use exported symbols fro",
+          "modelUsed": "gpt-5.4",
+          "modelRouteReason": "phase=execute role=implementer complexity=medium risk=high -> integrator model; retry>=1 -> escalated to integrator model",
+          "modelRouteComplexity": "medium",
+          "modelRouteRisk": "high",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\nexport default defineConfig({\n  plugins: [react()],\n})\n",
+                "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/vite.config.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/vite.config.ts (7 lines)",
+              "success": true,
+              "timestamp": "2026-05-12T08:56:34.444Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/vite.config.ts",
+              "operation": "create",
+              "sizeBytes": 133,
+              "checksum": "6dc0ce25c4170ac9",
+              "timestamp": "2026-05-12T08:56:34.444Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": false,
+              "output": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/vite.config.ts(1,30): error TS2307: Cannot find module 'vite' or its corresponding type declarations.\n.shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/vite.config.ts(2,19): error TS2307: Cannot find module '@vitejs/plugin-react' or its corresponding type declarations.",
+              "durationMs": 324,
+              "timestamp": "2026-05-12T08:56:36.912Z"
+            }
+          ],
+          "startedAt": "2026-05-12T08:56:27.442Z",
+          "completedAt": "2026-05-12T08:56:34.444Z",
+          "durationMs": 7002
+        },
+        "lastError": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/vite.config.ts(1,30): error TS2307: Cannot find module 'vite' or its corresponding type declarations.\n.shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/vite.config.ts(2,19): error TS2307: Cannot find module '@vitejs/plugin-react' or its corresponding type declarations.",
+        "lastErrorKind": "verify",
+        "error": {
+          "message": "Compile failed: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/vite.config.ts(1,30): error TS2307: Cannot find module 'vite' or its corresponding type declarations.",
+          "category": "compile",
+          "recoverable": false
+        }
+      }
+    ],
+    [
+      "create-index-html",
+      {
+        "id": "create-index-html",
+        "type": "implement",
+        "title": "创建 Vite 入口 HTML",
+        "specFragment": "index.html is the Vite entry with <div id=\"root\"> and <script type=\"module\" src=\"/src/main.tsx\">",
+        "nodeRole": "implementer",
+        "task": "创建 index.html，包含 lang、charset、viewport、title、body 内的 <div id=\"root\"></div>，并以模块脚本加载 /src/main.tsx。",
+        "acceptanceCriteria": "HTML 中存在 #root；script 指向 /src/main.tsx；包含 viewport 元标签以支持移动端适配。",
+        "acceptance": {
+          "summary": "HTML 中存在 #root；script 指向 /src/main.tsx；包含 viewport 元标签以支持移动端适配。"
+        },
+        "skills": [
+          "遵循 Vite 入口规范",
+          "基础 SEO 与移动端元信息完整"
+        ],
+        "dependsOn": [],
+        "inputs": {
+          "description": "编写页面入口 HTML，提供根节点和基础元信息，支持响应式展示。"
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/index.html",
+          "files": [
+            ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/index.html"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-05-12T08:54:59.588Z",
+        "updatedAt": "2026-05-12T08:56:54.735Z",
+        "evidence": {
+          "reasoning": "Implementing: 编写页面入口 HTML，提供根节点和基础元信息，支持响应式展示。",
+          "promptUsed": "Role: implementer\nTask: 创建 index.html，包含 lang、charset、viewport、title、body 内的 <div id=\"root\"></div>，并以模块脚本加载 /src/main.tsx。\nOutput file: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/index.html\nFollow these conventions: 遵循 Vite 入口规范, 基础 SEO 与移动端元信息完整\n\n\n\n⚠️  PREVIOUS ATTEMPT",
+          "modelUsed": "gpt-5.4",
+          "modelRouteReason": "phase=execute role=implementer complexity=small risk=high -> integrator model; retry>=1 -> escalated to integrator model",
+          "modelRouteComplexity": "small",
+          "modelRouteRisk": "high",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "<!doctype html>\n<html lang=\"zh-CN\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, viewport-fit=cover\" />\n    <meta name=\"description\" content=\"基于 Vite 入口规范的 React TypeScript 应用页面\" />\n    <meta name=\"theme-color\" content=\"#ffffff\" />\n    <title>Vite React TypeScript App</title>\n  </head>\n  <body>\n    <div id=\"root\"></div>\n    <script type=\"module\" src=\"/src/main.tsx\"></script>\n  </body>\n</html>\n",
+                "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/index.html"
+              },
+              "output": "Written: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/index.html (15 lines)",
+              "success": true,
+              "timestamp": "2026-05-12T08:56:54.384Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/index.html",
+              "operation": "create",
+              "sizeBytes": 485,
+              "checksum": "7bf9f12dafa5bc35",
+              "timestamp": "2026-05-12T08:56:54.384Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": false,
+              "output": "error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/index.html' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.\n  The file is in the program because:\n    Root file specified for compilation",
+              "durationMs": 351,
+              "timestamp": "2026-05-12T08:56:54.384Z"
+            }
+          ],
+          "startedAt": "2026-05-12T08:56:38.564Z",
+          "completedAt": "2026-05-12T08:56:54.384Z",
+          "durationMs": 15820
+        },
+        "lastError": "error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/index.html' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.\n  The file is in the program because:\n    Root file specified for compilation",
+        "lastErrorKind": "verify",
+        "error": {
+          "message": "Compile failed: error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/index.html' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.",
+          "category": "compile",
+          "recoverable": false
+        }
+      }
+    ],
+    [
+      "create-main-entry",
+      {
+        "id": "create-main-entry",
+        "type": "implement",
+        "title": "实现 React 应用挂载入口",
+        "specFragment": "Entry point: src/main.tsx renders <App/> to #root",
+        "nodeRole": "implementer",
+        "task": "编写 src/main.tsx，使用 ReactDOM.createRoot 将 <App /> 渲染到 #root，并引入全局样式文件。",
+        "acceptanceCriteria": "main.tsx 正确渲染 <App />；根节点选择正确；样式入口被加载。",
+        "acceptance": {
+          "summary": "main.tsx 正确渲染 <App />；根节点选择正确；样式入口被加载。"
+        },
+        "skills": [
+          "React 18 createRoot",
+          "入口文件保持极简"
+        ],
+        "dependsOn": [
+          "create-index-html"
+        ],
+        "inputs": {
+          "description": "创建 React 应用入口文件，挂载 App 组件并引入全局样式。"
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/main.tsx",
+          "files": [
+            ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/main.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-12T08:54:59.588Z",
+        "updatedAt": "2026-05-12T08:55:18.069Z"
+      }
+    ],
+    [
+      "create-landing-config",
+      {
+        "id": "create-landing-config",
+        "type": "implement",
+        "title": "定义落地页可配置内容数据",
+        "specFragment": "产品名称、具体文案、FAQ 问题与答案可由后续内容补充；当前实现可使用占位内容。单一套餐的价格、货币单位和计费周期会在实现时由配置传入。CTA 的最终去向链接会在后续提供，当前先支持可配置占位。",
+        "nodeRole": "implementer",
+        "task": "定义 TypeScript 类型与默认内容常量，至少包含 hero、pricing、faq 三部分数据。pricing 仅包含一个套餐；CTA 链接提供占位值；价格说明若无明确内容则提供不误导的默认说明。",
+        "acceptanceCriteria": "配置文件可被 App 与子组件直接消费；仅定义一个套餐对象；FAQ 默认至少 3 到 5 条；CTA 链接有可配置占位值。",
+        "acceptance": {
+          "summary": "配置文件可被 App 与子组件直接消费；仅定义一个套餐对象；FAQ 默认至少 3 到 5 条；CTA 链接有可配置占位值。"
+        },
+        "skills": [
+          "使用类型安全的数据结构",
+          "内容与展示解耦",
+          "避免误导性默认文案"
+        ],
+        "dependsOn": [],
+        "inputs": {
+          "description": "创建集中式配置文件，存放产品名称、Hero 文案、CTA 链接、单一价格方案、补充说明与 FAQ 数据，方便后续替换。"
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/content.ts",
+          "files": [
+            ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/content.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-12T08:54:59.588Z",
+        "updatedAt": "2026-05-12T08:56:03.084Z",
+        "evidence": {
+          "reasoning": "Implementing: 创建集中式配置文件，存放产品名称、Hero 文案、CTA 链接、单一价格方案、补充说明与 FAQ 数据，方便后续替换。",
+          "promptUsed": "Role: implementer\nTask: 定义 TypeScript 类型与默认内容常量，至少包含 hero、pricing、faq 三部分数据。pricing 仅包含一个套餐；CTA 链接提供占位值；价格说明若无明确内容则提供不误导的默认说明。\nOutput file: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/content.ts\nFollow these conventions: 使用类型安全的数据结构, 内容与展示解耦, 避免误导性默认文案\n\n\nWrite the co",
+          "modelUsed": "gpt-5.4",
+          "modelRouteReason": "phase=execute role=implementer complexity=small risk=low -> implementer model",
+          "modelRouteComplexity": "small",
+          "modelRouteRisk": "low",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "export type HeroContent = {\n  readonly badge?: string;\n  readonly title: string;\n  readonly description: string;\n  readonly primaryCta: {\n    readonly label: string;\n    readonly href: string;\n  };\n  readonly secondaryCta?: {\n    readonly label: string;\n    readonly href: string;\n  };\n};\n\nexport type PricingFeature = {\n  readonly id: string;\n  readonly text: string;\n};\n\nexport type PricingPlan = {\n  readonly id: string;\n  readonly name: string;\n  readonly priceLabel: string;\n  readonly priceNote: string;\n  readonly description: string;\n  readonly features: readonly PricingFeature[];\n  readonly cta: {\n    readonly label: string;\n    readonly href: string;\n  };\n  readonly highlighted?: boolean;\n};\n\nexport type PricingContent = {\n  readonly title: string;\n  readonly description: string;\n  readonly plans: readonly [PricingPlan];\n};\n\nexport type FaqItem = {\n  readonly id: string;\n  readonly question: string;\n  readonly answer: string;\n};\n\nexport type FaqContent = {\n  readonly title: string;\n  readonly description: string;\n  readonly items: readonly FaqItem[];\n};\n\nexport type LandingPageContent = {\n  readonly hero: HeroContent;\n  readonly pricing: PricingContent;\n  readonly faq: FaqContent;\n};\n\nexport const heroContent: HeroContent = {\n  badge: '即将上线',\n  title: '用清晰内容快速搭建你的产品落地页',\n  description:\n    '这是一个可安全复用的默认内容示例，帮助你在设计和开发阶段完成页面结构验证，后续可按实际业务替换。',\n  primaryCta: {\n    label: '立即开始',\n    href: '#placeholder-primary-cta',\n  },\n  secondaryCta: {\n    label: '了解详情',\n    href: '#placeholder-secondary-cta',\n  },\n};\n\nexport const pricingContent: PricingContent = {\n  title: '简单透明的方案',\n  description: '当前提供一个默认套餐示例，便于先完成界面展示与信息编排。',\n  plans: [\n    {\n      id: 'starter',\n      name: 'Starter',\n      priceLabel: '价格待确认',\n      priceNote: '暂无公开定价信息，最终价格与计费方式请以后续正式发布内容为准。',\n      description: '适合作为默认展示的单一套餐内容，占位但不对价格或权益做误导性承诺。',\n      features: [\n        { id: 'feature-1', text: '包含基础功能说明占位' },\n        { id: 'feature-2', text: '支持后续替换为真实服务内容' },\n        { id: 'feature-3', text: '适用于演示、评审与界面联调' },\n      ],\n      cta: {\n        label: '咨询方案',\n        href: '#placeholder-pricing-cta',\n      },\n      highlighted: true,\n    },\n  ],\n};\n\nexport const faqContent: FaqContent = {\n  title: '常见问题',\n  description: '以下问答为中性默认文案，可在确认业务信息后替换为正式内容。',\n  items: [\n    {\n      id: 'faq-1',\n      question: '现在可以直接购买吗？',\n      answer:\n        '当前页面中的价格与链接为占位内容，用于展示页面结构；如需上线，请替换为真实购买路径与商务信息。',\n    },\n    {\n      id: 'faq-2',\n      question: '默认套餐包含哪些服务？',\n      answer:\n        '此处展示的是基础功能占位描述，便于开发阶段完成版式和组件联调，不代表最终交付范围。',\n    },\n    {\n      id: 'faq-3',\n      question: '这些文案可以调整吗？',\n      answer:\n        '可以。内容数据与展示逻辑已解耦，你可以在不修改组件结构的前提下替换标题、说明、链接和问答。',\n    },\n  ],\n};\n\nexport const landingPageContent: LandingPageContent = {\n  hero: heroContent,\n  pricing: pricingContent,\n  faq: faqContent,\n};\n",
+                "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/content.ts"
+              },
+              "output": "Written: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/content.ts (127 lines)",
+              "success": true,
+              "timestamp": "2026-05-12T08:55:57.726Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/content.ts",
+              "operation": "create",
+              "sizeBytes": 3633,
+              "checksum": "ebd19fca143eaf60",
+              "timestamp": "2026-05-12T08:55:57.726Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 339,
+              "timestamp": "2026-05-12T08:55:57.726Z"
+            }
+          ],
+          "startedAt": "2026-05-12T08:54:59.607Z",
+          "completedAt": "2026-05-12T08:55:57.726Z",
+          "durationMs": 58119
+        }
+      }
+    ],
+    [
+      "build-faq-component",
+      {
+        "id": "build-faq-component",
+        "type": "implement",
+        "title": "实现可访问的 FAQ 手风琴组件",
+        "specFragment": "FAQ 区域：以手风琴或折叠列表形式展示常见问题，每个问题可展开/收起；默认至少包含 3-5 条问题。基础可访问性：按钮、FAQ 触发器需支持键盘操作与可读的语义结构，FAQ 展开状态需对屏幕阅读器可识别。",
+        "nodeRole": "implementer",
+        "task": "创建 FAQ 组件，接收问题列表作为 props。每项使用 button 作为触发器，支持点击与键盘操作；通过 aria-expanded、aria-controls 和关联内容区域的 id 提升可访问性；允许单项展开并支持再次点击收起。",
+        "acceptanceCriteria": "FAQ 组件无需第三方库即可展开/收起；触发器可通过 Tab 聚焦；aria-expanded 会随状态变化；默认能渲染至少 3 条 FAQ 数据。",
+        "acceptance": {
+          "summary": "FAQ 组件无需第三方库即可展开/收起；触发器可通过 Tab 聚焦；aria-expanded 会随状态变化；默认能渲染至少 3 条 FAQ 数据。"
+        },
+        "skills": [
+          "React useState 状态管理",
+          "WAI-ARIA 基础实践",
+          "无需重型第三方库"
+        ],
+        "dependsOn": [
+          "create-landing-config"
+        ],
+        "inputs": {
+          "description": "开发 FAQ 折叠列表组件，使用 React 原生状态管理控制展开/收起，并提供语义化结构与 aria 属性。"
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/FAQ.tsx",
+          "files": [
+            ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/FAQ.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-12T08:54:59.588Z",
+        "updatedAt": "2026-05-12T08:56:36.884Z",
+        "evidence": {
+          "reasoning": "Implementing: 开发 FAQ 折叠列表组件，使用 React 原生状态管理控制展开/收起，并提供语义化结构与 aria 属性。",
+          "promptUsed": "Role: implementer\nTask: 创建 FAQ 组件，接收问题列表作为 props。每项使用 button 作为触发器，支持点击与键盘操作；通过 aria-expanded、aria-controls 和关联内容区域的 id 提升可访问性；允许单项展开并支持再次点击收起。\nOutput file: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/FAQ.tsx\nFollow these conventions: React useState 状态管理, ",
+          "modelUsed": "gpt-5.4",
+          "modelRouteReason": "phase=execute role=implementer complexity=medium risk=medium -> implementer model",
+          "modelRouteComplexity": "medium",
+          "modelRouteRisk": "medium",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import React, { useState } from 'react';\nimport type { FaqItem } from '../content';\n\ntype FAQProps = {\n  readonly title?: string;\n  readonly description?: string;\n  readonly items: readonly FaqItem[];\n};\n\nexport function FAQ({ title, description, items }: FAQProps): React.JSX.Element {\n  const [openItemId, setOpenItemId] = useState<string | null>(items[0]?.id ?? null);\n\n  const handleToggle = (itemId: string): void => {\n    setOpenItemId((current) => (current === itemId ? null : itemId));\n  };\n\n  return (\n    <section aria-labelledby=\"faq-title\" style={styles.section}>\n      <div style={styles.header}>\n        {title ? (\n          <h2 id=\"faq-title\" style={styles.title}>\n            {title}\n          </h2>\n        ) : null}\n        {description ? <p style={styles.description}>{description}</p> : null}\n      </div>\n\n      <div style={styles.list}>\n        {items.map((item) => {\n          const isOpen = openItemId === item.id;\n          const buttonId = `${item.id}-button`;\n          const panelId = `${item.id}-panel`;\n\n          return (\n            <div key={item.id} style={styles.item}>\n              <button\n                id={buttonId}\n                type=\"button\"\n                aria-expanded={isOpen}\n                aria-controls={panelId}\n                onClick={() => handleToggle(item.id)}\n                style={styles.button}\n              >\n                <span style={styles.question}>{item.question}</span>\n                <span aria-hidden=\"true\" style={styles.icon}>\n                  {isOpen ? '−' : '+'}\n                </span>\n              </button>\n\n              <div\n                id={panelId}\n                role=\"region\"\n                aria-labelledby={buttonId}\n                hidden={!isOpen}\n                style={styles.panel}\n              >\n                <p style={styles.answer}>{item.answer}</p>\n              </div>\n            </div>\n          );\n        })}\n      </div>\n    </section>\n  );\n}\n\nconst styles: Record<string, React.CSSProperties> = {\n  section: {\n    display: 'grid',\n    gap: '1.25rem',\n    padding: '1.5rem',\n    borderRadius: '1.25rem',\n    background: '#ffffff',\n    border: '1px solid rgba(15, 23, 42, 0.08)',\n    boxShadow: '0 20px 45px rgba(15, 23, 42, 0.06)',\n  },\n  header: {\n    display: 'grid',\n    gap: '0.5rem',\n  },\n  title: {\n    margin: 0,\n    fontSize: 'clamp(1.5rem, 2vw, 2rem)',\n    lineHeight: 1.2,\n    color: '#0f172a',\n  },\n  description: {\n    margin: 0,\n    color: '#475569',\n    lineHeight: 1.7,\n  },\n  list: {\n    display: 'grid',\n    gap: '0.75rem',\n  },\n  item: {\n    borderRadius: '1rem',\n    border: '1px solid rgba(148, 163, 184, 0.25)',\n    overflow: 'hidden',\n    background: '#f8fafc',\n  },\n  button: {\n    width: '100%',\n    display: 'flex',\n    alignItems: 'center',\n    justifyContent: 'space-between',\n    gap: '1rem',\n    padding: '1rem 1.1rem',\n    border: 'none',\n    background: 'transparent',\n    color: '#0f172a',\n    cursor: 'pointer',\n    textAlign: 'left',\n    font: 'inherit',\n  },\n  question: {\n    fontWeight: 600,\n    lineHeight: 1.4,\n  },\n  icon: {\n    flex: '0 0 auto',\n    width: '1.75rem',\n    height: '1.75rem',\n    borderRadius: '999px',\n    display: 'inline-flex',\n    alignItems: 'center',\n    justifyContent: 'center',\n    background: '#e2e8f0',\n    color: '#334155',\n    fontSize: '1.1rem',\n    lineHeight: 1,\n  },\n  panel: {\n    padding: '0 1.1rem 1rem',\n  },\n  answer: {\n    margin: 0,\n    color: '#334155',\n    lineHeight: 1.75,\n  },\n};\n",
+                "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/FAQ.tsx"
+              },
+              "output": "Written: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/FAQ.tsx (142 lines)",
+              "success": true,
+              "timestamp": "2026-05-12T08:56:34.008Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/FAQ.tsx",
+              "operation": "create",
+              "sizeBytes": 3483,
+              "checksum": "4c39406904814d87",
+              "timestamp": "2026-05-12T08:56:34.008Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 371,
+              "timestamp": "2026-05-12T08:56:34.009Z"
+            }
+          ],
+          "startedAt": "2026-05-12T08:56:03.142Z",
+          "completedAt": "2026-05-12T08:56:34.008Z",
+          "durationMs": 30866
+        }
+      }
+    ],
+    [
+      "build-pricing-card-component",
+      {
+        "id": "build-pricing-card-component",
+        "type": "implement",
+        "title": "实现单一套餐价格卡片组件",
+        "specFragment": "单一价格卡片：仅展示 1 个套餐，包含套餐名称、价格、计费周期、主要包含内容、CTA 按钮；价格信息需突出显示。价格说明：在价格卡片下方显示简短补充说明（如是否含税、是否支持取消、是否有试用），若无明确内容则显示默认占位文案且不误导用户。",
+        "nodeRole": "implementer",
+        "task": "创建 PricingCard 组件，接收单一套餐数据与 CTA 文案。显示套餐名称、价格、货币单位、计费周期、功能列表与 CTA 链接；价格视觉层级最突出；卡片下方渲染简短补充说明区域。",
+        "acceptanceCriteria": "组件仅渲染一个套餐；价格显著高于其他文字层级；CTA 为可点击链接或按钮样式链接；补充说明始终存在且文案不误导用户。",
+        "acceptance": {
+          "summary": "组件仅渲染一个套餐；价格显著高于其他文字层级；CTA 为可点击链接或按钮样式链接；补充说明始终存在且文案不误导用户。"
+        },
+        "skills": [
+          "单一套餐信息设计",
+          "视觉层级清晰",
+          "组件 props 类型明确"
+        ],
+        "dependsOn": [
+          "create-landing-config"
+        ],
+        "inputs": {
+          "description": "开发单一套餐展示组件，突出价格信息、展示主要功能点与 CTA，并在卡片下方显示补充说明。"
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/PricingCard.tsx",
+          "files": [
+            ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/PricingCard.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "done",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-12T08:54:59.588Z",
+        "updatedAt": "2026-05-12T08:57:44.589Z",
+        "evidence": {
+          "reasoning": "Implementing: 开发单一套餐展示组件，突出价格信息、展示主要功能点与 CTA，并在卡片下方显示补充说明。",
+          "promptUsed": "Role: implementer\nTask: 创建 PricingCard 组件，接收单一套餐数据与 CTA 文案。显示套餐名称、价格、货币单位、计费周期、功能列表与 CTA 链接；价格视觉层级最突出；卡片下方渲染简短补充说明区域。\nOutput file: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/PricingCard.tsx\nFollow these conventions: 单一套餐信息设计, 视觉层级清晰, 组件 props 类型明确\n\nDepend",
+          "modelUsed": "gpt-5.4",
+          "modelRouteReason": "phase=execute role=implementer complexity=medium risk=medium -> implementer model",
+          "modelRouteComplexity": "medium",
+          "modelRouteRisk": "medium",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "import React, { useMemo } from 'react';\nimport type { PricingPlan } from '../content';\n\ntype PricingCardProps = {\n  readonly plan: PricingPlan;\n  readonly ctaLabel?: string;\n  readonly footnote?: string;\n};\n\ntype ParsedPrice = {\n  readonly amount: string;\n  readonly currency: string;\n  readonly period: string;\n};\n\nconst parsePriceLabel = (priceLabel: string): ParsedPrice => {\n  const trimmedLabel = priceLabel.trim();\n\n  const matchedPrice = trimmedLabel.match(\n    /^(?<currency>[¥$€£]|RMB|CNY|USD|EUR|GBP)?\\s*(?<amount>(?:\\d+[\\d,]*)(?:\\.\\d+)?|免费|待确认)(?:\\s*\\/(?<period>.+))?$/i,\n  );\n\n  if (matchedPrice?.groups) {\n    return {\n      currency: matchedPrice.groups.currency ?? '',\n      amount: matchedPrice.groups.amount ?? trimmedLabel,\n      period: matchedPrice.groups.period ?? '',\n    };\n  }\n\n  const slashSegments = trimmedLabel.split('/');\n\n  if (slashSegments.length > 1) {\n    return {\n      currency: '',\n      amount: slashSegments[0]?.trim() ?? trimmedLabel,\n      period: slashSegments.slice(1).join('/').trim(),\n    };\n  }\n\n  return {\n    currency: '',\n    amount: trimmedLabel,\n    period: '',\n  };\n};\n\nconst PricingCard = ({ plan, ctaLabel, footnote }: PricingCardProps): React.JSX.Element => {\n  const parsedPrice = useMemo(() => parsePriceLabel(plan.priceLabel), [plan.priceLabel]);\n\n  const resolvedFootnote = footnote ?? plan.priceNote;\n  const resolvedCtaLabel = ctaLabel ?? plan.cta.label;\n\n  return (\n    <article\n      aria-labelledby={`pricing-card-title-${plan.id}`}\n      style={{\n        position: 'relative',\n        display: 'flex',\n        flexDirection: 'column',\n        gap: '1.5rem',\n        padding: '2rem',\n        borderRadius: '24px',\n        border: plan.highlighted ? '1px solid rgba(79, 70, 229, 0.35)' : '1px solid rgba(148, 163, 184, 0.28)',\n        background: plan.highlighted\n          ? 'linear-gradient(180deg, rgba(238, 242, 255, 0.96) 0%, rgba(255, 255, 255, 1) 100%)'\n          : 'linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(248, 250, 252, 0.95) 100%)',\n        boxShadow: plan.highlighted\n          ? '0 24px 60px rgba(79, 70, 229, 0.14)'\n          : '0 20px 48px rgba(15, 23, 42, 0.08)',\n        overflow: 'hidden',\n        maxWidth: '420px',\n        width: '100%',\n      }}\n    >\n      {plan.highlighted ? (\n        <span\n          style={{\n            alignSelf: 'flex-start',\n            padding: '0.4rem 0.8rem',\n            borderRadius: '999px',\n            backgroundColor: 'rgba(79, 70, 229, 0.12)',\n            color: '#4338ca',\n            fontSize: '0.8rem',\n            fontWeight: 700,\n            letterSpacing: '0.04em',\n          }}\n        >\n          推荐方案\n        </span>\n      ) : null}\n\n      <header style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>\n        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>\n          <h3\n            id={`pricing-card-title-${plan.id}`}\n            style={{\n              margin: 0,\n              fontSize: '1.5rem',\n              fontWeight: 700,\n              color: '#0f172a',\n              lineHeight: 1.2,\n            }}\n          >\n            {plan.name}\n          </h3>\n          <p\n            style={{\n              margin: 0,\n              color: '#475569',\n              fontSize: '0.98rem',\n              lineHeight: 1.7,\n            }}\n          >\n            {plan.description}\n          </p>\n        </div>\n\n        <div\n          aria-label={`套餐价格：${plan.priceLabel}`}\n          style={{\n            display: 'flex',\n            alignItems: 'flex-end',\n            flexWrap: 'wrap',\n            gap: '0.45rem',\n          }}\n        >\n          {parsedPrice.currency ? (\n            <span\n              style={{\n                fontSize: '1.25rem',\n                fontWeight: 700,\n                color: '#334155',\n                lineHeight: 1.1,\n                paddingBottom: '0.45rem',\n              }}\n            >\n              {parsedPrice.currency}\n            </span>\n          ) : null}\n\n          <span\n            style={{\n              fontSize: '3rem',\n              fontWeight: 800,\n              color: '#0f172a',\n              lineHeight: 0.95,\n              letterSpacing: '-0.04em',\n            }}\n          >\n            {parsedPrice.amount}\n          </span>\n\n          {parsedPrice.period ? (\n            <span\n              style={{\n                fontSize: '1rem',\n                fontWeight: 600,\n                color: '#64748b',\n                lineHeight: 1.2,\n                paddingBottom: '0.4rem',\n              }}\n            >\n              / {parsedPrice.period}\n            </span>\n          ) : null}\n        </div>\n      </header>\n\n      <ul\n        style={{\n          listStyle: 'none',\n          margin: 0,\n          padding: 0,\n          display: 'grid',\n          gap: '0.9rem',\n        }}\n      >\n        {plan.features.map((feature) => (\n          <li\n            key={feature.id}\n            style={{\n              display: 'flex',\n              alignItems: 'flex-start',\n              gap: '0.75rem',\n              color: '#334155',\n              fontSize: '0.98rem',\n              lineHeight: 1.6,\n            }}\n          >\n            <span\n              aria-hidden=\"true\"\n              style={{\n                display: 'inline-flex',\n                alignItems: 'center',\n                justifyContent: 'center',\n                width: '1.35rem',\n                height: '1.35rem',\n                borderRadius: '999px',\n                backgroundColor: 'rgba(16, 185, 129, 0.14)',\n                color: '#059669',\n                fontSize: '0.9rem',\n                fontWeight: 800,\n                flexShrink: 0,\n                marginTop: '0.1rem',\n              }}\n            >\n              ✓\n            </span>\n            <span>{feature.text}</span>\n          </li>\n        ))}\n      </ul>\n\n      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', marginTop: '0.25rem' }}>\n        <a\n          href={plan.cta.href}\n          style={{\n            display: 'inline-flex',\n            alignItems: 'center',\n            justifyContent: 'center',\n            minHeight: '3.25rem',\n            width: '100%',\n            borderRadius: '16px',\n            background: plan.highlighted\n              ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'\n              : 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',\n            color: '#ffffff',\n            textDecoration: 'none',\n            fontSize: '1rem',\n            fontWeight: 700,\n            letterSpacing: '0.01em',\n            boxShadow: plan.highlighted\n              ? '0 14px 28px rgba(79, 70, 229, 0.24)'\n              : '0 12px 24px rgba(15, 23, 42, 0.16)',\n            transition: 'transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease',\n          }}\n        >\n          {resolvedCtaLabel}\n        </a>\n\n        <div\n          style={{\n            padding: '0.95rem 1rem',\n            borderRadius: '16px',\n            backgroundColor: 'rgba(241, 245, 249, 0.9)',\n            border: '1px solid rgba(148, 163, 184, 0.2)',\n          }}\n        >\n          <p\n            style={{\n              margin: 0,\n              fontSize: '0.88rem',\n              lineHeight: 1.65,\n              color: '#64748b',\n            }}\n          >\n            {resolvedFootnote}\n          </p>\n        </div>\n      </div>\n    </article>\n  );\n};\n\nexport default PricingCard;\n",
+                "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/PricingCard.tsx"
+              },
+              "output": "Written: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/PricingCard.tsx (267 lines)",
+              "success": true,
+              "timestamp": "2026-05-12T08:57:35.840Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/components/PricingCard.tsx",
+              "operation": "create",
+              "sizeBytes": 7439,
+              "checksum": "677f9d5bf59bcd5a",
+              "timestamp": "2026-05-12T08:57:35.840Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": true,
+              "output": "1 file(s) compiled",
+              "durationMs": 457,
+              "timestamp": "2026-05-12T08:57:35.840Z"
+            }
+          ],
+          "startedAt": "2026-05-12T08:56:03.154Z",
+          "completedAt": "2026-05-12T08:57:35.840Z",
+          "durationMs": 92686
+        }
+      }
+    ],
+    [
+      "create-global-styles",
+      {
+        "id": "create-global-styles",
+        "type": "implement",
+        "title": "编写企业风格响应式全局样式",
+        "specFragment": "响应式布局：在移动端将价格卡片、FAQ 与 Hero 重新排版，保证可读性与可点击性。企业风格视觉：使用克制、专业的配色、字号与间距；避免过于活泼的装饰元素。",
+        "nodeRole": "implementer",
+        "task": "编写纯 CSS 全局样式，包含页面容器、网格/堆叠布局、按钮、卡片、FAQ 折叠项、焦点态与移动端断点。桌面端保持内容居中、层级清晰；移动端改为单列并保证按钮与文字不溢出。",
+        "acceptanceCriteria": "桌面端布局居中且阅读顺畅；移动端切换为单列；按钮和 FAQ 触发器有清晰 focus 样式；视觉风格克制专业，无夸张装饰。",
+        "acceptance": {
+          "summary": "桌面端布局居中且阅读顺畅；移动端切换为单列；按钮和 FAQ 触发器有清晰 focus 样式；视觉风格克制专业，无夸张装饰。"
+        },
+        "skills": [
+          "响应式 CSS",
+          "企业风格视觉控制",
+          "可访问性焦点态设计"
+        ],
+        "dependsOn": [],
+        "inputs": {
+          "description": "实现页面全局样式与布局规则，覆盖基础排版、Hero、价格卡片、FAQ、按钮与响应式断点，形成专业可信的视觉风格。"
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/styles.css",
+          "files": [
+            ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/styles.css"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-05-12T08:54:59.588Z",
+        "updatedAt": "2026-05-12T09:02:27.949Z",
+        "evidence": {
+          "reasoning": "Implementing: 实现页面全局样式与布局规则，覆盖基础排版、Hero、价格卡片、FAQ、按钮与响应式断点，形成专业可信的视觉风格。",
+          "promptUsed": "Role: implementer\nTask: 编写纯 CSS 全局样式，包含页面容器、网格/堆叠布局、按钮、卡片、FAQ 折叠项、焦点态与移动端断点。桌面端保持内容居中、层级清晰；移动端改为单列并保证按钮与文字不溢出。\nOutput file: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/styles.css\nFollow these conventions: 响应式 CSS, 企业风格视觉控制, 可访问性焦点态设计\n\n\n\n⚠️  PREVIOUS ATTEMPT FAILED (r",
+          "modelUsed": "gpt-5.4",
+          "modelRouteReason": "phase=execute role=implementer complexity=small risk=high -> integrator model; retry>=1 -> escalated to integrator model",
+          "modelRouteComplexity": "small",
+          "modelRouteRisk": "high",
+          "toolCalls": [
+            {
+              "tool": "write_file",
+              "input": {
+                "content": "/* Global enterprise-style responsive CSS */\n:root {\n  --bg: #f4f7fb;\n  --surface: #ffffff;\n  --surface-2: #eef3f9;\n  --border: #d9e2ee;\n  --border-strong: #c7d4e3;\n  --text: #142033;\n  --text-muted: #5f6f84;\n  --primary: #2457f5;\n  --primary-hover: #1f49cc;\n  --primary-pressed: #193ca6;\n  --shadow-sm: 0 1px 2px rgba(20, 32, 51, 0.08);\n  --shadow-md: 0 10px 30px rgba(20, 32, 51, 0.1);\n  --shadow-lg: 0 18px 50px rgba(20, 32, 51, 0.14);\n  --radius-sm: 10px;\n  --radius-md: 14px;\n  --radius-lg: 18px;\n  --content-width: 1120px;\n  --focus-ring: 0 0 0 4px rgba(36, 87, 245, 0.18);\n}\n\n*,\n*::before,\n*::after {\n  box-sizing: border-box;\n}\n\nhtml {\n  color-scheme: light;\n  scroll-behavior: smooth;\n}\n\nbody {\n  margin: 0;\n  min-width: 320px;\n  overflow-x: hidden;\n  background:\n    radial-gradient(circle at top, rgba(36, 87, 245, 0.08), transparent 36%),\n    linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);\n  color: var(--text);\n  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif;\n  line-height: 1.5;\n  text-rendering: optimizeLegibility;\n  -webkit-font-smoothing: antialiased;\n  overflow-wrap: anywhere;\n}\n\nimg,\nsvg,\nvideo,\ncanvas {\n  display: block;\n  max-width: 100%;\n}\n\nbutton,\ninput,\ntextarea,\nselect {\n  font: inherit;\n}\n\na {\n  color: inherit;\n  text-decoration: none;\n}\n\n#root {\n  min-height: 100vh;\n}\n\n.page-container {\n  width: min(100% - 32px, var(--content-width));\n  margin: 0 auto;\n  padding: 32px 0 56px;\n}\n\n.page-shell {\n  display: flex;\n  flex-direction: column;\n  gap: 24px;\n}\n\n.page-header,\n.page-section,\n.card,\n.faq-item {\n  background: rgba(255, 255, 255, 0.92);\n  border: 1px solid var(--border);\n  border-radius: var(--radius-lg);\n  box-shadow: var(--shadow-sm);\n}\n\n.page-header,\n.page-section {\n  padding: 28px;\n}\n\n.page-header {\n  box-shadow: var(--shadow-md);\n}\n\n.page-title {\n  margin: 0 0 8px;\n  font-size: clamp(1.6rem, 2.8vw, 2.4rem);\n  line-height: 1.15;\n  letter-spacing: -0.03em;\n}\n\n.page-subtitle {\n  margin: 0;\n  max-width: 70ch;\n  color: var(--text-muted);\n}\n\n.grid-layout {\n  display: grid;\n  grid-template-columns: repeat(12, minmax(0, 1fr));\n  gap: 20px;\n  align-items: start;\n}\n\n.stack-layout {\n  display: flex;\n  flex-direction: column;\n  gap: 16px;\n}\n\n.card {\n  min-width: 0;\n  padding: 24px;\n  background: var(--surface);\n  border-color: var(--border);\n}\n\n.card-header {\n  display: flex;\n  align-items: flex-start;\n  justify-content: space-between;\n  gap: 12px;\n  margin-bottom: 16px;\n}\n\n.card-title {\n  margin: 0;\n  font-size: 1.05rem;\n  line-height: 1.3;\n}\n\n.card-description {\n  margin: 6px 0 0;\n  color: var(--text-muted);\n}\n\n.card-grid-4 { grid-column: span 4; }\n.card-grid-6 { grid-column: span 6; }\n.card-grid-8 { grid-column: span 8; }\n.card-grid-12 { grid-column: 1 / -1; }\n\n.button-group {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 12px;\n}\n\n.button {\n  appearance: none;\n  max-width: 100%;\n  min-height: 44px;\n  padding: 10px 16px;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  gap: 8px;\n  border: 1px solid transparent;\n  border-radius: 12px;\n  background: var(--surface);\n  color: var(--text);\n  box-shadow: var(--shadow-sm);\n  cursor: pointer;\n  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease;\n  white-space: normal;\n  text-align: center;\n  overflow-wrap: anywhere;\n}\n\n.button:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }\n.button:active { transform: translateY(0); }\n.button-primary { background: var(--primary); color: #fff; box-shadow: 0 10px 24px rgba(36, 87, 245, 0.22); }\n.button-primary:hover { background: var(--primary-hover); }\n.button-primary:active { background: var(--primary-pressed); }\n.button-secondary { background: var(--surface-2); border-color: var(--border); }\n.button-ghost { background: transparent; border-color: var(--border); }\n.button:disabled { opacity: 0.56; cursor: not-allowed; transform: none; box-shadow: none; }\n\n.faq-list { display: grid; gap: 12px; }\n.faq-item { overflow: hidden; }\n\n.faq-question {\n  width: 100%;\n  min-height: 56px;\n  padding: 18px 20px;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 16px;\n  border: 0;\n  background: transparent;\n  color: var(--text);\n  cursor: pointer;\n  text-align: left;\n}\n\n.faq-question-title {\n  margin: 0;\n  font-weight: 600;\n  overflow-wrap: anywhere;\n}\n\n.faq-answer {\n  padding: 0 20px 18px;\n  color: var(--text-muted);\n  overflow-wrap: anywhere;\n}\n\n.focusable:focus-visible,\n.button:focus-visible,\n.faq-question:focus-visible,\ninput:focus-visible,\ntextarea:focus-visible,\nselect:focus-visible,\na:focus-visible {\n  outline: none;\n  box-shadow: var(--focus-ring);\n  border-color: var(--primary);\n}\n\n.text-truncate {\n  min-width: 0;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n@media (max-width: 900px) {\n  .grid-layout { grid-template-columns: 1fr; }\n  .card-grid-4,\n  .card-grid-6,\n  .card-grid-8,\n  .card-grid-12 { grid-column: auto; }\n  .page-header,\n  .page-section,\n  .card { padding: 20px; }\n}\n\n@media (max-width: 640px) {\n  .page-container {\n    width: min(100% - 20px, var(--content-width));\n    padding: 20px 0 36px;\n  }\n\n  .page-shell,\n  .stack-layout,\n  .button-group,\n  .faq-list { gap: 12px; }\n\n  .button-group { flex-direction: column; align-items: stretch; }\n  .button { width: 100%; }\n  .faq-question { padding: 16px; align-items: flex-start; }\n  .faq-answer { padding: 0 16px 16px; }\n  .card-header { flex-direction: column; align-items: flex-start; }\n}\n",
+                "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/styles.css"
+              },
+              "output": "Written: .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/styles.css (274 lines)",
+              "success": true,
+              "timestamp": "2026-05-12T09:02:27.634Z"
+            }
+          ],
+          "filesWritten": [
+            {
+              "path": ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/styles.css",
+              "operation": "create",
+              "sizeBytes": 5561,
+              "checksum": "da9caed624503516",
+              "timestamp": "2026-05-12T09:02:27.634Z"
+            }
+          ],
+          "verifications": [
+            {
+              "type": "compile",
+              "passed": false,
+              "output": "error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/styles.css' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.\n  The file is in the program because:\n    Root file specified for compilation",
+              "durationMs": 314,
+              "timestamp": "2026-05-12T09:02:27.634Z"
+            }
+          ],
+          "startedAt": "2026-05-12T09:01:41.164Z",
+          "completedAt": "2026-05-12T09:02:27.634Z",
+          "durationMs": 46470
+        },
+        "lastError": "error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/styles.css' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.\n  The file is in the program because:\n    Root file specified for compilation",
+        "lastErrorKind": "verify",
+        "error": {
+          "message": "Compile failed: error TS6054: File '/Users/cookie/project/shipyard/.shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/styles.css' has an unsupported extension. The only supported extensions are '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.",
+          "category": "compile",
+          "recoverable": false
+        }
+      }
+    ],
+    [
+      "assemble-app-page",
+      {
+        "id": "assemble-app-page",
+        "type": "implement",
+        "title": "组装 Hero、价格卡与 FAQ 单页",
+        "specFragment": "首屏 Hero 区：展示产品名称、简短价值主张、核心 CTA 按钮；支持桌面端与移动端自适应排版。CTA 跳转：页面中的主要按钮可跳转到指定注册/联系入口（若未提供实际链接，则使用占位链接并可配置）。验收标准要求 Hero、单一价格卡片、FAQ 三个核心区域可见或可滚动到达。",
+        "nodeRole": "implementer",
+        "task": "编写 App.tsx，使用 section/main/heading 等语义标签构建单页布局。顶部为 Hero，展示产品名、价值主张与主 CTA；中部渲染唯一的 PricingCard；底部渲染 FAQ。所有内容从 content.ts 读取，不在组件内硬编码业务文案。确保主 CTA 与价格卡 CTA 使用可配置链接且无实际链接时不会报错。",
+        "acceptanceCriteria": "页面包含且仅包含 Hero、单一价格卡片、FAQ 三个核心区域；CTA 使用配置链接；桌面与移动端下均能正常排版；无多套餐或对比表出现。",
+        "acceptance": {
+          "summary": "页面包含且仅包含 Hero、单一价格卡片、FAQ 三个核心区域；CTA 使用配置链接；桌面与移动端下均能正常排版；无多套餐或对比表出现。"
+        },
+        "skills": [
+          "语义化页面结构",
+          "组件组合与数据传递",
+          "单页落地页信息层级设计"
+        ],
+        "dependsOn": [
+          "create-main-entry",
+          "create-landing-config",
+          "build-faq-component",
+          "build-pricing-card-component",
+          "create-global-styles"
+        ],
+        "inputs": {
+          "description": "实现 App 页面结构，组合 Hero、单一价格卡片与 FAQ 三个核心区域，绑定配置数据并确保 CTA 与语义结构完整。"
+        },
+        "outputs": {
+          "description": "Write .shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/App.tsx",
+          "files": [
+            ".shipyard/projects/proj-1778575858526/sessions/sess-1778575858528/output/src/App.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-12T08:54:59.588Z",
+        "updatedAt": "2026-05-12T08:58:45.786Z"
+      }
+    ],
+    [
+      "final-review-checklist",
+      {
+        "id": "final-review-checklist",
+        "type": "checkpoint",
+        "title": "输出验收检查清单",
+        "specFragment": "验收标准 1-8",
+        "nodeRole": "reviewer",
+        "task": "编写 review-checklist.json，逐条列出与验收标准对应的检查项，包括核心区块可见性、桌面端居中布局、移动端单列适配、FAQ 展开收起、键盘可访问性、仅单一套餐、占位 CTA 链接稳定性、企业风格视觉一致性。",
+        "acceptanceCriteria": "清单覆盖全部 8 条验收标准；每条检查项表述明确，可供 reviewer 实际对照页面验证。",
+        "acceptance": {
+          "summary": "清单覆盖全部 8 条验收标准；每条检查项表述明确，可供 reviewer 实际对照页面验证。"
+        },
+        "skills": [
+          "将需求映射为可执行验收项",
+          "关注可访问性与响应式场景"
+        ],
+        "dependsOn": [
+          "assemble-app-page"
+        ],
+        "inputs": {
+          "description": "创建一份结构化验收清单，便于 reviewer 按照需求逐项验证页面核心功能、响应式表现、可访问性与视觉风格。"
+        },
+        "outputs": {
+          "description": "Checkpoint: 输出验收检查清单",
+          "files": [],
+          "verificationCriteria": []
+        },
+        "status": "pending",
+        "maxRetries": 0,
+        "retryCount": 0,
+        "createdAt": "2026-05-12T08:54:59.588Z",
+        "updatedAt": "2026-05-12T08:54:59.588Z"
+      }
+    ]
+  ],
+  "status": "failed",
+  "stats": {
+    "total": 11,
+    "byStatus": {
+      "pending": 1,
+      "ready": 0,
+      "running": 0,
+      "verifying": 0,
+      "done": 5,
+      "failed": 3,
+      "blocked": 2,
+      "skipped": 0
+    },
+    "filesGenerated": 8,
+    "verificationsRun": 8,
+    "verificationsPassed": 5
+  },
+  "createdAt": "2026-05-12T08:54:59.588Z",
+  "updatedAt": "2026-05-12T09:02:27.949Z",
+  "completedAt": "2026-05-12T09:02:27.955Z"
+}

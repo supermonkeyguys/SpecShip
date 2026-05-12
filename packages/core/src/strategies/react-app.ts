@@ -1,4 +1,5 @@
 import { TaskStrategy, ToolDef } from "./base";
+import { TESTER_PROMPT } from "../ai/prompts";
 import type { ShipyardConfig } from "../config";
 
 const REACT_APP_PLANNER_PROMPT = `
@@ -29,6 +30,8 @@ Rules:
 - vite.config.ts must use @vitejs/plugin-react
 - tsconfig.json must target ES2022 with jsx: "react-jsx"
 - All files must be self-contained in the output directory
+- Bootstrap files such as package.json, vite.config.ts, tsconfig.json, index.html, src/main.tsx, and src/App.tsx must appear at most once in the plan
+- Never create two steps that write the same outputFile
 `.trim();
 
 const REACT_APP_IMPLEMENTER_PROMPT = `
@@ -46,12 +49,11 @@ Rules:
 - Run "npm install" after writing package.json, then "npm run build" to verify compilation
 - JSX must use React.JSX.Element not global JSX.Element (React 19 breaking change)
 
-CRITICAL — Write a test file:
-- For each implementation file you create (e.g. record-repository.ts), you MUST also write a corresponding test file (e.g. record-repository.test.ts)
-- The test file must import from your implementation file and run actual assertions
-- Use simple assertions: if (!condition) { console.error(...); process.exit(1); } then console.log("PASS")
-- Test the main exported functions/classes with real inputs — cover the happy path and at least one edge case
-- The test file will be executed by the verification runner — it must exit with code 0 on success, non-zero on failure
+Verification priorities:
+- First ensure the generated files are structurally correct: imports resolve, TypeScript compiles, and the app can build
+- You MAY add test files when they are lightweight and obvious
+- Do NOT block delivery on writing DOM-heavy or interaction-heavy tests in this pass; those can be added by a later tester pass
+- Prefer decomposed components and stable props/interfaces so later tests are easy to add
 `.trim();
 
 const REACT_APP_REVIEWER_PROMPT = `
@@ -157,8 +159,32 @@ export const reactAppStrategy: TaskStrategy = {
 
   detect(spec: string): number {
     const lower = spec.toLowerCase();
-    const strong = ["react", "spa", "dashboard", "前端应用", "single page app", "react app"];
-    const medium = ["组件", "component", "hook", "jsx", "tsx", "vite", "前端框架", "状态管理", "router"];
+    const strong = [
+      "react",
+      "spa",
+      "dashboard",
+      "前端应用",
+      "single page app",
+      "react app",
+      "落地页",
+      "营销页",
+      "宣传页",
+      "官网",
+      "saas 官网",
+    ];
+    const medium = [
+      "组件",
+      "component",
+      "hook",
+      "jsx",
+      "tsx",
+      "vite",
+      "前端框架",
+      "状态管理",
+      "router",
+      "landing page",
+      "marketing site",
+    ];
 
     for (const kw of strong) {
       if (lower.includes(kw)) return 0.9;
@@ -197,5 +223,6 @@ export const reactAppStrategy: TaskStrategy = {
   },
 
   implementerPrompt: REACT_APP_IMPLEMENTER_PROMPT,
+  testerPrompt: TESTER_PROMPT,
   reviewerPrompt: REACT_APP_REVIEWER_PROMPT,
 };

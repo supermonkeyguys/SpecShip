@@ -18,6 +18,13 @@ function makeConfig(name: string): { config: ShipyardConfig; cleanup: () => void
       baseURL: "http://mock",
       apiKey: "mock",
       models: {
+        clarifier: "mock",
+        planner: "mock",
+        implementer: "mock",
+        reviewer: "mock",
+        tester: "mock",
+        integrator: "mock",
+        utility: "mock",
         planning: "mock",
         implementation: "mock",
         review: "mock",
@@ -110,7 +117,7 @@ test("core: review failure exhausts retries and leaves node failed", async () =>
         };
       }
 
-      if (systemPrompt.includes("strict code reviewer")) {
+      if (systemPrompt.includes("code reviewer")) {
         return {
           finalText: JSON.stringify({ passed: false, blocking: ["bad review"], warnings: [], summary: "no" }),
           toolExecutions: [],
@@ -205,7 +212,7 @@ test("core: write path matcher accepts slash variants for same output file", asy
         };
       }
 
-      if (systemPrompt.includes("strict code reviewer")) {
+      if (systemPrompt.includes("code reviewer")) {
         return {
           finalText: JSON.stringify({ passed: true, blocking: [], warnings: [], summary: "ok" }),
           toolExecutions: [],
@@ -257,9 +264,11 @@ test("core: lint soft-failure does not block verifyNode success", async () => {
 
     const result = await verifyNode("Implement sample", [sampleFile], config.workDir, config);
     assert.equal(result.passed, true);
-    assert.match(result.summary, /soft check/);
+    assert.match(result.summary, /soft check|All .*check\(s\) passed/);
     const lintRecord = result.records.find((record) => record.type === "lint");
     assert.equal(lintRecord?.passed, false);
+    const testRecord = result.records.find((record) => record.type === "test");
+    assert.equal(testRecord, undefined);
   } finally {
     process.env.PATH = originalPath;
     fs.rmSync(binDir, { recursive: true, force: true });

@@ -22,9 +22,10 @@ import { resumeRouter } from "./routes/resume";
 import { projectsRouter } from "./routes/projects";
 import { clarifyRouter } from "./routes/clarify";
 import { previewRouter } from "./routes/preview";
+import { prdRouter } from "./routes/prd";
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5174;
 
 // ---- 中间件 ----
 app.use(cors());
@@ -40,6 +41,7 @@ app.use("/api", resumeRouter);
 app.use("/api", projectsRouter);
 app.use("/api", clarifyRouter);
 app.use("/api", previewRouter);
+app.use("/api", prdRouter);
 
 // ---- 健康检查 ----
 app.get("/health", (_req, res) => {

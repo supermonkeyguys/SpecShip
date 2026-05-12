@@ -1,14 +1,11 @@
 import type { ClarifyQuestion, GraphSummary, NodeStatus } from "../../types";
+import type { SessionKey, SessionRef } from "../../features/session/types";
+
+export type { SessionKey, SessionRef };
 
 export type GraphRunStatus = "idle" | "running" | "done" | "failed";
 export type ExecutionSource = "snapshot" | "realtime" | "events" | "snapshot_fallback";
 export type StreamStatus = "disconnected" | "connecting" | "connected" | "error";
-
-export interface SessionRef {
-  projectId: string;
-  sessionId: string;
-  spec?: string;
-}
 
 export interface SessionGraphSnapshot {
   ok: boolean;
@@ -34,7 +31,12 @@ export type ClarificationMessage = {
   answered: boolean;
   answers?: Record<string, string>;
 };
-export type ChatMessage = TextMessage | ClarificationMessage;
+export type PRDMessage = {
+  role: "prd";
+  prd: string;
+  confirmed: boolean;
+};
+export type ChatMessage = TextMessage | ClarificationMessage | PRDMessage;
 
 export interface SessionExecutionState {
   projectId: string;
