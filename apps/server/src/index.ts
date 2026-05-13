@@ -7,6 +7,7 @@
 
 import express from "express";
 import cors from "cors";
+import * as http from "http";
 import * as path from "path";
 
 // 项目根目录：__dirname = apps/server/src，往上三层到项目根
@@ -21,8 +22,8 @@ import { chatRouter } from "./routes/chat";
 import { resumeRouter } from "./routes/resume";
 import { projectsRouter } from "./routes/projects";
 import { clarifyRouter } from "./routes/clarify";
-import { previewRouter } from "./routes/preview";
-import { prdRouter } from "./routes/prd";
+import { previewRouter, attachPreviewWsProxy } from "./routes/preview";
+import { planRouter } from "./routes/plan";
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5174;
@@ -41,7 +42,7 @@ app.use("/api", resumeRouter);
 app.use("/api", projectsRouter);
 app.use("/api", clarifyRouter);
 app.use("/api", previewRouter);
-app.use("/api", prdRouter);
+app.use("/api", planRouter);
 
 // ---- 健康检查 ----
 app.get("/health", (_req, res) => {
@@ -49,7 +50,12 @@ app.get("/health", (_req, res) => {
 });
 
 // ---- 启动 ----
-app.listen(PORT, () => {
+const server = http.createServer(app);
+
+// WebSocket proxy for live preview HMR
+attachPreviewWsProxy(server);
+
+server.listen(PORT, () => {
   console.log(`🚢 Shipyard server running on http://localhost:${PORT}`);
   console.log(`   SSE stream: http://localhost:${PORT}/api/stream`);
   console.log(`   POST /api/run — start a task`);
