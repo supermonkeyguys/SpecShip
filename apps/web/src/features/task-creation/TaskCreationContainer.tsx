@@ -30,8 +30,8 @@ export function TaskCreationContainer({ onRunStarted }: Props) {
       onSuggestionClick={flow.setInput}
       onClarificationConfirm={flow.confirmClarification}
       onClarificationSkip={flow.skipClarification}
-      onPRDConfirm={flow.confirmPRD}
-      onPRDDiscard={flow.discardPRD}
+      onPlanConfirm={flow.confirmPlan}
+      onPlanDiscard={flow.discardPlan}
     />
   );
 }

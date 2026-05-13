@@ -26,8 +26,8 @@ interface Props {
   onSuggestionClick: (suggestion: string) => void;
   onClarificationConfirm: (answers: Record<string, string>) => void;
   onClarificationSkip: () => void;
-  onPRDConfirm: (prd: string) => void;
-  onPRDDiscard: () => void;
+  onPlanConfirm: (plan: string) => void;
+  onPlanDiscard: () => void;
 }
 
 export function TaskCreationView({
@@ -44,8 +44,8 @@ export function TaskCreationView({
   onSuggestionClick,
   onClarificationConfirm,
   onClarificationSkip,
-  onPRDConfirm,
-  onPRDDiscard,
+  onPlanConfirm,
+  onPlanDiscard,
 }: Props) {
   const showSuggestions = messages.length <= 1 && !pendingClarification;
 
@@ -70,7 +70,7 @@ export function TaskCreationView({
               Describe what you want to build
             </h1>
             <p className="mx-auto max-w-2xl text-sm leading-6 text-gray-500">
-              Start from a rough idea, refine the scope, review the PRD draft, and only then enter the execution canvas.
+              Start from a rough idea, refine the scope, review the execution plan, and only then enter the execution canvas.
             </p>
           </div>
 
@@ -98,7 +98,7 @@ export function TaskCreationView({
                 <div className="text-sm font-medium text-gray-800">{stageLabel}</div>
               </div>
               <div className="rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] text-gray-500">
-                PRD before canvas
+                Plan before canvas
               </div>
             </div>
 
@@ -107,8 +107,8 @@ export function TaskCreationView({
                 messages={messages}
                 loading={loading}
                 bottomRef={bottomRef}
-                onPRDConfirm={onPRDConfirm}
-                onPRDDiscard={onPRDDiscard}
+                onPlanConfirm={onPlanConfirm}
+                onPlanDiscard={onPlanDiscard}
               />
             </div>
 
@@ -136,7 +136,7 @@ export function TaskCreationView({
                 <div className="mt-3 flex items-center justify-between gap-3 border-t border-gray-200 pt-3">
                   <div className="text-xs text-gray-400">{composerHint}</div>
                   <Button type="button" onClick={onSend} disabled={composerDisabled || !input.trim()} className="rounded-xl px-4">
-                    {loading ? "Working..." : "Draft PRD"}
+                    {loading ? "Working..." : "Draft Plan"}
                   </Button>
                 </div>
               </div>
