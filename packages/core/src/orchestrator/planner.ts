@@ -76,7 +76,7 @@ function parsePlanData(finalText: string): PlannerPlan {
   return JSON.parse(match[0]) as PlannerPlan;
 }
 
-function validatePlanData(planData: PlannerPlan, config: ShipyardConfig, strategy?: TaskStrategy): string[] {
+export function validatePlanData(planData: PlannerPlan, config: ShipyardConfig, strategy?: TaskStrategy): string[] {
   const issues: string[] = [];
 
   const duplicateStepIds = findDuplicates(planData.steps.map((s) => s.id));
