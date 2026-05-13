@@ -17,8 +17,8 @@ interface Props {
   onInputChange: (value: string) => void;
   onSend: () => void;
   onRetrySession: () => void;
-  onPRDConfirm: (prd: string) => void;
-  onPRDDiscard: () => void;
+  onPlanConfirm?: (plan: string) => void;
+  onPlanDiscard?: () => void;
 }
 
 export function ChatPanelView({
@@ -32,8 +32,8 @@ export function ChatPanelView({
   onInputChange,
   onSend,
   onRetrySession,
-  onPRDConfirm,
-  onPRDDiscard,
+  onPlanConfirm,
+  onPlanDiscard,
 }: Props) {
   return (
     <section className="flex-1 flex flex-col overflow-hidden" aria-label="Chat messages and composer">
@@ -41,8 +41,8 @@ export function ChatPanelView({
         messages={messages}
         loading={loading}
         bottomRef={bottomRef}
-        onPRDConfirm={onPRDConfirm}
-        onPRDDiscard={onPRDDiscard}
+        onPlanConfirm={onPlanConfirm}
+        onPlanDiscard={onPlanDiscard}
       />
 
       {runStatus === "running" ? <RunningStatusBanner /> : null}

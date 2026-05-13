@@ -1,7 +1,7 @@
 import type { ActiveSession } from "../../features/session/types";
 import type { ChatIntent, NodeStatus } from "../../types";
 import { chatIntent } from "../../shared/api/chatClient";
-import { generatePRD } from "../../shared/api/prdClient";
+import { generatePlan } from "../../shared/api/planClient";
 import { retryNode } from "../../shared/api/nodeClient";
 import { runSpec } from "../../shared/api/runClient";
 
@@ -14,7 +14,7 @@ interface SendContext {
   activeSession: ActiveSession | null;
 }
 
-export interface PRDPending {
+export interface PlanPending {
   originalSpec: string;
   repoPath?: string;
 }
@@ -40,7 +40,7 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
 
   async function send(input: SendContext): Promise<
     | { type: "reply"; text: string }
-    | { type: "prd"; text: string; prd: string; pending: PRDPending }
+    | { type: "plan"; text: string; plan: string; pending: PlanPending }
     | { type: "error"; text: string }
   > {
     try {
@@ -81,18 +81,18 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
       if (intent.type === "new_run") {
         const nextSpec = intent.spec;
 
-        console.debug(DEBUG_PREFIX, "prd:generate", { spec: nextSpec });
+        console.debug(DEBUG_PREFIX, "plan:generate", { spec: nextSpec });
         try {
-          const prd = await generatePRD(nextSpec);
+          const plan = await generatePlan(nextSpec);
           return {
-            type: "prd",
+            type: "plan",
             text,
-            prd,
+            plan,
             pending: { originalSpec: nextSpec, repoPath: intent.repoPath },
           };
         } catch (e) {
-          // PRD 生成失败时降级：直接执行原始 spec
-          console.debug(DEBUG_PREFIX, "prd:error — falling back to direct run", e);
+          // Plan 生成失败时降级：直接执行原始 spec
+          console.debug(DEBUG_PREFIX, "plan:error — falling back to direct run", e);
           const runResult = await runSpecAndActivate(nextSpec, intent.repoPath);
           if (!runResult.ok) return { type: "error", text: `Failed: ${runResult.error ?? "unknown"}` };
           return { type: "reply", text };
@@ -117,19 +117,19 @@ export function createChatRunController(deps: ChatRunControllerDeps) {
     }
   }
 
-  async function confirmPRD(prd: string, pending: PRDPending) {
-    console.debug(DEBUG_PREFIX, "prd:confirm", { repoPath: pending.repoPath });
-    return runSpecAndActivate(prd, pending.repoPath);
+  async function confirmPlan(plan: string, pending: PlanPending) {
+    console.debug(DEBUG_PREFIX, "plan:confirm", { repoPath: pending.repoPath });
+    return runSpecAndActivate(plan, pending.repoPath);
   }
 
-  async function discardPRD(pending: PRDPending) {
-    console.debug(DEBUG_PREFIX, "prd:discard", { originalSpec: pending.originalSpec });
+  async function discardPlan(pending: PlanPending) {
+    console.debug(DEBUG_PREFIX, "plan:discard", { originalSpec: pending.originalSpec });
     return runSpecAndActivate(pending.originalSpec, pending.repoPath);
   }
 
   return {
     send,
-    confirmPRD,
-    discardPRD,
+    confirmPlan,
+    discardPlan,
   };
 }
