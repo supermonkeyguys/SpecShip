@@ -31,12 +31,12 @@ export type ClarificationMessage = {
   answered: boolean;
   answers?: Record<string, string>;
 };
-export type PRDMessage = {
-  role: "prd";
-  prd: string;
-  confirmed: boolean;
+export type PlanMessage = {
+  role: "plan";
+  plan: string;
+  confirmed?: boolean;
 };
-export type ChatMessage = TextMessage | ClarificationMessage | PRDMessage;
+export type ChatMessage = TextMessage | ClarificationMessage | PlanMessage;
 
 export interface SessionExecutionState {
   projectId: string;

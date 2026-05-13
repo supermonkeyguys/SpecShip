@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { selectExecutionByRef } from "../../../domains/execution/selectors";
-import { createChatRunController, type PRDPending } from "../../../domains/execution/runController";
+import { createChatRunController, type PlanPending } from "../../../domains/execution/runController";
 import { useExecutionStore } from "../../../domains/execution/store";
 import { retrySession } from "../../../shared/api/nodeClient";
 import type { ActiveSession, SessionRef } from "../../session/types";
@@ -19,7 +19,7 @@ interface Props extends ChatProps {
 export function ChatPanelContainer({ sessionRef, onRunStarted, onResumeRequested }: Props) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [pendingPRD, setPendingPRD] = useState<PRDPending | null>(null);
+  const [pendingPlan, setPendingPlan] = useState<PlanPending | null>(null);
   const [retrying, setRetrying] = useState(false);
 
   const execution = useExecutionForSession(sessionRef);
@@ -40,7 +40,7 @@ export function ChatPanelContainer({ sessionRef, onRunStarted, onResumeRequested
     if (!onRunStarted) return undefined;
     return async (session: ActiveSession) => {
       const migratedMessages = messages.map((message): Message =>
-        message.role === "prd" && !message.confirmed ? { ...message, confirmed: true } : message
+        message.role === "plan" && !message.confirmed ? { ...message, confirmed: true } : message
       );
       setChatMessages(session, migratedMessages);
       await onRunStarted(session);
@@ -56,20 +56,20 @@ export function ChatPanelContainer({ sessionRef, onRunStarted, onResumeRequested
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handlePRDConfirm = async (prd: string) => {
-    if (!pendingPRD) return;
+  const handlePlanConfirm = async (plan: string) => {
+    if (!pendingPlan) return;
 
     setChatMessages(
       sessionRef,
       messages.map((message): Message =>
-        message.role === "prd" && !message.confirmed ? { ...message, confirmed: true, prd } : message
+        message.role === "plan" && !message.confirmed ? { ...message, confirmed: true, plan } : message
       )
     );
-    setPendingPRD(null);
+    setPendingPlan(null);
 
     setLoading(true);
     try {
-      const result = await controller.confirmPRD(prd, pendingPRD);
+      const result = await controller.confirmPlan(plan, pendingPlan);
       if (!result.ok) {
         appendChatMessage(sessionRef, { role: "system", text: `Failed: ${result.error}` });
       }
@@ -78,21 +78,21 @@ export function ChatPanelContainer({ sessionRef, onRunStarted, onResumeRequested
     }
   };
 
-  const handlePRDDiscard = async () => {
-    if (!pendingPRD) return;
+  const handlePlanDiscard = async () => {
+    if (!pendingPlan) return;
 
     setChatMessages(
       sessionRef,
       messages.map((message): Message =>
-        message.role === "prd" && !message.confirmed ? { ...message, confirmed: true } : message
+        message.role === "plan" && !message.confirmed ? { ...message, confirmed: true } : message
       )
     );
-    const pending = pendingPRD;
-    setPendingPRD(null);
+    const pending = pendingPlan;
+    setPendingPlan(null);
 
     setLoading(true);
     try {
-      const result = await controller.discardPRD(pending);
+      const result = await controller.discardPlan(pending);
       if (!result.ok) {
         appendChatMessage(sessionRef, { role: "system", text: `Failed: ${result.error}` });
       }
@@ -141,10 +141,10 @@ export function ChatPanelContainer({ sessionRef, onRunStarted, onResumeRequested
         activeSession,
       });
 
-      if (result.type === "prd") {
+      if (result.type === "plan") {
         appendChatMessage(sessionRef, { role: "ai", text: result.text });
-        appendChatMessage(sessionRef, { role: "prd", prd: result.prd, confirmed: false });
-        setPendingPRD(result.pending);
+        appendChatMessage(sessionRef, { role: "plan", plan: result.plan, confirmed: false });
+        setPendingPlan(result.pending);
         return;
       }
 
@@ -171,8 +171,8 @@ export function ChatPanelContainer({ sessionRef, onRunStarted, onResumeRequested
       onInputChange={setInput}
       onSend={handleSend}
       onRetrySession={handleRetrySession}
-      onPRDConfirm={handlePRDConfirm}
-      onPRDDiscard={handlePRDDiscard}
+      onPlanConfirm={handlePlanConfirm}
+      onPlanDiscard={handlePlanDiscard}
     />
   );
 }

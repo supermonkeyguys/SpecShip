@@ -7,16 +7,16 @@ interface Props {
   messages: Message[];
   loading: boolean;
   bottomRef: RefObject<HTMLDivElement | null>;
-  onPRDConfirm: (prd: string) => void;
-  onPRDDiscard: () => void;
+  onPlanConfirm?: (plan: string) => void;
+  onPlanDiscard?: () => void;
 }
 
 export function ChatMessageList({
   messages,
   loading,
   bottomRef,
-  onPRDConfirm,
-  onPRDDiscard,
+  onPlanConfirm,
+  onPlanDiscard,
 }: Props) {
   return (
     <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -24,8 +24,8 @@ export function ChatMessageList({
         <ChatMessageItem
           key={index}
           message={message}
-          onPRDConfirm={onPRDConfirm}
-          onPRDDiscard={onPRDDiscard}
+          onPlanConfirm={onPlanConfirm}
+          onPlanDiscard={onPlanDiscard}
         />
       ))}
       {loading && (
