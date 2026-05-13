@@ -8,3 +8,6 @@ export * from "./checkpoint-runtime";
 export * from "./output-policy";
 export * from "./model-router";
 export * from "./node-role-policy";
+export { generatePlan } from "./plan-generator";
+export { parsePlan, validateParsedPlan } from "./plan-parser";
+export type { ParsedPlan, ParsedPlanStep, PlanParseResult } from "./plan-parser";
