@@ -8,11 +8,13 @@
 import { Router, Request, Response } from "express";
 import * as path from "path";
 import { run, detectStrategy, getStrategy } from "../shipyard";
+import { parsePlan, validateParsedPlan } from "../plan";
+import type { ParsedPlan } from "../plan";
 import { DEFAULT_CONFIG } from "../config";
 import { sseManager } from "../sse";
 import { watchSession, stopWatch } from "../sse-projection";
 import { RunRequest, RunResponse, NodeStatus, GraphSummary } from "../types";
-import { GraphNode } from "../graph";
+import { GraphNode, ExecutionGraph, createGraph, addNode } from "../graph";
 import { mapGraphStatusToSessionStatus } from "../state";
 import { getIsRunning, setSessionRunning } from "./resume";
 import {
@@ -25,6 +27,7 @@ import {
   appendSessionOperation,
   getSessionRevision,
 } from "../op-log";
+import { injectViteScaffold } from "../preview-manager";
 
 const pendingCheckpointResumes = new Map<string, { nodeId: string; resume: () => void }>();
 
@@ -142,7 +145,7 @@ function appendNodeOpsFromStatus(
 }
 
 runRouter.post("/run", async (req: Request, res: Response) => {
-  const { spec, repoPath, strategyId, llm } = req.body as RunRequest;
+  const { spec, repoPath, strategyId, llm, mode } = req.body as RunRequest;
   console.log(DEBUG_PREFIX, "request", { spec, repoPath, strategyId });
 
   if (!spec?.trim()) {
@@ -193,9 +196,45 @@ runRouter.post("/run", async (req: Request, res: Response) => {
   if (ORCHESTRATOR_MODE === "temporal") {
     await runWithTemporal(spec, workDir, proj.id, sess.id, repoPath);
   } else {
-    await runWithLegacy(spec, config, workDir, proj.id, sess.id, strategy);
+    await runWithLegacy(spec, config, workDir, proj.id, sess.id, strategy, mode);
   }
 });
+
+function parsedPlanToGraph(
+  plan: ParsedPlan,
+  config: ReturnType<typeof Object.assign>,
+  strategy: ReturnType<typeof detectStrategy>
+): ExecutionGraph {
+  let graph = createGraph(plan.goal || plan.title);
+  graph = { ...graph, title: plan.title };
+
+  for (const step of plan.steps) {
+    const isCheckpoint = step.checkpoint;
+    graph = addNode(graph, {
+      id: step.id,
+      type: isCheckpoint ? "checkpoint" : "implement",
+      title: step.title,
+      specFragment: step.task.slice(0, 200),
+      nodeRole: isCheckpoint ? "checkpoint" : step.role,
+      task: step.task,
+      acceptanceCriteria: step.acceptance ||
+        `SCOPE: Review ONLY ${step.file}. Check: file compiles and implements "${step.title}".`,
+      acceptance: undefined,
+      skills: [],
+      dependsOn: step.depends,
+      inputs: { description: step.task },
+      outputs: {
+        description: isCheckpoint ? `Checkpoint: ${step.title}` : `Write ${step.file}`,
+        files: isCheckpoint ? [] : [step.file],
+        verificationCriteria: [],
+      },
+      status: step.depends.length === 0 ? "ready" : "pending",
+      maxRetries: isCheckpoint ? 0 : config.maxRetries,
+    });
+  }
+
+  return graph;
+}
 
 async function runWithLegacy(
   spec: string,
@@ -203,7 +242,8 @@ async function runWithLegacy(
   workDir: string,
   projectId: string,
   sessionId: string,
-  strategy: ReturnType<typeof detectStrategy>
+  strategy: ReturnType<typeof detectStrategy>,
+  mode?: "spec" | "plan"
 ): Promise<void> {
   setSessionRunning(projectId, sessionId, true);
   activeWorkflowId = null;
@@ -215,8 +255,55 @@ async function runWithLegacy(
 
   sseManager.push({ type: "log", payload: `Using strategy: ${strategy.name}`, projectId, sessionId });
 
+  // For react-app strategy, inject vite.config.ts and index.html before AI execution
+  // so AI nodes never need to write these infra files.
+  if (strategy.id === "react-app") {
+    const absOutputDir = path.join(workDir, config.outputDir);
+    injectViteScaffold(absOutputDir);
+  }
+
+  let initialGraph: ExecutionGraph | undefined;
+
+  if (mode === "plan") {
+    const parseResult = parsePlan(spec);
+    if (!parseResult.ok || !parseResult.plan) {
+      sseManager.push({ type: "log", payload: `Plan parse failed: ${(parseResult.errors ?? []).join("; ")}`, projectId, sessionId });
+      updateSession(workDir, projectId, sessionId, { status: "failed" });
+      setSessionRunning(projectId, sessionId, false);
+      sseManager.push({
+        type: "graph_failed",
+        payload: {
+          id: sessionId, title: "", status: "failed", strategyId: strategy.id,
+          stats: { total: 0, done: 0, failed: 0, filesGenerated: 0, verificationsPassed: 0, verificationsRun: 0 },
+          durationMs: 0,
+        } satisfies GraphSummary,
+        projectId, sessionId,
+      });
+      return;
+    }
+
+    const validationErrors = validateParsedPlan(parseResult.plan, config, strategy);
+    if (validationErrors.length > 0) {
+      sseManager.push({ type: "log", payload: `Plan validation failed: ${validationErrors.join("; ")}`, projectId, sessionId });
+      updateSession(workDir, projectId, sessionId, { status: "failed" });
+      setSessionRunning(projectId, sessionId, false);
+      sseManager.push({
+        type: "graph_failed",
+        payload: {
+          id: sessionId, title: "", status: "failed", strategyId: strategy.id,
+          stats: { total: 0, done: 0, failed: 0, filesGenerated: 0, verificationsPassed: 0, verificationsRun: 0 },
+          durationMs: 0,
+        } satisfies GraphSummary,
+        projectId, sessionId,
+      });
+      return;
+    }
+
+    initialGraph = parsedPlanToGraph(parseResult.plan, config, strategy);
+  }
+
   try {
-    const graph = await run(spec, config, undefined, (updatedGraph: import("../graph").ExecutionGraph) => {
+    const graph = await run(spec, config, initialGraph, (updatedGraph: import("../graph").ExecutionGraph) => {
       if (!graphInitialized) {
         appendShadowOperation(workDir, projectId, sessionId, "scheduler", "graph.initialized", {
           graphId: updatedGraph.id,
