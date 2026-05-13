@@ -5,7 +5,7 @@ import type { StatusResponse, ProjectsResponse, FileEntry, PreviewStatusResponse
 import type {
   CreationFlowState,
   CreationFlowStage,
-  CreationPendingPRD,
+  CreationPendingPlan,
   PendingClarification,
   SelectedFileIdentity,
   WorkspaceState,
@@ -13,7 +13,7 @@ import type {
 } from "./types";
 
 const INITIAL_CREATION_MESSAGES: ChatMessage[] = [
-  { role: "system", text: "Hi! Tell me what to build. I will help refine it into a PRD before execution starts." },
+  { role: "system", text: "Hi! Tell me what to build. I will help refine it into an execution plan before starting." },
 ];
 
 function createInitialCreationFlow(): CreationFlowState {
@@ -22,7 +22,7 @@ function createInitialCreationFlow(): CreationFlowState {
     input: "",
     messages: [...INITIAL_CREATION_MESSAGES],
     pendingClarification: null,
-    pendingPRD: null,
+    pendingPlan: null,
   };
 }
 
@@ -33,7 +33,7 @@ interface WorkspaceStore extends WorkspaceState {
   setCreationInput: (input: string) => void;
   setCreationStage: (stage: CreationFlowStage) => void;
   setCreationPendingClarification: (pendingClarification: PendingClarification | null) => void;
-  setCreationPendingPRD: (pendingPRD: CreationPendingPRD | null) => void;
+  setCreationPendingPlan: (pendingPlan: CreationPendingPlan | null) => void;
   setCreationMessages: (messages: ChatMessage[]) => void;
   appendCreationMessage: (message: ChatMessage) => void;
   resetCreationFlow: () => void;
@@ -102,11 +102,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       },
     })),
 
-  setCreationPendingPRD: (pendingPRD) =>
+  setCreationPendingPlan: (pendingPlan) =>
     set((state) => ({
       creationFlow: {
         ...state.creationFlow,
-        pendingPRD,
+        pendingPlan,
       },
     })),
 

@@ -3,7 +3,7 @@ import type { SessionKey, SessionRef } from "../../features/session/types";
 import type { ChatMessage } from "../execution/types";
 
 export type WorkspaceSurface = "new-task" | "canvas" | "file" | "preview" | "settings";
-export type CreationFlowStage = "idle" | "drafting" | "clarifying" | "reviewing_prd" | "starting_run";
+export type CreationFlowStage = "idle" | "drafting" | "clarifying" | "reviewing_plan" | "starting_run";
 
 export interface SelectedFileIdentity {
   projectId: string;
@@ -16,7 +16,7 @@ export interface PendingClarification {
   questions: ClarifyQuestion[];
 }
 
-export interface CreationPendingPRD {
+export interface CreationPendingPlan {
   originalSpec: string;
   repoPath?: string;
 }
@@ -26,7 +26,7 @@ export interface CreationFlowState {
   input: string;
   messages: ChatMessage[];
   pendingClarification: PendingClarification | null;
-  pendingPRD: CreationPendingPRD | null;
+  pendingPlan: CreationPendingPlan | null;
 }
 
 export interface WorkspaceState {
