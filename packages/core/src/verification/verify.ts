@@ -44,6 +44,33 @@ function buildTscCommand(files: string[], hasTsx: boolean): string {
   return `node ${quote(tscScript)} --noEmit --target ES2022 --moduleResolution bundler --esModuleInterop --skipLibCheck ${jsxFlags} ${quotedFiles}`;
 }
 
+function buildTscCommandWithTsconfig(tsconfigPath: string): string {
+  const tscScript = getTypeScriptBinScript("typescript/bin/tsc");
+  return `node ${quote(tscScript)} --noEmit --project ${quote(tsconfigPath)}`;
+}
+
+/**
+ * Write a temporary tsconfig for the files being verified.  By the time this
+ * runs, ensureDepsInstalled() will have placed a node_modules directory inside
+ * workDir, so standard bundler-mode resolution finds third-party packages there.
+ */
+function writeTempTsconfig(files: string[], hasTsx: boolean, workDir: string): string {
+  const tsconfigPath = path.join(workDir, ".shipyard-verify-tsconfig.json");
+  const config = {
+    compilerOptions: {
+      noEmit: true,
+      target: "ES2022",
+      moduleResolution: "bundler",
+      esModuleInterop: true,
+      skipLibCheck: true,
+      ...(hasTsx ? { jsx: "react-jsx", allowImportingTsExtensions: true } : {}),
+    },
+    include: files,
+  };
+  fs.writeFileSync(tsconfigPath, JSON.stringify(config, null, 2));
+  return tsconfigPath;
+}
+
 const TS_COMPILE_EXTENSIONS = new Set([".ts", ".tsx", ".cts", ".mts"]);
 const JS_SYNTAX_EXTENSIONS = new Set([".js", ".jsx", ".cjs", ".mjs"]);
 
@@ -87,6 +114,57 @@ function getCompileBuckets(files: string[]): { tsFiles: string[]; jsFiles: strin
 // 层 1：确定性验证
 // ─────────────────────────────────────────
 
+/**
+ * Find the nearest directory at or above `startDir` that contains a
+ * package.json. Returns null if none found within the monorepo root.
+ */
+function findPackageRoot(startDir: string): string | null {
+  const monorepoRoot = getMonorepoRoot();
+  let dir = startDir;
+  while (dir.startsWith(monorepoRoot) && dir !== monorepoRoot) {
+    if (fs.existsSync(path.join(dir, "package.json"))) return dir;
+    dir = path.dirname(dir);
+  }
+  return null;
+}
+
+/**
+ * If the output directory has a package.json but no node_modules, run
+ * `npm install --prefix` so that third-party packages imported by AI-generated
+ * code are resolvable by tsc.  Runs at most once per output directory (skipped
+ * when node_modules already exists).  Install failure is non-fatal — we log a
+ * warning and continue with whatever packages are available.
+ *
+ * Uses the first outputFile to locate the correct package root, not workDir
+ * (which is the monorepo root).
+ */
+function ensureDepsInstalled(outputFiles: string[]): string | null {
+  if (outputFiles.length === 0) return null;
+
+  const pkgRoot = findPackageRoot(path.dirname(outputFiles[0]));
+  if (!pkgRoot) return null;
+
+  const nmPath = path.join(pkgRoot, "node_modules");
+  if (fs.existsSync(nmPath)) return null;
+
+  try {
+    console.log(`  📦 [verify] npm install --prefix ${pkgRoot}`);
+    execSync(`npm install --prefix ${quote(pkgRoot)}`, {
+      cwd: pkgRoot,
+      encoding: "utf-8",
+      timeout: 120_000,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    console.log(`  ✅ [verify] npm install done`);
+    return null;
+  } catch (e: unknown) {
+    const err = e as { stdout?: string; stderr?: string };
+    const msg = [err.stdout, err.stderr].filter(Boolean).join("\n").trim().slice(0, 400);
+    console.warn(`  ⚠️  [verify] npm install failed (non-fatal): ${msg}`);
+    return msg;
+  }
+}
+
 export function runCompileCheck(files: string[], workDir: string): VerificationRecord {
   const start = Date.now();
   const timestamp = new Date().toISOString();
@@ -95,13 +173,20 @@ export function runCompileCheck(files: string[], workDir: string): VerificationR
     return { type: "compile", passed: true, output: "No files to compile; skipped compile check", durationMs: 0, timestamp };
   }
 
+  // Install dependencies before compiling if needed.
+  // Pass outputFiles (not workDir) so we locate the session output package.json,
+  // not the monorepo root package.json.
+  const installWarning = ensureDepsInstalled(files);
+
   const { tsFiles, jsFiles, skippedFiles } = getCompileBuckets(files);
   const notes: string[] = [];
 
+  let tempTsconfig: string | null = null;
   try {
     if (tsFiles.length > 0) {
       const hasTsx = tsFiles.some((f) => f.endsWith(".tsx"));
-      const cmd = buildTscCommand(tsFiles, hasTsx);
+      tempTsconfig = writeTempTsconfig(tsFiles, hasTsx, workDir);
+      const cmd = buildTscCommandWithTsconfig(tempTsconfig);
       execSync(cmd, { cwd: workDir, encoding: "utf-8", timeout: 30_000, stdio: ["pipe", "pipe", "pipe"] });
       notes.push(`${tsFiles.length} TS/TSX file(s) compiled`);
     }
@@ -121,11 +206,19 @@ export function runCompileCheck(files: string[], workDir: string): VerificationR
       notes.push("No TypeScript/JavaScript files to compile; skipped asset-only compile check");
     }
 
+    if (installWarning) {
+      notes.push(`npm install warning: ${installWarning.split("\n")[0]}`);
+    }
+
     return { type: "compile", passed: true, output: notes.join("; "), durationMs: Date.now() - start, timestamp };
   } catch (e: unknown) {
     const err = e as { stdout?: string; stderr?: string };
     const output = [err.stdout, err.stderr].filter(Boolean).join("\n").trim().slice(0, 800);
     return { type: "compile", passed: false, output, durationMs: Date.now() - start, timestamp };
+  } finally {
+    if (tempTsconfig) {
+      try { fs.unlinkSync(tempTsconfig); } catch { /* ignore */ }
+    }
   }
 }
 
@@ -595,8 +688,23 @@ async function runTesterNodeVerification(
 
   // 策略：把 node_modules symlink 和 vitest.config 直接放在 output/ 目录
   // 这样 vitest 从 output/ 出发解析所有 import，路径关系与代码一致
-  // outputFiles 是绝对路径，取第一个文件所在目录作为 output 目录
-  const outputDir = path.dirname(path.resolve(testFiles[0]));
+  // outputDir 必须是 session output 根目录（workDir 下的 output/），
+  // 不能用 testFiles[0] 的 dirname，否则测试文件分布在子目录时路径会错乱。
+  const sessionOutputDir = (() => {
+    // workDir/.shipyard/projects/.../output 或 workDir/output
+    // 从 testFiles[0] 向上找含 package.json 或等于 workDir 的目录
+    let dir = path.dirname(path.resolve(testFiles[0]));
+    while (dir !== workDir && dir !== path.dirname(dir)) {
+      const parent = path.dirname(dir);
+      // 如果父目录是 workDir 则 dir 就是 output 根
+      if (parent === workDir) break;
+      // 如果当前目录有 package.json 则这是 output 根
+      if (fs.existsSync(path.join(dir, "package.json"))) break;
+      dir = parent;
+    }
+    return dir;
+  })();
+  const outputDir = sessionOutputDir;
   const monorepoRoot = getMonorepoRoot();
   const nmLink = path.join(outputDir, "node_modules");
   const vitestConfigPath = path.join(outputDir, "__shipyard_vitest.config.ts");
