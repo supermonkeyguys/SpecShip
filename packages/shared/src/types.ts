@@ -70,6 +70,7 @@ export interface RunRequest {
   spec: string;
   repoPath?: string;
   strategyId?: string;
+  mode?: "spec" | "plan";
   llm?: {
     baseURL?: string;
     apiKey?: string;
@@ -158,6 +159,22 @@ export interface PRDRequest {
 export interface PRDResponse {
   ok: boolean;
   prd?: string;
+  error?: string;
+}
+
+// ---- Plan API ----
+
+export interface PlanRequest {
+  spec: string;
+  llm?: {
+    baseURL?: string;
+    apiKey?: string;
+  };
+}
+
+export interface PlanResponse {
+  ok: boolean;
+  plan?: string;
   error?: string;
 }
 
