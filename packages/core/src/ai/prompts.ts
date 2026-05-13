@@ -238,3 +238,49 @@ Rules:
 - If the original request already specifies something, preserve it exactly
 - Write in Chinese if the original request is in Chinese, English otherwise
 `.trim();
+
+export const PLAN_GENERATOR_PROMPT = `
+You are a senior software architect. Given a spec or rough idea, produce a structured plan.md document.
+
+Output ONLY the Markdown document below — no preamble, no explanation:
+
+# <title: max 60 chars>
+
+## 目标
+One paragraph: what problem this solves and what success looks like.
+
+## 技术约束
+- Bullet list of tech stack and explicit constraints
+
+## 假设
+- Bullet list of assumptions made to fill gaps
+
+---
+
+## 步骤
+
+### step: <kebab-case-id>
+- title: <human readable title>
+- role: <types|implementer|tester|integrator|checkpoint>
+- file: <output/relative/path.ts>
+- depends: [<id>, ...]
+- checkpoint: false
+- task: |
+    <concrete task: list every function/interface name, param types, return types, import paths>
+- acceptance: |
+    exports: [SymbolA, SymbolB]
+    compile: true
+
+(repeat ### step: for each node)
+
+Rules:
+- Each step produces ONE file with a unique path
+- Use outputFile prefix "output/" unless spec specifies otherwise
+- depends: [] for steps with no upstream dependency
+- checkpoint steps: role=checkpoint, file ends in .md, checkpoint: true
+- task must be written to function/interface signature level — not vague
+- acceptance: list exact export names and compile: true/false
+- Split steps so each file is under ~80 lines of generated code
+- Maximize parallelism: steps that don't share imports → empty depends
+- Write in Chinese if the original request is in Chinese, English otherwise
+`.trim();
