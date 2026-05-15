@@ -7,6 +7,7 @@ const apiProxyTarget = process.env.SHIPYARD_WEB_API_PROXY_TARGET?.trim() || "htt
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    host: "127.0.0.1",
     port: 5173,
     proxy: {
       "/api": {

@@ -30,6 +30,15 @@ func New(dsn string) (*DB, error) {
 		return nil, err
 	}
 
+	if _, err := db.Exec(`PRAGMA journal_mode = WAL;`); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("enable wal mode: %w", err)
+	}
+	if _, err := db.Exec(`PRAGMA foreign_keys = ON;`); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("enable foreign keys: %w", err)
+	}
+
 	wrapper := &DB{SQL: db}
 	if err := wrapper.Migrate(context.Background()); err != nil {
 		_ = db.Close()
