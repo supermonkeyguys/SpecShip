@@ -6,6 +6,9 @@ Shipyard 是一个基于执行图的 AI 开发引擎。它不是一个聊天助�
 
 核心设计原则：**系统够硬，能兜底**。每个节点原子执行，每次操作留有 evidence，验证标准从 spec 自动派生，失败可追溯、可重试、不丢工作。
 
+> 当前仓库默认后端已切换为 `apps/server-go`（Go）。
+> `apps/server/src`（TypeScript / Express）仍保留，作为回退后端。
+
 ---
 
 ## 核心概念
@@ -80,7 +83,8 @@ Verifier                           → 确定性验证（tsc）+ spec-derived �
 shipyard/
 ├── apps/
 │   ├── cli/src/index.ts        CLI 入口
-│   ├── server/src/             Express API + SSE + session/project routes
+│   ├── server-go/              默认 Go 后端（HTTP API + runtime + SQLite）
+│   ├── server/src/             TS 回退后端（Express API + SSE）
 │   └── web/                    Vite + React IDE
 ├── packages/
 │   ├── core/src/               graph / orchestrator / ai / verification / persistence
@@ -145,6 +149,29 @@ export MODEL_REVIEW=gpt-5.1
 
 说明：运行时请求的是 OpenAI-compatible `/chat/completions` 接口，`baseURL` 默认值为 `https://api.openai.com/v1`。
 如果你使用 Anthropic 网关，也需要提供 OpenAI 兼容格式的转发地址。
+
+### 开发模式（默认 Go 后端）
+
+```bash
+# 默认启动 Go backend + Web
+pnpm dev
+
+# 仅启动默认 Go backend
+pnpm server
+
+# 仅启动 Web（默认代理到 http://localhost:8080）
+pnpm web:dev
+```
+
+### TS 后端回退
+
+```bash
+# 启动 TS fallback backend
+pnpm server:ts
+
+# 让 Web 显式代理到 TS backend
+env SHIPYARD_WEB_API_PROXY_TARGET=http://127.0.0.1:5174 pnpm web:dev
+```
 
 ### 运行
 

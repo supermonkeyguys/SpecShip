@@ -6,3 +6,7 @@ output/
 .env.local
 .env.*.local
 !.env.example
+apps/server-go/shipyard.db
+apps/server-go/shipyard.db-shm
+apps/server-go/shipyard.db-wal
+apps/server-go/workspace/

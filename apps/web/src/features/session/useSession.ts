@@ -115,18 +115,15 @@ export function useSession(): UseSessionReturn {
 
   const handleResume = async () => {
     const executionStore = useExecutionStore.getState();
-    setWorkspaceResumeInfo(null);
-
     const fallbackTarget = selectResumeTargetRef(useWorkspaceStore.getState());
     const resumeTarget = activeSession ?? fallbackTarget;
+    setWorkspaceResumeInfo(null);
 
     if (resumeTarget) {
       executionStore.ensureSession(resumeTarget);
       executionStore.setLiveSession(resumeTarget);
       executionStore.setSessionRunStatus(resumeTarget, "running");
-      if (!activeSession) {
-        setWorkspaceActiveSession(resumeTarget);
-      }
+      await loadSessionIntoStore(resumeTarget, { optimisticRunStatus: "running" });
     }
 
     await fetchJSON("/api/resume", {

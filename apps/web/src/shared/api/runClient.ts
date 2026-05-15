@@ -1,4 +1,4 @@
-import type { RunRequest, RunResponse } from "../../types";
+import type { RunResponse } from "../../types";
 import { fetchJSON } from "../../utils/fetchJSON";
 import { loadLLMSettings } from "./llmSettings";
 

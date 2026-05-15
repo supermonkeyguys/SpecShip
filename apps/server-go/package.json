@@ -1,0 +1,11 @@
+{
+  "name": "@shipyard/server-go",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "go run ./cmd/api",
+    "start": "go run ./cmd/api",
+    "build": "go build ./...",
+    "test": "go test ./..."
+  }
+}
