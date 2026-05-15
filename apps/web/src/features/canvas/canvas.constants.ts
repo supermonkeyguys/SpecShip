@@ -26,7 +26,15 @@ export const STATUS_BG: Record<NodeStatus["status"], string> = {
 
 export const NODE_TYPE_LABEL: Record<NodeStatus["nodeType"], string> = {
   implement: "impl",
-  checkpoint: "checkpoint",
+  checkpoint: "ckpt",
+};
+
+export const NODE_ROLE_LABEL: Record<string, string> = {
+  types: "types",
+  implementer: "impl",
+  tester: "test",
+  reviewer: "review",
+  integrator: "integrate",
 };
 
 export const STATUS_LABEL: Record<NodeStatus["status"], string> = {

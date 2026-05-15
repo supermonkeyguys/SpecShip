@@ -67,10 +67,14 @@ function buildCommandForOutput(outputDir: string, port: number): PreviewCommand 
   const hasNext = "next" in dependencies || (devScript?.includes("next") ?? false);
 
   if (devScript && hasVite) {
-    // Use monorepo vite binary directly to avoid workspace install issues
+    // Prefer session-local vite binary (installed by ensureDepsInstalled).
+    // Fall back to monorepo web node_modules vite if session has no local install.
+    const localViteBin = path.join(outputDir, "node_modules/.bin/vite");
     const monorepoRoot = process.env.WORK_DIR ?? process.cwd();
-    const viteBin = path.join(monorepoRoot, "apps/web/node_modules/.bin/vite");
-    const viteCmd = fs.existsSync(viteBin) ? viteBin : "vite";
+    const webViteBin = path.join(monorepoRoot, "apps/web/node_modules/.bin/vite");
+    const viteCmd = fs.existsSync(localViteBin) ? localViteBin
+      : fs.existsSync(webViteBin) ? webViteBin
+      : "vite";
     return {
       command: viteCmd,
       args: ["--host", "127.0.0.1", "--port", String(port)],
@@ -121,7 +125,7 @@ function isViteReactOutput(outputDir: string): boolean {
   return false;
 }
 
-function injectViteScaffold(outputDir: string): void {
+export function injectViteScaffold(outputDir: string): void {
   const packageJsonPath = path.join(outputDir, "package.json");
   const viteConfigPath = path.join(outputDir, "vite.config.ts");
   const indexHtmlPath = path.join(outputDir, "index.html");
@@ -144,32 +148,52 @@ function injectViteScaffold(outputDir: string): void {
   }
 
   if (!fs.existsSync(viteConfigPath)) {
-    const webNM = path.join(process.env.WORK_DIR ?? process.cwd(), "apps/web/node_modules");
-    const reactPlugin = path.join(webNM, "@vitejs/plugin-react");
-    const reactPath = path.join(webNM, "react");
-    const reactDomPath = path.join(webNM, "react-dom");
-    const viteConfigContent = [
-      `import { defineConfig } from "vite";`,
-      `import react from ${JSON.stringify(reactPlugin)};`,
-      `export default defineConfig({`,
-      `  plugins: [react()],`,
-      `  resolve: {`,
-      `    alias: {`,
-      `      react: ${JSON.stringify(reactPath)},`,
-      `      "react-dom": ${JSON.stringify(reactDomPath)},`,
-      `    },`,
-      `  },`,
-      `});`,
-      ``,
-    ].join("\n");
+    // If the session has its own node_modules (installed by ensureDepsInstalled),
+    // use a minimal vite.config — no alias needed, vite resolves from local node_modules.
+    // Otherwise fall back to monorepo web node_modules aliases.
+    const hasLocalNm = fs.existsSync(path.join(outputDir, "node_modules", "react"));
+    let viteConfigContent: string;
+    if (hasLocalNm) {
+      viteConfigContent = [
+        `import { defineConfig } from "vite";`,
+        `import react from "@vitejs/plugin-react";`,
+        `export default defineConfig({`,
+        `  plugins: [react({ jsxRuntime: "automatic" })],`,
+        `});`,
+        ``,
+      ].join("\n");
+    } else {
+      const webNM = path.join(process.env.WORK_DIR ?? process.cwd(), "apps/web/node_modules");
+      const reactPlugin = path.join(webNM, "@vitejs/plugin-react");
+      const reactPath = path.join(webNM, "react");
+      const reactDomPath = path.join(webNM, "react-dom");
+      const reactDomClientPath = path.join(webNM, "react-dom", "client");
+      viteConfigContent = [
+        `import { defineConfig } from "vite";`,
+        `import react from ${JSON.stringify(reactPlugin)};`,
+        `export default defineConfig({`,
+        `  plugins: [react({ jsxRuntime: "automatic" })],`,
+        `  resolve: {`,
+        `    alias: {`,
+        `      "react/jsx-runtime": ${JSON.stringify(path.join(webNM, "react", "jsx-runtime"))},`,
+        `      "react/jsx-dev-runtime": ${JSON.stringify(path.join(webNM, "react", "jsx-dev-runtime"))},`,
+        `      "react-dom/client": ${JSON.stringify(reactDomClientPath)},`,
+        `      react: ${JSON.stringify(reactPath)},`,
+        `      "react-dom": ${JSON.stringify(reactDomPath)},`,
+        `    },`,
+        `  },`,
+        `});`,
+        ``,
+      ].join("\n");
+    }
     fs.writeFileSync(viteConfigPath, viteConfigContent);
-    debugLog("scaffold:vite.config.ts", { outputDir });
+    debugLog("scaffold:vite.config.ts", { outputDir, hasLocalNm });
   }
 
   if (!fs.existsSync(indexHtmlPath)) {
     fs.writeFileSync(
       indexHtmlPath,
-      `<!doctype html>\n<html lang="en">\n  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Shipyard Preview</title></head>\n  <body><div id="root"></div><script type="module" src="/main.tsx"></script></body>\n</html>\n`
+      `<!doctype html>\n<html lang="en">\n  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Shipyard Preview</title></head>\n  <body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>\n</html>\n`
     );
     debugLog("scaffold:index.html", { outputDir });
   }

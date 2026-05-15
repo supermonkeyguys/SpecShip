@@ -284,7 +284,7 @@ function RelatedTesterSection({
 
               {testFiles.length > 0 ? (
                 <div className="space-y-1.5">
-                  {testFiles.map((filePath) => (
+                  {[...new Set(testFiles)].map((filePath) => (
                     <TesterFilePreview key={filePath} session={session} filePath={filePath} />
                   ))}
                 </div>
@@ -397,7 +397,7 @@ function FilesSection({ files }: { files: string[] }) {
   return (
     <div>
       <div className="mb-1 font-medium text-gray-500">Files</div>
-      {files.map((file) => {
+      {[...new Set(files)].map((file) => {
         const name = file.split("/").pop() ?? file;
         const dir = file.includes("/") ? file.slice(0, file.lastIndexOf("/")) : "";
 

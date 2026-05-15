@@ -1,6 +1,7 @@
 import type { NodeStatus } from "../../../types";
 import {
   ERROR_CATEGORY_LABEL,
+  NODE_ROLE_LABEL,
   NODE_TYPE_LABEL,
   STATUS_COLORS,
   STATUS_LABEL,
@@ -26,7 +27,9 @@ export function NodeCard({ node }: { node: NodeStatus }) {
         </span>
         <span className="flex-1 truncate text-xs font-semibold text-gray-800">{node.title}</span>
         <span className="flex-shrink-0 rounded bg-gray-100 px-1 font-mono text-xs text-gray-400">
-          {NODE_TYPE_LABEL[node.nodeType] ?? node.nodeType}
+          {node.nodeRole
+            ? (NODE_ROLE_LABEL[node.nodeRole] ?? node.nodeRole)
+            : (NODE_TYPE_LABEL[node.nodeType] ?? node.nodeType)}
         </span>
       </div>
 

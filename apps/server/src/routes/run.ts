@@ -282,7 +282,26 @@ async function runWithLegacy(
       return;
     }
 
-    const validationErrors = validateParsedPlan(parseResult.plan, config, strategy);
+    let effectiveStrategy = strategy;
+    let validationErrors = validateParsedPlan(parseResult.plan, config, effectiveStrategy);
+    if (validationErrors.length > 0) {
+      // Strategy mismatch: re-detect from plan file extensions rather than failing
+      const extensions = parseResult.plan.steps
+        .filter((s) => !s.checkpoint && s.file)
+        .map((s) => path.extname(s.file))
+        .filter(Boolean);
+      const hasTs = extensions.some((e) => e === ".ts" || e === ".tsx");
+      const hasJsx = extensions.some((e) => e === ".tsx" || e === ".jsx");
+      if (hasTs || hasJsx) {
+        const fallback = getStrategy("react-app") ?? getStrategy("typescript-lib") ?? effectiveStrategy;
+        const retryErrors = validateParsedPlan(parseResult.plan, config, fallback);
+        if (retryErrors.length === 0) {
+          effectiveStrategy = fallback;
+          validationErrors = [];
+          console.log(DEBUG_PREFIX, "strategy:fallback", { from: strategy.id, to: fallback.id });
+        }
+      }
+    }
     if (validationErrors.length > 0) {
       sseManager.push({ type: "log", payload: `Plan validation failed: ${validationErrors.join("; ")}`, projectId, sessionId });
       updateSession(workDir, projectId, sessionId, { status: "failed" });
@@ -290,7 +309,7 @@ async function runWithLegacy(
       sseManager.push({
         type: "graph_failed",
         payload: {
-          id: sessionId, title: "", status: "failed", strategyId: strategy.id,
+          id: sessionId, title: "", status: "failed", strategyId: effectiveStrategy.id,
           stats: { total: 0, done: 0, failed: 0, filesGenerated: 0, verificationsPassed: 0, verificationsRun: 0 },
           durationMs: 0,
         } satisfies GraphSummary,
@@ -299,7 +318,8 @@ async function runWithLegacy(
       return;
     }
 
-    initialGraph = parsedPlanToGraph(parseResult.plan, config, strategy);
+    initialGraph = parsedPlanToGraph(parseResult.plan, config, effectiveStrategy);
+    strategy = effectiveStrategy;
   }
 
   try {

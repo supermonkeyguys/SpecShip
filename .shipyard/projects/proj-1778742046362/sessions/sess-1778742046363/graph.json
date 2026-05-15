@@ -1,0 +1,328 @@
+{
+  "id": "graph-1778742046376",
+  "title": "糖尿病 SaaS 产品落地页计划",
+  "originalSpec": "构建一个面向糖尿病人的 SaaS 产品落地页，清晰传达产品价值、核心功能、价格方案（免费版 + 付费版）以及常见问题，帮助访客快速理解产品并产生注册或升级意愿。成功标准是页面结构完整、文案从零起草、组件职责清晰、可编译，并具备可复用的分区组件与基础数据模型，便于后续接入真实品牌内容与埋点。",
+  "nodes": [
+    [
+      "landing-types",
+      {
+        "id": "landing-types",
+        "type": "implement",
+        "title": "定义落地页数据类型",
+        "specFragment": "定义并导出以下类型：\n- `export interface HeroContent { headline: string; subheadline: string; primaryCta: string; secondaryCta: string; badge: string; }`\n- `export interface FeatureItem { title: string; descrip",
+        "nodeRole": "types",
+        "task": "定义并导出以下类型：\n- `export interface HeroContent { headline: string; subheadline: string; primaryCta: string; secondaryCta: string; badge: string; }`\n- `export interface FeatureItem { title: string; description: string; }`\n- `export interface PricingPlan { name: string; priceLabel: string; description: string; features: string[]; cta: string; highlighted: boolean; }`\n- `export interface FaqItem { question: string; answer: string; }`\n- `export interface FooterCtaContent { headline: string; description: string; buttonText: string; }`\n- `export interface LandingPageContent { hero: HeroContent; features: FeatureItem[]; pricing: PricingPlan[]; faq: FaqItem[]; footerCta: FooterCtaContent; }`\n不引入外部依赖。",
+        "acceptanceCriteria": "exports: [HeroContent, FeatureItem, PricingPlan, FaqItem, FooterCtaContent, LandingPageContent]\ncompile: true",
+        "skills": [],
+        "dependsOn": [],
+        "inputs": {
+          "description": "定义并导出以下类型：\n- `export interface HeroContent { headline: string; subheadline: string; primaryCta: string; secondaryCta: string; badge: string; }`\n- `export interface FeatureItem { title: string; description: string; }`\n- `export interface PricingPlan { name: string; priceLabel: string; description: string; features: string[]; cta: string; highlighted: boolean; }`\n- `export interface FaqItem { question: string; answer: string; }`\n- `export interface FooterCtaContent { headline: string; description: string; buttonText: string; }`\n- `export interface LandingPageContent { hero: HeroContent; features: FeatureItem[]; pricing: PricingPlan[]; faq: FaqItem[]; footerCta: FooterCtaContent; }`\n不引入外部依赖。"
+        },
+        "outputs": {
+          "description": "Write output/types/landing.ts",
+          "files": [
+            "output/types/landing.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-05-14T07:00:46.376Z",
+        "updatedAt": "2026-05-14T07:02:10.249Z",
+        "evidence": {
+          "reasoning": "",
+          "promptUsed": "",
+          "modelUsed": "gpt-5.4",
+          "modelRouteReason": "phase=execute role=types complexity=small risk=high -> integrator model; retry>=1 -> escalated to integrator model",
+          "modelRouteComplexity": "small",
+          "modelRouteRisk": "high",
+          "toolCalls": [],
+          "filesWritten": [],
+          "verifications": [],
+          "startedAt": "2026-05-14T07:02:00.174Z",
+          "completedAt": "2026-05-14T07:02:10.249Z",
+          "durationMs": 10075
+        },
+        "error": {
+          "message": "write_file attempted unexpected path \"output/types/landing.ts\"; expected: output/types/landing.ts",
+          "category": "unknown",
+          "recoverable": true
+        },
+        "lastError": "write_file attempted unexpected path \"output/types/landing.ts\"; expected: output/types/landing.ts",
+        "lastErrorKind": "fatal"
+      }
+    ],
+    [
+      "landing-content",
+      {
+        "id": "landing-content",
+        "type": "implement",
+        "title": "起草页面营销文案与静态数据",
+        "specFragment": "从 `output/types/landing` 导入 `LandingPageContent`。\n定义并导出：\n- `export const landingContent: LandingPageContent`\n内容需包含：\n- Hero：突出“更轻松管理血糖”的价值主张\n- 3 个功能亮点：血糖记录、趋势分析、提醒管理\n- 2 个价格方案：免费版、专业版\n- 至少 4 条 FAQ：数据安全",
+        "nodeRole": "implementer",
+        "task": "从 `output/types/landing` 导入 `LandingPageContent`。\n定义并导出：\n- `export const landingContent: LandingPageContent`\n内容需包含：\n- Hero：突出“更轻松管理血糖”的价值主张\n- 3 个功能亮点：血糖记录、趋势分析、提醒管理\n- 2 个价格方案：免费版、专业版\n- 至少 4 条 FAQ：数据安全、免费版限制、是否适合新确诊用户、是否可随时升级\n- Footer CTA：引导立即开始使用\n文案全部使用中文。",
+        "acceptanceCriteria": "exports: [landingContent]\ncompile: true",
+        "skills": [],
+        "dependsOn": [
+          "landing-types"
+        ],
+        "inputs": {
+          "description": "从 `output/types/landing` 导入 `LandingPageContent`。\n定义并导出：\n- `export const landingContent: LandingPageContent`\n内容需包含：\n- Hero：突出“更轻松管理血糖”的价值主张\n- 3 个功能亮点：血糖记录、趋势分析、提醒管理\n- 2 个价格方案：免费版、专业版\n- 至少 4 条 FAQ：数据安全、免费版限制、是否适合新确诊用户、是否可随时升级\n- Footer CTA：引导立即开始使用\n文案全部使用中文。"
+        },
+        "outputs": {
+          "description": "Write output/data/landingContent.ts",
+          "files": [
+            "output/data/landingContent.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T07:00:46.376Z",
+        "updatedAt": "2026-05-14T07:00:55.302Z"
+      }
+    ],
+    [
+      "hero-section",
+      {
+        "id": "hero-section",
+        "type": "implement",
+        "title": "实现首屏 Hero 区块组件",
+        "specFragment": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `HeroContent`。\n定义并导出：\n- `export interface HeroSectionProps { content: HeroContent; }`\n- `export function HeroSection(props: HeroSectionProps): ",
+        "nodeRole": "implementer",
+        "task": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `HeroContent`。\n定义并导出：\n- `export interface HeroSectionProps { content: HeroContent; }`\n- `export function HeroSection(props: HeroSectionProps): ReactElement`\n组件内部渲染 `badge`、`headline`、`subheadline`、两个按钮文案 `primaryCta` 与 `secondaryCta`。\n使用语义化标签与基础 `className`，不添加样式逻辑。",
+        "acceptanceCriteria": "exports: [HeroSectionProps, HeroSection]\ncompile: true",
+        "skills": [],
+        "dependsOn": [
+          "landing-types"
+        ],
+        "inputs": {
+          "description": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `HeroContent`。\n定义并导出：\n- `export interface HeroSectionProps { content: HeroContent; }`\n- `export function HeroSection(props: HeroSectionProps): ReactElement`\n组件内部渲染 `badge`、`headline`、`subheadline`、两个按钮文案 `primaryCta` 与 `secondaryCta`。\n使用语义化标签与基础 `className`，不添加样式逻辑。"
+        },
+        "outputs": {
+          "description": "Write output/components/HeroSection.tsx",
+          "files": [
+            "output/components/HeroSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T07:00:46.376Z",
+        "updatedAt": "2026-05-14T07:00:55.302Z"
+      }
+    ],
+    [
+      "features-section",
+      {
+        "id": "features-section",
+        "type": "implement",
+        "title": "实现功能亮点区块组件",
+        "specFragment": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `FeatureItem`。\n定义并导出：\n- `export interface FeaturesSectionProps { items: FeatureItem[]; }`\n- `export function FeaturesSection(props: FeaturesSec",
+        "nodeRole": "implementer",
+        "task": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `FeatureItem`。\n定义并导出：\n- `export interface FeaturesSectionProps { items: FeatureItem[]; }`\n- `export function FeaturesSection(props: FeaturesSectionProps): ReactElement`\n组件渲染区块标题、副标题，以及 `items` 列表。\n每个功能项显示 `title` 与 `description`。",
+        "acceptanceCriteria": "exports: [FeaturesSectionProps, FeaturesSection]\ncompile: true",
+        "skills": [],
+        "dependsOn": [
+          "landing-types"
+        ],
+        "inputs": {
+          "description": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `FeatureItem`。\n定义并导出：\n- `export interface FeaturesSectionProps { items: FeatureItem[]; }`\n- `export function FeaturesSection(props: FeaturesSectionProps): ReactElement`\n组件渲染区块标题、副标题，以及 `items` 列表。\n每个功能项显示 `title` 与 `description`。"
+        },
+        "outputs": {
+          "description": "Write output/components/FeaturesSection.tsx",
+          "files": [
+            "output/components/FeaturesSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T07:00:46.376Z",
+        "updatedAt": "2026-05-14T07:00:55.302Z"
+      }
+    ],
+    [
+      "pricing-section",
+      {
+        "id": "pricing-section",
+        "type": "implement",
+        "title": "实现价格方案区块组件",
+        "specFragment": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `PricingPlan`。\n定义并导出：\n- `export interface PricingSectionProps { plans: PricingPlan[]; }`\n- `export function PricingSection(props: PricingSectio",
+        "nodeRole": "implementer",
+        "task": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `PricingPlan`。\n定义并导出：\n- `export interface PricingSectionProps { plans: PricingPlan[]; }`\n- `export function PricingSection(props: PricingSectionProps): ReactElement`\n组件渲染区块标题与方案卡片列表。\n每个卡片显示 `name`、`priceLabel`、`description`、`features`、`cta`。\n根据 `highlighted: boolean` 添加不同的 `className` 标识推荐方案。",
+        "acceptanceCriteria": "exports: [PricingSectionProps, PricingSection]\ncompile: true",
+        "skills": [],
+        "dependsOn": [
+          "landing-types"
+        ],
+        "inputs": {
+          "description": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `PricingPlan`。\n定义并导出：\n- `export interface PricingSectionProps { plans: PricingPlan[]; }`\n- `export function PricingSection(props: PricingSectionProps): ReactElement`\n组件渲染区块标题与方案卡片列表。\n每个卡片显示 `name`、`priceLabel`、`description`、`features`、`cta`。\n根据 `highlighted: boolean` 添加不同的 `className` 标识推荐方案。"
+        },
+        "outputs": {
+          "description": "Write output/components/PricingSection.tsx",
+          "files": [
+            "output/components/PricingSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T07:00:46.376Z",
+        "updatedAt": "2026-05-14T07:00:55.302Z"
+      }
+    ],
+    [
+      "faq-section",
+      {
+        "id": "faq-section",
+        "type": "implement",
+        "title": "实现常见问题区块组件",
+        "specFragment": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `FaqItem`。\n定义并导出：\n- `export interface FaqSectionProps { items: FaqItem[]; }`\n- `export function FaqSection(props: FaqSectionProps): ReactElemen",
+        "nodeRole": "implementer",
+        "task": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `FaqItem`。\n定义并导出：\n- `export interface FaqSectionProps { items: FaqItem[]; }`\n- `export function FaqSection(props: FaqSectionProps): ReactElement`\n组件渲染 FAQ 标题与问答列表。\n每条 FAQ 显示 `question` 与 `answer`。",
+        "acceptanceCriteria": "exports: [FaqSectionProps, FaqSection]\ncompile: true",
+        "skills": [],
+        "dependsOn": [
+          "landing-types"
+        ],
+        "inputs": {
+          "description": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `FaqItem`。\n定义并导出：\n- `export interface FaqSectionProps { items: FaqItem[]; }`\n- `export function FaqSection(props: FaqSectionProps): ReactElement`\n组件渲染 FAQ 标题与问答列表。\n每条 FAQ 显示 `question` 与 `answer`。"
+        },
+        "outputs": {
+          "description": "Write output/components/FaqSection.tsx",
+          "files": [
+            "output/components/FaqSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T07:00:46.376Z",
+        "updatedAt": "2026-05-14T07:00:55.302Z"
+      }
+    ],
+    [
+      "footer-cta-section",
+      {
+        "id": "footer-cta-section",
+        "type": "implement",
+        "title": "实现底部转化 CTA 区块组件",
+        "specFragment": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `FooterCtaContent`。\n定义并导出：\n- `export interface FooterCtaSectionProps { content: FooterCtaContent; }`\n- `export function FooterCtaSection(props:",
+        "nodeRole": "implementer",
+        "task": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `FooterCtaContent`。\n定义并导出：\n- `export interface FooterCtaSectionProps { content: FooterCtaContent; }`\n- `export function FooterCtaSection(props: FooterCtaSectionProps): ReactElement`\n组件渲染 `headline`、`description`、`buttonText`。",
+        "acceptanceCriteria": "exports: [FooterCtaSectionProps, FooterCtaSection]\ncompile: true",
+        "skills": [],
+        "dependsOn": [
+          "landing-types"
+        ],
+        "inputs": {
+          "description": "从 `react` 导入 `ReactElement`。\n从 `output/types/landing` 导入 `FooterCtaContent`。\n定义并导出：\n- `export interface FooterCtaSectionProps { content: FooterCtaContent; }`\n- `export function FooterCtaSection(props: FooterCtaSectionProps): ReactElement`\n组件渲染 `headline`、`description`、`buttonText`。"
+        },
+        "outputs": {
+          "description": "Write output/components/FooterCtaSection.tsx",
+          "files": [
+            "output/components/FooterCtaSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T07:00:46.376Z",
+        "updatedAt": "2026-05-14T07:00:55.302Z"
+      }
+    ],
+    [
+      "landing-page",
+      {
+        "id": "landing-page",
+        "type": "implement",
+        "title": "组装完整落地页",
+        "specFragment": "从 `react` 导入 `ReactElement`。\n从 `output/data/landingContent` 导入 `landingContent`。\n从以下路径导入组件：\n- `output/components/HeroSection`\n- `output/components/FeaturesSection`\n- `output/components/PricingSection`",
+        "nodeRole": "integrator",
+        "task": "从 `react` 导入 `ReactElement`。\n从 `output/data/landingContent` 导入 `landingContent`。\n从以下路径导入组件：\n- `output/components/HeroSection`\n- `output/components/FeaturesSection`\n- `output/components/PricingSection`\n- `output/components/FaqSection`\n- `output/components/FooterCtaSection`\n定义并导出：\n- `export default function LandingPage(): ReactElement`\n页面按顺序渲染：\n- HeroSection，传入 `landingContent.hero`\n- FeaturesSection，传入 `landingContent.features`\n- PricingSection，传入 `landingContent.pricing`\n- FaqSection，传入 `landingContent.faq`\n- FooterCtaSection，传入 `landingContent.footerCta`\n使用 `<main>` 作为页面容器。",
+        "acceptanceCriteria": "exports: [default]\ncompile: true",
+        "skills": [],
+        "dependsOn": [
+          "landing-content",
+          "hero-section",
+          "features-section",
+          "pricing-section",
+          "faq-section",
+          "footer-cta-section"
+        ],
+        "inputs": {
+          "description": "从 `react` 导入 `ReactElement`。\n从 `output/data/landingContent` 导入 `landingContent`。\n从以下路径导入组件：\n- `output/components/HeroSection`\n- `output/components/FeaturesSection`\n- `output/components/PricingSection`\n- `output/components/FaqSection`\n- `output/components/FooterCtaSection`\n定义并导出：\n- `export default function LandingPage(): ReactElement`\n页面按顺序渲染：\n- HeroSection，传入 `landingContent.hero`\n- FeaturesSection，传入 `landingContent.features`\n- PricingSection，传入 `landingContent.pricing`\n- FaqSection，传入 `landingContent.faq`\n- FooterCtaSection，传入 `landingContent.footerCta`\n使用 `<main>` 作为页面容器。"
+        },
+        "outputs": {
+          "description": "Write output/pages/LandingPage.tsx",
+          "files": [
+            "output/pages/LandingPage.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "pending",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T07:00:46.376Z",
+        "updatedAt": "2026-05-14T07:00:46.376Z"
+      }
+    ],
+    [
+      "landing-checkpoint",
+      {
+        "id": "landing-checkpoint",
+        "type": "checkpoint",
+        "title": "记录页面结构与验收检查点",
+        "specFragment": "编写 Markdown 检查文件，包含以下小节：\n- `# Landing Page Checkpoint`\n- `## Sections`：列出 Hero、Features、Pricing、FAQ、Footer CTA\n- `## Content Rules`：说明文案为中文、价格为免费版+专业版、FAQ 至少 4 条\n- `## Compile Expectations`：说明页面组件与分区组",
+        "nodeRole": "checkpoint",
+        "task": "编写 Markdown 检查文件，包含以下小节：\n- `# Landing Page Checkpoint`\n- `## Sections`：列出 Hero、Features、Pricing、FAQ、Footer CTA\n- `## Content Rules`：说明文案为中文、价格为免费版+专业版、FAQ 至少 4 条\n- `## Compile Expectations`：说明页面组件与分区组件应可单独导入并通过 TypeScript 编译\n导出：\n- 无导出符号",
+        "acceptanceCriteria": "exports: []\ncompile: false",
+        "skills": [],
+        "dependsOn": [
+          "landing-page"
+        ],
+        "inputs": {
+          "description": "编写 Markdown 检查文件，包含以下小节：\n- `# Landing Page Checkpoint`\n- `## Sections`：列出 Hero、Features、Pricing、FAQ、Footer CTA\n- `## Content Rules`：说明文案为中文、价格为免费版+专业版、FAQ 至少 4 条\n- `## Compile Expectations`：说明页面组件与分区组件应可单独导入并通过 TypeScript 编译\n导出：\n- 无导出符号"
+        },
+        "outputs": {
+          "description": "Checkpoint: 记录页面结构与验收检查点",
+          "files": [],
+          "verificationCriteria": []
+        },
+        "status": "pending",
+        "maxRetries": 0,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T07:00:46.376Z",
+        "updatedAt": "2026-05-14T07:00:46.376Z"
+      }
+    ]
+  ],
+  "status": "failed",
+  "stats": {
+    "total": 9,
+    "byStatus": {
+      "pending": 2,
+      "ready": 0,
+      "running": 0,
+      "verifying": 0,
+      "done": 0,
+      "failed": 1,
+      "blocked": 6,
+      "skipped": 0
+    },
+    "filesGenerated": 0,
+    "verificationsRun": 0,
+    "verificationsPassed": 0
+  },
+  "createdAt": "2026-05-14T07:00:46.376Z",
+  "updatedAt": "2026-05-14T07:02:10.250Z",
+  "completedAt": "2026-05-14T07:02:10.255Z"
+}

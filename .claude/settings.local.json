@@ -75,7 +75,16 @@
       "Bash(ls /Users/cookie/project/shipyard/apps/server/src/*.ts)",
       "Bash(grep -rn \"verifyNode\\\\|verify\" /Users/cookie/project/shipyard/apps/server/src/*.ts)",
       "mcp__plugin_everything-claude-code_github__get_file_contents",
-      "Bash(kill -HUP 68773)"
+      "Bash(kill -HUP 68773)",
+      "Bash(grep -n \"react-app\\\\|reactApp\\\\|REACT_APP\" /Users/cookie/project/shipyard/packages/core/src/strategies/*.ts)",
+      "Bash(grep -E \"^recharts$|^react$\")",
+      "Bash(timeout 8 npx tsx --env-file=.env.local apps/server/src/index.ts)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npx tsx:*)",
+      "Bash(pkill -f \"tsx watch\")",
+      "Bash(pkill -f \"apps/server\")",
+      "Read(//private/tmp/**)",
+      "Bash(grep -n \"allowedExtensions\" /Users/cookie/project/shipyard/packages/core/src/strategies/*.ts)"
     ]
   }
 }

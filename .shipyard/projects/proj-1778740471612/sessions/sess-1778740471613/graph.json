@@ -1,0 +1,382 @@
+{
+  "id": "graph-1778740471624",
+  "title": "SaaS Landing Page Plan",
+  "originalSpec": "Build a responsive SaaS landing page that clearly presents the product value proposition, pricing plans, and FAQ content, so visitors can quickly understand the offering and convert through prominent calls to action. Success looks like a clean, componentized implementation that compiles successfully, renders all required sections, and keeps each file small and focused.",
+  "nodes": [
+    [
+      "types-content",
+      {
+        "id": "types-content",
+        "type": "implement",
+        "title": "Define landing page content types",
+        "specFragment": "Create and export the following interfaces:\n- `export interface HeroContent { headline: string; subheadline: string; primaryCtaLabel: string; secondaryCtaLabel: string }`\n- `export interface PricingPl",
+        "nodeRole": "types",
+        "task": "Create and export the following interfaces:\n- `export interface HeroContent { headline: string; subheadline: string; primaryCtaLabel: string; secondaryCtaLabel: string }`\n- `export interface PricingPlan { name: string; priceMonthly: string; description: string; features: string[]; highlighted: boolean; ctaLabel: string }`\n- `export interface FaqItem { question: string; answer: string }`\n- `export interface LandingPageContent { hero: HeroContent; pricing: PricingPlan[]; faq: FaqItem[] }`\nNo imports required.",
+        "acceptanceCriteria": "SCOPE: Review ONLY output/types/content.ts. Check: file compiles and implements \"Define landing page content types\".",
+        "skills": [],
+        "dependsOn": [],
+        "inputs": {
+          "description": "Create and export the following interfaces:\n- `export interface HeroContent { headline: string; subheadline: string; primaryCtaLabel: string; secondaryCtaLabel: string }`\n- `export interface PricingPlan { name: string; priceMonthly: string; description: string; features: string[]; highlighted: boolean; ctaLabel: string }`\n- `export interface FaqItem { question: string; answer: string }`\n- `export interface LandingPageContent { hero: HeroContent; pricing: PricingPlan[]; faq: FaqItem[] }`\nNo imports required."
+        },
+        "outputs": {
+          "description": "Write output/types/content.ts",
+          "files": [
+            "output/types/content.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-05-14T06:34:31.624Z",
+        "updatedAt": "2026-05-14T06:35:30.065Z",
+        "evidence": {
+          "reasoning": "",
+          "promptUsed": "",
+          "modelUsed": "gpt-5.4",
+          "modelRouteReason": "phase=execute role=types complexity=small risk=high -> integrator model; retry>=1 -> escalated to integrator model",
+          "modelRouteComplexity": "small",
+          "modelRouteRisk": "high",
+          "toolCalls": [],
+          "filesWritten": [],
+          "verifications": [],
+          "startedAt": "2026-05-14T06:35:20.273Z",
+          "completedAt": "2026-05-14T06:35:30.064Z",
+          "durationMs": 9791
+        },
+        "error": {
+          "message": "write_file attempted unexpected path \"output/types/content.ts\"; expected: output/types/content.ts",
+          "category": "unknown",
+          "recoverable": true
+        },
+        "lastError": "write_file attempted unexpected path \"output/types/content.ts\"; expected: output/types/content.ts",
+        "lastErrorKind": "fatal"
+      }
+    ],
+    [
+      "data-content",
+      {
+        "id": "data-content",
+        "type": "implement",
+        "title": "Add static landing page content",
+        "specFragment": "Import:\n- `LandingPageContent` from `../types/content`\nDefine and export:\n- `export const landingPageContent: LandingPageContent`\nPopulate `landingPageContent.hero`, `landingPageContent.pricing`, and ",
+        "nodeRole": "implementer",
+        "task": "Import:\n- `LandingPageContent` from `../types/content`\nDefine and export:\n- `export const landingPageContent: LandingPageContent`\nPopulate `landingPageContent.hero`, `landingPageContent.pricing`, and `landingPageContent.faq` with static SaaS marketing copy.",
+        "acceptanceCriteria": "SCOPE: Review ONLY output/data/content.ts. Check: file compiles and implements \"Add static landing page content\".",
+        "skills": [],
+        "dependsOn": [
+          "types-content"
+        ],
+        "inputs": {
+          "description": "Import:\n- `LandingPageContent` from `../types/content`\nDefine and export:\n- `export const landingPageContent: LandingPageContent`\nPopulate `landingPageContent.hero`, `landingPageContent.pricing`, and `landingPageContent.faq` with static SaaS marketing copy."
+        },
+        "outputs": {
+          "description": "Write output/data/content.ts",
+          "files": [
+            "output/data/content.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T06:34:31.624Z",
+        "updatedAt": "2026-05-14T06:34:39.440Z"
+      }
+    ],
+    [
+      "styles-theme",
+      {
+        "id": "styles-theme",
+        "type": "implement",
+        "title": "Define shared style helpers",
+        "specFragment": "Import:\n- `CSSProperties` from `react`\nDefine and export:\n- `export const colors: { background: string; surface: string; text: string; muted: string; primary: string; border: string }`\n- `export const",
+        "nodeRole": "implementer",
+        "task": "Import:\n- `CSSProperties` from `react`\nDefine and export:\n- `export const colors: { background: string; surface: string; text: string; muted: string; primary: string; border: string }`\n- `export const layout: { page: CSSProperties; section: CSSProperties; container: CSSProperties; grid: CSSProperties }`\n- `export function cardStyle(highlighted?: boolean): CSSProperties`\nReturn plain style objects only.",
+        "acceptanceCriteria": "SCOPE: Review ONLY output/styles/theme.ts. Check: file compiles and implements \"Define shared style helpers\".",
+        "skills": [],
+        "dependsOn": [],
+        "inputs": {
+          "description": "Import:\n- `CSSProperties` from `react`\nDefine and export:\n- `export const colors: { background: string; surface: string; text: string; muted: string; primary: string; border: string }`\n- `export const layout: { page: CSSProperties; section: CSSProperties; container: CSSProperties; grid: CSSProperties }`\n- `export function cardStyle(highlighted?: boolean): CSSProperties`\nReturn plain style objects only."
+        },
+        "outputs": {
+          "description": "Write output/styles/theme.ts",
+          "files": [
+            "output/styles/theme.ts"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "failed",
+        "maxRetries": 5,
+        "retryCount": 5,
+        "createdAt": "2026-05-14T06:34:31.624Z",
+        "updatedAt": "2026-05-14T06:35:53.580Z",
+        "evidence": {
+          "reasoning": "",
+          "promptUsed": "",
+          "modelUsed": "gpt-5.4",
+          "modelRouteReason": "phase=execute role=implementer complexity=small risk=high -> integrator model; retry>=1 -> escalated to integrator model",
+          "modelRouteComplexity": "small",
+          "modelRouteRisk": "high",
+          "toolCalls": [],
+          "filesWritten": [],
+          "verifications": [],
+          "startedAt": "2026-05-14T06:35:39.694Z",
+          "completedAt": "2026-05-14T06:35:53.580Z",
+          "durationMs": 13886
+        },
+        "error": {
+          "message": "write_file attempted unexpected path \"output/styles/theme.ts\"; expected: output/styles/theme.ts",
+          "category": "unknown",
+          "recoverable": true
+        },
+        "lastError": "write_file attempted unexpected path \"output/styles/theme.ts\"; expected: output/styles/theme.ts",
+        "lastErrorKind": "fatal"
+      }
+    ],
+    [
+      "component-hero",
+      {
+        "id": "component-hero",
+        "type": "implement",
+        "title": "Implement hero section component",
+        "specFragment": "Import:\n- `React` from `react`\n- `HeroContent` from `../types/content`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export interface HeroSectionProps { content: HeroContent }`\n- `",
+        "nodeRole": "implementer",
+        "task": "Import:\n- `React` from `react`\n- `HeroContent` from `../types/content`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export interface HeroSectionProps { content: HeroContent }`\n- `export function HeroSection(props: HeroSectionProps): JSX.Element`\nRender a semantic `section` with headline, subheadline, and two CTA links/buttons using inline styles.",
+        "acceptanceCriteria": "SCOPE: Review ONLY output/components/HeroSection.tsx. Check: file compiles and implements \"Implement hero section component\".",
+        "skills": [],
+        "dependsOn": [
+          "types-content",
+          "styles-theme"
+        ],
+        "inputs": {
+          "description": "Import:\n- `React` from `react`\n- `HeroContent` from `../types/content`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export interface HeroSectionProps { content: HeroContent }`\n- `export function HeroSection(props: HeroSectionProps): JSX.Element`\nRender a semantic `section` with headline, subheadline, and two CTA links/buttons using inline styles."
+        },
+        "outputs": {
+          "description": "Write output/components/HeroSection.tsx",
+          "files": [
+            "output/components/HeroSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T06:34:31.624Z",
+        "updatedAt": "2026-05-14T06:34:39.440Z"
+      }
+    ],
+    [
+      "component-pricing",
+      {
+        "id": "component-pricing",
+        "type": "implement",
+        "title": "Implement pricing section component",
+        "specFragment": "Import:\n- `React` from `react`\n- `PricingPlan` from `../types/content`\n- `colors`, `layout`, `cardStyle` from `../styles/theme`\nDefine and export:\n- `export interface PricingSectionProps { plans: Pric",
+        "nodeRole": "implementer",
+        "task": "Import:\n- `React` from `react`\n- `PricingPlan` from `../types/content`\n- `colors`, `layout`, `cardStyle` from `../styles/theme`\nDefine and export:\n- `export interface PricingSectionProps { plans: PricingPlan[] }`\n- `export function PricingSection(props: PricingSectionProps): JSX.Element`\nRender a `section` containing a heading and a responsive list of plan cards. For each plan, render name, price, description, feature list, and CTA control.",
+        "acceptanceCriteria": "SCOPE: Review ONLY output/components/PricingSection.tsx. Check: file compiles and implements \"Implement pricing section component\".",
+        "skills": [],
+        "dependsOn": [
+          "types-content",
+          "styles-theme"
+        ],
+        "inputs": {
+          "description": "Import:\n- `React` from `react`\n- `PricingPlan` from `../types/content`\n- `colors`, `layout`, `cardStyle` from `../styles/theme`\nDefine and export:\n- `export interface PricingSectionProps { plans: PricingPlan[] }`\n- `export function PricingSection(props: PricingSectionProps): JSX.Element`\nRender a `section` containing a heading and a responsive list of plan cards. For each plan, render name, price, description, feature list, and CTA control."
+        },
+        "outputs": {
+          "description": "Write output/components/PricingSection.tsx",
+          "files": [
+            "output/components/PricingSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T06:34:31.624Z",
+        "updatedAt": "2026-05-14T06:34:39.440Z"
+      }
+    ],
+    [
+      "component-faq",
+      {
+        "id": "component-faq",
+        "type": "implement",
+        "title": "Implement FAQ section component",
+        "specFragment": "Import:\n- `React` from `react`\n- `FaqItem` from `../types/content`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export interface FaqSectionProps { items: FaqItem[] }`\n- `export fu",
+        "nodeRole": "implementer",
+        "task": "Import:\n- `React` from `react`\n- `FaqItem` from `../types/content`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export interface FaqSectionProps { items: FaqItem[] }`\n- `export function FaqSection(props: FaqSectionProps): JSX.Element`\nRender a `section` with a heading and a list of FAQ items using semantic elements such as `dl`, `dt`, and `dd`.",
+        "acceptanceCriteria": "SCOPE: Review ONLY output/components/FaqSection.tsx. Check: file compiles and implements \"Implement FAQ section component\".",
+        "skills": [],
+        "dependsOn": [
+          "types-content",
+          "styles-theme"
+        ],
+        "inputs": {
+          "description": "Import:\n- `React` from `react`\n- `FaqItem` from `../types/content`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export interface FaqSectionProps { items: FaqItem[] }`\n- `export function FaqSection(props: FaqSectionProps): JSX.Element`\nRender a `section` with a heading and a list of FAQ items using semantic elements such as `dl`, `dt`, and `dd`."
+        },
+        "outputs": {
+          "description": "Write output/components/FaqSection.tsx",
+          "files": [
+            "output/components/FaqSection.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T06:34:31.624Z",
+        "updatedAt": "2026-05-14T06:34:39.440Z"
+      }
+    ],
+    [
+      "component-header",
+      {
+        "id": "component-header",
+        "type": "implement",
+        "title": "Implement simple page header",
+        "specFragment": "Import:\n- `React` from `react`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export interface PageHeaderProps { productName: string; navItems: { label: string; href: string }[] }`\n",
+        "nodeRole": "implementer",
+        "task": "Import:\n- `React` from `react`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export interface PageHeaderProps { productName: string; navItems: { label: string; href: string }[] }`\n- `export function PageHeader(props: PageHeaderProps): JSX.Element`\nRender a top header with brand name and simple navigation links to `#pricing` and `#faq`.",
+        "acceptanceCriteria": "SCOPE: Review ONLY output/components/PageHeader.tsx. Check: file compiles and implements \"Implement simple page header\".",
+        "skills": [],
+        "dependsOn": [
+          "styles-theme"
+        ],
+        "inputs": {
+          "description": "Import:\n- `React` from `react`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export interface PageHeaderProps { productName: string; navItems: { label: string; href: string }[] }`\n- `export function PageHeader(props: PageHeaderProps): JSX.Element`\nRender a top header with brand name and simple navigation links to `#pricing` and `#faq`."
+        },
+        "outputs": {
+          "description": "Write output/components/PageHeader.tsx",
+          "files": [
+            "output/components/PageHeader.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T06:34:31.624Z",
+        "updatedAt": "2026-05-14T06:34:45.630Z"
+      }
+    ],
+    [
+      "component-footer",
+      {
+        "id": "component-footer",
+        "type": "implement",
+        "title": "Implement simple page footer",
+        "specFragment": "Import:\n- `React` from `react`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export function PageFooter(): JSX.Element`\nRender a footer with short copyright text and one support li",
+        "nodeRole": "implementer",
+        "task": "Import:\n- `React` from `react`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export function PageFooter(): JSX.Element`\nRender a footer with short copyright text and one support link.",
+        "acceptanceCriteria": "SCOPE: Review ONLY output/components/PageFooter.tsx. Check: file compiles and implements \"Implement simple page footer\".",
+        "skills": [],
+        "dependsOn": [
+          "styles-theme"
+        ],
+        "inputs": {
+          "description": "Import:\n- `React` from `react`\n- `colors`, `layout` from `../styles/theme`\nDefine and export:\n- `export function PageFooter(): JSX.Element`\nRender a footer with short copyright text and one support link."
+        },
+        "outputs": {
+          "description": "Write output/components/PageFooter.tsx",
+          "files": [
+            "output/components/PageFooter.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T06:34:31.624Z",
+        "updatedAt": "2026-05-14T06:34:45.630Z"
+      }
+    ],
+    [
+      "app-landing-page",
+      {
+        "id": "app-landing-page",
+        "type": "implement",
+        "title": "Compose the full landing page",
+        "specFragment": "Import:\n- `React` from `react`\n- `landingPageContent` from `../data/content`\n- `layout` from `../styles/theme`\n- `PageHeader` from `../components/PageHeader`\n- `HeroSection` from `../components/HeroSe",
+        "nodeRole": "integrator",
+        "task": "Import:\n- `React` from `react`\n- `landingPageContent` from `../data/content`\n- `layout` from `../styles/theme`\n- `PageHeader` from `../components/PageHeader`\n- `HeroSection` from `../components/HeroSection`\n- `PricingSection` from `../components/PricingSection`\n- `FaqSection` from `../components/FaqSection`\n- `PageFooter` from `../components/PageFooter`\nDefine and export:\n- `export default function LandingPage(): JSX.Element`\nCompose the page in order: header, hero, pricing, FAQ, footer. Pass static nav items with `#pricing` and `#faq`. Wrap content in a root element using shared page styles.",
+        "acceptanceCriteria": "SCOPE: Review ONLY output/app/LandingPage.tsx. Check: file compiles and implements \"Compose the full landing page\".",
+        "skills": [],
+        "dependsOn": [
+          "data-content",
+          "component-hero",
+          "component-pricing",
+          "component-faq",
+          "component-header",
+          "component-footer",
+          "styles-theme"
+        ],
+        "inputs": {
+          "description": "Import:\n- `React` from `react`\n- `landingPageContent` from `../data/content`\n- `layout` from `../styles/theme`\n- `PageHeader` from `../components/PageHeader`\n- `HeroSection` from `../components/HeroSection`\n- `PricingSection` from `../components/PricingSection`\n- `FaqSection` from `../components/FaqSection`\n- `PageFooter` from `../components/PageFooter`\nDefine and export:\n- `export default function LandingPage(): JSX.Element`\nCompose the page in order: header, hero, pricing, FAQ, footer. Pass static nav items with `#pricing` and `#faq`. Wrap content in a root element using shared page styles."
+        },
+        "outputs": {
+          "description": "Write output/app/LandingPage.tsx",
+          "files": [
+            "output/app/LandingPage.tsx"
+          ],
+          "verificationCriteria": []
+        },
+        "status": "blocked",
+        "maxRetries": 5,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T06:34:31.624Z",
+        "updatedAt": "2026-05-14T06:34:45.630Z"
+      }
+    ],
+    [
+      "checkpoint-review",
+      {
+        "id": "checkpoint-review",
+        "type": "checkpoint",
+        "title": "Review composition and export coverage",
+        "specFragment": "Create a markdown checklist that verifies:\n- all section components are exported\n- all imports in `output/app/LandingPage.tsx` are relative and resolvable\n- hero, pricing, and FAQ sections are present",
+        "nodeRole": "checkpoint",
+        "task": "Create a markdown checklist that verifies:\n- all section components are exported\n- all imports in `output/app/LandingPage.tsx` are relative and resolvable\n- hero, pricing, and FAQ sections are present\n- pricing links target the pricing section and FAQ nav targets the FAQ section\n- all files compile under TypeScript React settings\nExport no symbols.",
+        "acceptanceCriteria": "SCOPE: Review ONLY output/checkpoints/landing-page-review.md. Check: file compiles and implements \"Review composition and export coverage\".",
+        "skills": [],
+        "dependsOn": [
+          "app-landing-page"
+        ],
+        "inputs": {
+          "description": "Create a markdown checklist that verifies:\n- all section components are exported\n- all imports in `output/app/LandingPage.tsx` are relative and resolvable\n- hero, pricing, and FAQ sections are present\n- pricing links target the pricing section and FAQ nav targets the FAQ section\n- all files compile under TypeScript React settings\nExport no symbols."
+        },
+        "outputs": {
+          "description": "Checkpoint: Review composition and export coverage",
+          "files": [],
+          "verificationCriteria": []
+        },
+        "status": "pending",
+        "maxRetries": 0,
+        "retryCount": 0,
+        "createdAt": "2026-05-14T06:34:31.624Z",
+        "updatedAt": "2026-05-14T06:34:31.624Z"
+      }
+    ]
+  ],
+  "status": "failed",
+  "stats": {
+    "total": 10,
+    "byStatus": {
+      "pending": 1,
+      "ready": 0,
+      "running": 0,
+      "verifying": 0,
+      "done": 0,
+      "failed": 2,
+      "blocked": 7,
+      "skipped": 0
+    },
+    "filesGenerated": 0,
+    "verificationsRun": 0,
+    "verificationsPassed": 0
+  },
+  "createdAt": "2026-05-14T06:34:31.624Z",
+  "updatedAt": "2026-05-14T06:35:53.580Z",
+  "completedAt": "2026-05-14T06:35:53.585Z"
+}

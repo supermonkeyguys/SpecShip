@@ -154,8 +154,8 @@ export const staticWebStrategy: TaskStrategy = {
 
   detect(spec: string): number {
     const lower = spec.toLowerCase();
-    const strong = ["网站", "webpage", "landing page", "静态网站", "static site", "html page", "landing page"];
-    const medium = ["html", "css", "前端页面", "web page", "网页", "前端展示"];
+    const strong = ["网站", "webpage", "静态网站", "static site", "html page"];
+    const medium = ["landing page", "html", "css", "前端页面", "web page", "网页", "前端展示"];
 
     for (const kw of strong) {
       if (lower.includes(kw)) return 0.95;

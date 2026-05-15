@@ -6,7 +6,7 @@ import type { ExecutionLogger } from "./execution-logger";
 import type { Evidence, ExecutionGraph, GraphNode } from "../graph";
 import { runAgent as defaultRunAgent } from "../ai/llm";
 import { makeLLMConfig } from "../ai/llm-config";
-import { validateOutputPath } from "./output-policy";
+import { validateOutputPath, normalizeSandboxOutputFile } from "./output-policy";
 import { routeModel } from "./model-router";
 import { getNodeRolePolicy } from "./node-role-policy";
 import type { AgentRunner } from "./runtime-types";
@@ -149,15 +149,23 @@ function ensureWritesStayWithinExpectedOutputs(
   config: ShipyardConfig
 ): void {
   const expectedPaths = node.outputs.files ?? [];
-  const expectedOutputFiles = new Set(expectedPaths.map((p) => normalizeToolRelativePath(p, config.workDir)));
+  // Planner may write outputFile as relative-to-output-dir (e.g. "styles/theme.ts") while
+  // the implementer writes the full path (e.g. "output/styles/theme.ts"). Normalize both
+  // through normalizeSandboxOutputFile so comparison is apples-to-apples.
+  const expectedOutputFiles = new Set(
+    expectedPaths
+      .map((p) => normalizeSandboxOutputFile(p, config))
+      .map((p) => normalizeToolRelativePath(p, config.workDir))
+  );
 
   // Implementer MAY write adjacent test files, but behavioral testing is typically deferred to a later tester/test pass
   const allowedTestFiles = new Set(
     expectedPaths.flatMap((p) => {
-      const dotIdx = p.lastIndexOf(".");
+      const normalized = normalizeSandboxOutputFile(p, config);
+      const dotIdx = normalized.lastIndexOf(".");
       if (dotIdx <= 0) return [];
-      const base = p.slice(0, dotIdx);
-      const ext = p.slice(dotIdx);
+      const base = normalized.slice(0, dotIdx);
+      const ext = normalized.slice(dotIdx);
       return [
         normalizeToolRelativePath(`${base}.test${ext}`, config.workDir),
         normalizeToolRelativePath(`${base}.spec${ext}`, config.workDir),
@@ -171,6 +179,7 @@ function ensureWritesStayWithinExpectedOutputs(
     if (expectedOutputFiles.has(normalizedPath) || allowedTestFiles.has(normalizedPath)) {
       return validateOutputPath(normalizedPath, config) !== null;
     }
+    console.error(`[output-policy] path mismatch: llm="${execution.filePath}" (norm="${normalizedPath}") expected=${JSON.stringify([...expectedOutputFiles])}`);
     return true;
   });
 
@@ -185,8 +194,16 @@ function collectWrittenFiles(
   toolExecutions: Array<{ tool: string; filePath?: string }>,
   workDir: string
 ): Evidence["filesWritten"] {
+  const seen = new Set<string>();
   return toolExecutions
-    .filter((t) => t.tool === "write_file" && t.filePath)
+    .filter((t) => t.tool === "write_file" && t.filePath && !t.filePath.includes("node_modules/"))
+    .reverse()
+    .filter((t) => {
+      if (seen.has(t.filePath!)) return false;
+      seen.add(t.filePath!);
+      return true;
+    })
+    .reverse()
     .map((t) => {
       const fullPath = path.resolve(workDir, t.filePath!);
       const content = fs.existsSync(fullPath) ? fs.readFileSync(fullPath) : Buffer.from("");

@@ -113,7 +113,7 @@ export function replaySessionOperations(operations: SessionOperationV1[]): Sessi
         const node = ensureNode(projection, nodeId);
         const files = op.payload["filesWritten"];
         if (Array.isArray(files)) {
-          node.filesWritten = files.filter((f): f is string => typeof f === "string");
+          node.filesWritten = files.filter((f): f is string => typeof f === "string" && !f.includes("node_modules/"));
         }
         break;
       }

@@ -24,14 +24,15 @@ Output a JSON object with:
 Rules:
 - Use Vite + React + TypeScript for all projects
 - Entry point: src/main.tsx renders <App/> to #root
-- index.html is the Vite entry with <div id="root"> and <script type="module" src="/src/main.tsx">
 - Component files go in src/components/ or src/ as appropriate
-- Package.json must include react, react-dom as dependencies and vite, @vitejs/plugin-react as devDependencies
-- vite.config.ts must use @vitejs/plugin-react
+- package.json must include react, react-dom as dependencies and vite, @vitejs/plugin-react as devDependencies
 - tsconfig.json must target ES2022 with jsx: "react-jsx"
 - All files must be self-contained in the output directory
-- Bootstrap files such as package.json, vite.config.ts, tsconfig.json, index.html, src/main.tsx, and src/App.tsx must appear at most once in the plan
+- Bootstrap files such as package.json, tsconfig.json, src/main.tsx, and src/App.tsx must appear at most once in the plan
 - Never create two steps that write the same outputFile
+- SCAFFOLD FILES (do NOT include steps for these — they are injected automatically by the runtime):
+  - vite.config.ts — automatically created with correct monorepo paths; any step that writes this file will FAIL
+  - index.html — automatically created with <div id="root"> and correct script tag; any step that writes this file will FAIL
 `.trim();
 
 const REACT_APP_IMPLEMENTER_PROMPT = `
@@ -65,9 +66,9 @@ Rules:
 - Do NOT fail for missing features that belong to other files
 - Do NOT require a complete application from a single file
 - Components must use React.JSX.Element return type, not JSX.Element
-- Check that imports reference files that exist in the output directory
-- package.json must include react and react-dom
-- vite.config.ts must use @vitejs/plugin-react
+- Only check imports for files that are produced by THIS step's outputFile
+- NEVER fail because vite.config.ts, index.html, or other scaffold files are absent — these are injected automatically
+- NEVER require files outside the current step's outputFile to exist
 
 Output your review as JSON:
 {
@@ -171,6 +172,8 @@ export const reactAppStrategy: TaskStrategy = {
       "宣传页",
       "官网",
       "saas 官网",
+      "landing page",
+      "marketing site",
     ];
     const medium = [
       "组件",
@@ -178,12 +181,11 @@ export const reactAppStrategy: TaskStrategy = {
       "hook",
       "jsx",
       "tsx",
+      "typescript",
       "vite",
       "前端框架",
       "状态管理",
       "router",
-      "landing page",
-      "marketing site",
     ];
 
     for (const kw of strong) {

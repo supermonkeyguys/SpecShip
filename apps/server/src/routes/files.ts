@@ -61,14 +61,18 @@ filesRouter.get("/files", (req: Request, res: Response) => {
   res.json({ files } satisfies FilesResponse);
 });
 
+const IGNORED_DIRS = new Set(["node_modules", ".git", "dist", "build", ".cache", ".next", ".turbo"]);
+const IGNORED_FILES = new Set([".DS_Store", "package-lock.json", "yarn.lock", "pnpm-lock.yaml"]);
+
 function walkDir(dir: string): string[] {
   const results: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      results.push(...walkDir(fullPath));
+      if (IGNORED_DIRS.has(entry.name)) continue;
+      results.push(...walkDir(path.join(dir, entry.name)));
     } else {
-      results.push(fullPath);
+      if (IGNORED_FILES.has(entry.name)) continue;
+      results.push(path.join(dir, entry.name));
     }
   }
   return results;

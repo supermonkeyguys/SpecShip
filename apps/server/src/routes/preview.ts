@@ -4,6 +4,7 @@
 
 import { Router, Request, Response } from "express";
 import * as http from "http";
+import * as net from "net";
 import * as fs from "fs";
 import * as path from "path";
 import type { PreviewKind, PreviewStatusResponse } from "../types";
@@ -196,7 +197,8 @@ previewRouter.get("/projects/:pid/sessions/:sid/preview/content/*path", (req: Re
 // Reverse-proxy live preview traffic through the server to avoid cross-origin iframe issues
 previewRouter.all("/projects/:pid/sessions/:sid/preview/live/proxy/{*path}", (req: Request, res: Response) => {
   const { pid, sid } = req.params as { pid: string; sid: string };
-  const rawPath = String((req.params as Record<string, string>).path ?? "").replace(/^\/+/, "");
+  const paramPath = (req.params as Record<string, string | string[]>).path ?? "";
+  const rawPath = (Array.isArray(paramPath) ? paramPath.join("/") : String(paramPath)).replace(/^\/+/, "");
   const liveState = getLivePreviewState(pid, sid);
 
   if (!liveState || !liveState.port || (liveState.status !== "running" && liveState.status !== "starting")) {
@@ -225,6 +227,7 @@ previewRouter.all("/projects/:pid/sessions/:sid/preview/live/proxy/{*path}", (re
     });
 
     const contentType = String(proxyRes.headers["content-type"] ?? "");
+    const isJs = contentType.includes("javascript") || req.path.match(/\.(js|ts|tsx|jsx|mjs)$/);
     if (isHtml || contentType.includes("text/html")) {
       let body = "";
       proxyRes.setEncoding("utf8");
@@ -235,6 +238,19 @@ previewRouter.all("/projects/:pid/sessions/:sid/preview/live/proxy/{*path}", (re
         body = body.replace(/from (["'])\//g, `from $1${proxyBase}/`);
         res.end(body);
       });
+    } else if (isJs) {
+      let body = "";
+      proxyRes.setEncoding("utf8");
+      proxyRes.on("data", (chunk: string) => { body += chunk; });
+      proxyRes.on("end", () => {
+        // Rewrite Vite's absolute-path imports (/@vite/client, /@react-refresh, /@id/...)
+        // so they route through this proxy instead of hitting the main Vite server.
+        body = body.replace(/from (["'])\/([@/])/g, `from $1${proxyBase}/$2`);
+        body = body.replace(/import (["'])\/([@/])/g, `import $1${proxyBase}/$2`);
+        body = body.replace(/"url":(["'])\//g, `"url":$1${proxyBase}/`);
+        body = body.replace(/new URL\((["'])\//g, `new URL($1${proxyBase}/`);
+        res.end(body);
+      });
     } else {
       proxyRes.pipe(res);
     }
@@ -243,3 +259,50 @@ previewRouter.all("/projects/:pid/sessions/:sid/preview/live/proxy/{*path}", (re
   proxy.on("error", () => res.status(502).send("Live preview proxy error"));
   req.pipe(proxy);
 });
+
+// WebSocket proxy — tunnels HMR upgrades through to the session's Vite dev server.
+// URL pattern: /api/projects/:pid/sessions/:sid/preview/live/proxy/...
+const WS_PROXY_RE = /^\/api\/projects\/([^/]+)\/sessions\/([^/]+)\/preview\/live\/proxy(\/.*)?$/;
+
+export function attachPreviewWsProxy(server: http.Server): void {
+  server.on("upgrade", (req: http.IncomingMessage, socket: net.Socket, head: Buffer) => {
+    const url = req.url ?? "";
+    const m = WS_PROXY_RE.exec(url);
+    if (!m) return; // not a preview proxy URL — leave to other handlers
+
+    const [, pid, sid, rest] = m;
+    const liveState = getLivePreviewState(pid, sid);
+
+    if (!liveState?.port || (liveState.status !== "running" && liveState.status !== "starting")) {
+      socket.write("HTTP/1.1 503 Service Unavailable\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
+    // Rewrite the path so Vite sees the original path, not the proxy prefix
+    const targetPath = rest || "/";
+
+    // Rebuild the HTTP upgrade request line + headers for Vite
+    const headerLines = [`GET ${targetPath} HTTP/1.1`, `Host: 127.0.0.1:${liveState.port}`];
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (k.toLowerCase() === "host") continue; // already added above
+      if (Array.isArray(v)) v.forEach((vv) => headerLines.push(`${k}: ${vv}`));
+      else headerLines.push(`${k}: ${v}`);
+    }
+    const upgradeRequest = headerLines.join("\r\n") + "\r\n\r\n";
+
+    const upstream = net.connect(liveState.port, "127.0.0.1", () => {
+      upstream.write(upgradeRequest);
+      if (head.length > 0) upstream.write(head);
+    });
+
+    upstream.on("error", () => {
+      socket.write("HTTP/1.1 502 Bad Gateway\r\n\r\n");
+      socket.destroy();
+    });
+
+    socket.on("error", () => upstream.destroy());
+    upstream.pipe(socket);
+    socket.pipe(upstream);
+  });
+}
