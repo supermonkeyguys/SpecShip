@@ -40,3 +40,8 @@ type RuntimeManager interface {
 	Send(ctx context.Context, sessionID string, cmd appruntime.Command) error
 	Stop(ctx context.Context, sessionID string) error
 }
+
+type LLMSettingsStore interface {
+	Load(ctx context.Context) (*LLMSettings, error)
+	Save(ctx context.Context, settings LLMSettings) error
+}

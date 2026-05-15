@@ -28,33 +28,50 @@ func NewRouter() stdhttp.Handler {
 	sessions := sqlitestore.NewSessionRepository(db)
 	graphs := sqlitestore.NewGraphRepository(db)
 	events := sqlitestore.NewEventStore(db, broker)
+	llmSettings := sqlitestore.NewLLMSettingsRepository(db)
+
+	llmFactory := llm.ClientFactory{
+		DefaultBaseURL: cfg.LLMBaseURL,
+		DefaultAPIKey:  cfg.LLMAPIKey,
+		Timeout:        60 * time.Second,
+	}
 
 	staticPlanner := app.NewStaticPlanner()
 	var planner appruntime.Planner = staticPlanner
 	var llmClient llm.Client
 	if cfg.LLMAPIKey != "" {
-		llmClient = llm.NewOpenAICompatibleClient(llm.Config{
-			BaseURL: cfg.LLMBaseURL,
-			APIKey:  cfg.LLMAPIKey,
-			Timeout: 60 * time.Second,
-		})
+		llmClient = llmFactory.Client(nil)
 	}
-	if llmClient != nil && cfg.LLMPlannerModel != "" {
-		planner = app.NewLLMPlanner(llmClient, cfg.LLMPlannerModel, staticPlanner)
+	if cfg.LLMPlannerModel != "" {
+		planner = &app.LLMPlanner{Client: llmClient, Model: cfg.LLMPlannerModel, Fallback: staticPlanner, Factory: llmFactory, SettingsStore: llmSettings}
 	}
 
 	clock := appruntime.RealClock{}
 	runtimeManager := appruntime.NewManagerWithFactories(events, sessions, graphs, planner, func(input appruntime.StartInput) appruntime.Executor {
 		root := app.ResolveExecutionRoot(cfg.WorkspaceDir, input.RepoPath, input.SessionID)
 		runner := toolrunner.NewLocalClient(root)
-		if llmClient != nil && cfg.LLMExecutorModel != "" {
-			return appruntime.NewLLMImplementExecutor(llmClient, runner, cfg.LLMExecutorModel, root)
+		if cfg.LLMExecutorModel != "" {
+			client := llmFactory.Client(input.LLMSettings)
+			if client == nil {
+				if settings, err := llmSettings.Load(context.Background()); err == nil {
+					client = llmFactory.Client(settings)
+				}
+			}
+			if client != nil {
+				return appruntime.NewLLMImplementExecutor(client, runner, cfg.LLMExecutorModel, root)
+			}
 		}
 		return appruntime.NewDeterministicExecutor(runner)
 	}, func(input appruntime.StartInput) appruntime.Verifier {
 		root := app.ResolveExecutionRoot(cfg.WorkspaceDir, input.RepoPath, input.SessionID)
 		runner := toolrunner.NewLocalClient(root)
-		return appruntime.NewBasicVerifier(runner, llmClient, cfg.LLMReviewerModel, root)
+		reviewerClient := llmFactory.Client(input.LLMSettings)
+		if reviewerClient == nil {
+			if settings, err := llmSettings.Load(context.Background()); err == nil {
+				reviewerClient = llmFactory.Client(settings)
+			}
+		}
+		return appruntime.NewBasicVerifier(runner, reviewerClient, cfg.LLMReviewerModel, root)
 	}, clock)
 	if err := app.RecoverActiveSessions(context.Background(), runtimeManager, projects, sessions, graphs); err != nil {
 		panic(err)
@@ -73,10 +90,11 @@ func NewRouter() stdhttp.Handler {
 	sessionService := &app.SessionService{Sessions: sessions, Graphs: graphs, Events: events}
 	webCompatService := &app.WebCompatService{Projects: projects, Sessions: sessions, Graphs: graphs, Events: events}
 	nodeCompatService := &app.NodeCompatService{Projects: projects, Sessions: sessions, Graphs: graphs, Runtime: runtimeManager, WorkspaceDir: cfg.WorkspaceDir, Reviewer: llmClient, ReviewerModel: cfg.LLMReviewerModel}
-	chatService := &app.ChatService{Client: llmClient, Model: cfg.LLMPlannerModel}
-	clarifyService := &app.ClarifyService{Client: llmClient, Model: cfg.LLMPlannerModel}
-	prdService := &app.PRDService{Client: llmClient, Model: cfg.LLMPlannerModel}
+	chatService := &app.ChatService{Client: llmClient, Model: cfg.LLMPlannerModel, Factory: llmFactory, SettingsStore: llmSettings}
+	clarifyService := &app.ClarifyService{Client: llmClient, Model: cfg.LLMPlannerModel, Factory: llmFactory, SettingsStore: llmSettings}
+	prdService := &app.PRDService{Client: llmClient, Model: cfg.LLMPlannerModel, Factory: llmFactory, SettingsStore: llmSettings}
 	planService := &app.PlanService{Planner: planner}
+	llmSettingsService := &app.LLMSettingsService{Store: llmSettings}
 	fileService := &app.FileService{Projects: projects, Sessions: sessions, Graphs: graphs, WorkspaceDir: cfg.WorkspaceDir}
 	previewService := &app.PreviewService{Projects: projects, Sessions: sessions, Graphs: graphs, WorkspaceDir: cfg.WorkspaceDir}
 
@@ -91,6 +109,7 @@ func NewRouter() stdhttp.Handler {
 	mux.Handle("/api/plan", handlers.PlanHandler{Service: planService})
 	mux.Handle("/api/clarify", handlers.CompatClarifyHandler{Service: clarifyService})
 	mux.Handle("/api/chat", handlers.CompatChatHandler{Service: chatService})
+	mux.Handle("/api/settings/llm", handlers.LLMSettingsHandler{Service: llmSettingsService})
 	mux.Handle("/api/projects", handlers.ProjectHandler{Service: projectService})
 	mux.Handle("/api/sessions/", handlers.SessionHandler{Service: sessionService})
 	mux.Handle("/api/stream", handlers.StreamHandler{Events: events, Broker: broker, WebCompatService: webCompatService})

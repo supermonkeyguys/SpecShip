@@ -29,18 +29,20 @@ func (h CompatRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Spec       string `json:"spec"`
-		RepoPath   string `json:"repoPath,omitempty"`
-		StrategyID string `json:"strategyId,omitempty"`
+		Spec       string           `json:"spec"`
+		RepoPath   string           `json:"repoPath,omitempty"`
+		StrategyID string           `json:"strategyId,omitempty"`
+		LLM        *app.LLMSettings `json:"llm,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	out, err := h.Service.StartRun(r.Context(), app.StartRunInput{
-		Spec:       req.Spec,
-		RepoPath:   req.RepoPath,
-		StrategyID: req.StrategyID,
+		Spec:        req.Spec,
+		RepoPath:    req.RepoPath,
+		StrategyID:  req.StrategyID,
+		LLMSettings: req.LLM,
 	})
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
@@ -60,13 +62,14 @@ func (h CompatPRDHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Spec string `json:"spec"`
+		Spec string           `json:"spec"`
+		LLM  *app.LLMSettings `json:"llm,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	out, err := h.Service.Generate(r.Context(), req.Spec)
+	out, err := h.Service.GenerateWithSettings(r.Context(), req.Spec, req.LLM)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -84,13 +87,14 @@ func (h CompatClarifyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var req struct {
-		Spec string `json:"spec"`
+		Spec string           `json:"spec"`
+		LLM  *app.LLMSettings `json:"llm,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	out, err := h.Service.Clarify(r.Context(), req.Spec)
+	out, err := h.Service.ClarifyWithSettings(r.Context(), req.Spec, req.LLM)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -103,12 +107,15 @@ func (h CompatChatHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	var req app.ChatInput
+	var req struct {
+		app.ChatInput
+		LLM *app.LLMSettings `json:"llm,omitempty"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	out, err := h.Service.Route(r.Context(), req)
+	out, err := h.Service.RouteWithSettings(r.Context(), req.ChatInput, req.LLM)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return

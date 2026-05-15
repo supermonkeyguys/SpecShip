@@ -475,3 +475,35 @@ func TestFileAndPreviewServicesPreferProjectRepoPathOverWorkspaceFallback(t *tes
 		t.Fatalf("unexpected preview status: %+v", status)
 	}
 }
+
+func TestLLMSettingsHandlerRoundTrip(t *testing.T) {
+	store := app.NewInMemoryLLMSettingsStore(app.LLMSettings{})
+	h := LLMSettingsHandler{Service: &app.LLMSettingsService{Store: store}}
+
+	postReq := httptest.NewRequest(http.MethodPost, "/api/settings/llm", strings.NewReader(`{"baseURL":"https://example.com/v1","apiKey":"sk-test"}`))
+	postReq.Header.Set("Content-Type", "application/json")
+	postRes := httptest.NewRecorder()
+	h.ServeHTTP(postRes, postReq)
+	if postRes.Code != http.StatusOK {
+		t.Fatalf("expected 200 for save, got %d: %s", postRes.Code, postRes.Body.String())
+	}
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/settings/llm", nil)
+	getRes := httptest.NewRecorder()
+	h.ServeHTTP(getRes, getReq)
+	if getRes.Code != http.StatusOK {
+		t.Fatalf("expected 200 for load, got %d: %s", getRes.Code, getRes.Body.String())
+	}
+	var body struct {
+		OK        bool   `json:"ok"`
+		BaseURL   string `json:"baseURL"`
+		APIKey    string `json:"apiKey"`
+		HasAPIKey bool   `json:"hasApiKey"`
+	}
+	if err := json.Unmarshal(getRes.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode settings response: %v", err)
+	}
+	if !body.OK || body.BaseURL != "https://example.com/v1" || body.APIKey != "sk-test" || !body.HasAPIKey {
+		t.Fatalf("unexpected settings payload: %+v", body)
+	}
+}

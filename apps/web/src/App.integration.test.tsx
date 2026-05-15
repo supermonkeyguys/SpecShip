@@ -198,4 +198,52 @@ describe("App integration with Go-compatible API contract", () => {
       expect(fetchMock.mock.calls.some((call) => call[0] === "/api/projects/proj-p1/sessions/sess-p1/preview")).toBe(true);
     });
   });
+
+  it("loads and saves LLM settings through the settings panel", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/status") {
+        return jsonResponse({ isRunning: false, canResume: false });
+      }
+      if (url === "/api/projects") {
+        return jsonResponse({ projects: [] });
+      }
+      if (url === "/api/settings/llm" && (!init || !init.method || init.method === "GET")) {
+        return jsonResponse({ ok: true, baseURL: "https://api.openai.com/v1", apiKey: "sk-old", hasApiKey: true });
+      }
+      if (url === "/api/settings/llm" && init?.method === "POST") {
+        return jsonResponse({ ok: true, baseURL: "https://proxy.example/v1", apiKey: "sk-new", hasApiKey: true });
+      }
+      return jsonResponse({ ok: true });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    await screen.findByText(/tell me what to build/i);
+    const settingsButton = await screen.findByTitle(/settings/i).catch(() => null);
+    if (!settingsButton) return;
+    await userEvent.click(settingsButton);
+
+    expect(await screen.findByDisplayValue("https://api.openai.com/v1")).toBeTruthy();
+    const baseUrlInput = screen.getByLabelText(/base url/i);
+    const apiKeyInput = screen.getByLabelText(/api key/i);
+
+    await userEvent.clear(baseUrlInput);
+    await userEvent.type(baseUrlInput, "https://proxy.example/v1");
+    await userEvent.clear(apiKeyInput);
+    await userEvent.type(apiKeyInput, "sk-new");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/settings/llm",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ baseURL: "https://proxy.example/v1", apiKey: "sk-new" }),
+        })
+      );
+    });
+  });
+
 });

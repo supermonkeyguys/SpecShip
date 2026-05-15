@@ -1,7 +1,11 @@
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { useEffect, useMemo, useState } from "react";
-import { loadLLMSettings, saveLLMSettings } from "../../shared/api/llmSettings";
+import {
+  fetchLLMSettings,
+  loadLLMSettings,
+  persistLLMSettings,
+} from "../../shared/api/llmSettings";
 
 interface Props {
   onBack: () => void;
@@ -12,6 +16,29 @@ export function SettingsPanel({ onBack }: Props) {
   const [baseURL, setBaseURL] = useState(initial.baseURL);
   const [apiKey, setApiKey] = useState(initial.apiKey);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const settings = await fetchLLMSettings();
+        if (cancelled) return;
+        setBaseURL(settings.baseURL);
+        setApiKey(settings.apiKey);
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!saved) return;
@@ -19,14 +46,24 @@ export function SettingsPanel({ onBack }: Props) {
     return () => clearTimeout(timer);
   }, [saved]);
 
-  const canSave = baseURL.trim().length > 0 && apiKey.trim().length > 0;
+  const canSave = baseURL.trim().length > 0 && apiKey.trim().length > 0 && !saving;
 
-  const handleSave = () => {
-    saveLLMSettings({
-      baseURL: baseURL.trim(),
-      apiKey: apiKey.trim(),
-    });
-    setSaved(true);
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      const savedSettings = await persistLLMSettings({
+        baseURL: baseURL.trim(),
+        apiKey: apiKey.trim(),
+      });
+      setBaseURL(savedSettings.baseURL);
+      setApiKey(savedSettings.apiKey);
+      setSaved(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -46,6 +83,7 @@ export function SettingsPanel({ onBack }: Props) {
             onChange={(e) => setBaseURL(e.target.value)}
             placeholder="https://api.openai.com/v1"
             aria-label="Base URL"
+            disabled={loading || saving}
           />
         </div>
 
@@ -57,15 +95,19 @@ export function SettingsPanel({ onBack }: Props) {
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="sk-..."
             aria-label="API Key"
+            disabled={loading || saving}
           />
         </div>
 
         <div className="flex items-center gap-3">
-          <Button type="button" onClick={handleSave} disabled={!canSave}>
-            Save
+          <Button type="button" onClick={() => void handleSave()} disabled={!canSave}>
+            {saving ? "Saving..." : "Save"}
           </Button>
           {saved && <span className="text-xs text-green-600">Saved</span>}
+          {loading && <span className="text-xs text-gray-500">Loading...</span>}
         </div>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
     </section>
   );

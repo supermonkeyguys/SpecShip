@@ -10,8 +10,10 @@ import (
 )
 
 type ChatService struct {
-	Client llm.Client
-	Model  string
+	Client        llm.Client
+	Model         string
+	Factory       llm.ClientFactory
+	SettingsStore LLMSettingsStore
 }
 
 type ChatNodeContext struct {
@@ -62,6 +64,10 @@ Rules:
 `
 
 func (s *ChatService) Route(ctx context.Context, in ChatInput) (*ChatOutput, error) {
+	return s.RouteWithSettings(ctx, in, nil)
+}
+
+func (s *ChatService) RouteWithSettings(ctx context.Context, in ChatInput, override *llm.Settings) (*ChatOutput, error) {
 	message := strings.TrimSpace(in.Message)
 	if message == "" {
 		return &ChatOutput{OK: false, Intent: ChatIntent{Type: "unknown", Reply: "Empty message"}, Error: "message is required"}, nil
@@ -71,12 +77,13 @@ func (s *ChatService) Route(ctx context.Context, in ChatInput) (*ChatOutput, err
 		return &ChatOutput{OK: true, Intent: *intent}, nil
 	}
 
-	if s.Client == nil || strings.TrimSpace(s.Model) == "" {
+	client := s.clientForRequest(ctx, override)
+	if client == nil || strings.TrimSpace(s.Model) == "" {
 		return &ChatOutput{OK: true, Intent: ChatIntent{Type: "unknown", Reply: fallbackReply(message)}}, nil
 	}
 
 	prompt := buildChatPrompt(in)
-	out, err := s.Client.Run(ctx, llm.RunInput{
+	out, err := client.Run(ctx, llm.RunInput{
 		SystemPrompt: chatIntentPrompt,
 		UserPrompt:   prompt,
 		Model:        s.Model,
@@ -196,4 +203,22 @@ func containsChinese(s string) bool {
 		}
 	}
 	return false
+}
+
+func (s *ChatService) clientForRequest(ctx context.Context, override *llm.Settings) llm.Client {
+	if override != nil {
+		return s.Factory.Client(override)
+	}
+	if s.SettingsStore != nil {
+		settings, err := s.SettingsStore.Load(ctx)
+		if err == nil && settings != nil {
+			if client := s.Factory.Client(settings); client != nil {
+				return client
+			}
+		}
+	}
+	if s.Client != nil {
+		return s.Client
+	}
+	return s.Factory.Client(nil)
 }

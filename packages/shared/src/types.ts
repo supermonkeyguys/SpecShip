@@ -284,6 +284,17 @@ export interface ChatResponse {
   error?: string;
 }
 
+export interface LLMSettingsPayload {
+  baseURL: string;
+  apiKey: string;
+  hasApiKey?: boolean;
+}
+
+export interface LLMSettingsResponse extends LLMSettingsPayload {
+  ok: boolean;
+  error?: string;
+}
+
 // ---- Session-first Event Sourcing ----
 
 export type SessionOperationActor = "system" | "user" | "server";

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/supermonkeyguys/specship/apps/server-go/internal/app"
+	"github.com/supermonkeyguys/specship/apps/server-go/internal/domain"
 )
 
 type PlanHandler struct {
@@ -17,13 +18,18 @@ func (h PlanHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Spec string `json:"spec"`
+		Spec string           `json:"spec"`
+		LLM  *app.LLMSettings `json:"llm,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	out, err := h.Service.Generate(r.Context(), req.Spec)
+	var settings *domain.PlanInput
+	if req.LLM != nil {
+		settings = &domain.PlanInput{LLMSettings: req.LLM}
+	}
+	out, err := h.Service.Generate(r.Context(), req.Spec, settings)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return

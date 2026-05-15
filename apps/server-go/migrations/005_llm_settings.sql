@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS llm_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  base_url TEXT NOT NULL DEFAULT '',
+  api_key TEXT NOT NULL DEFAULT ''
+);

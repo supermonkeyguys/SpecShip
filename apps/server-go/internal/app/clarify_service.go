@@ -10,8 +10,10 @@ import (
 )
 
 type ClarifyService struct {
-	Client llm.Client
-	Model  string
+	Client        llm.Client
+	Model         string
+	Factory       llm.ClientFactory
+	SettingsStore LLMSettingsStore
 }
 
 type ClarifyOption struct {
@@ -56,15 +58,20 @@ Rules:
 `
 
 func (s *ClarifyService) Clarify(ctx context.Context, spec string) (*ClarifyOutput, error) {
+	return s.ClarifyWithSettings(ctx, spec, nil)
+}
+
+func (s *ClarifyService) ClarifyWithSettings(ctx context.Context, spec string, override *llm.Settings) (*ClarifyOutput, error) {
 	spec = strings.TrimSpace(spec)
 	if spec == "" {
 		return &ClarifyOutput{OK: false, NeedsClarification: false, Questions: []ClarifyQuestion{}, Confidence: "low", Summary: ""}, nil
 	}
-	if s.Client == nil || strings.TrimSpace(s.Model) == "" {
+	client := s.clientForRequest(ctx, override)
+	if client == nil || strings.TrimSpace(s.Model) == "" {
 		return &ClarifyOutput{OK: true, NeedsClarification: false, Questions: []ClarifyQuestion{}, Confidence: "medium", Summary: truncate(spec, 80)}, nil
 	}
 
-	out, err := s.Client.Run(ctx, llm.RunInput{
+	out, err := client.Run(ctx, llm.RunInput{
 		SystemPrompt: clarifyPrompt,
 		UserPrompt:   "Spec: " + spec,
 		Model:        s.Model,
@@ -106,3 +113,21 @@ func truncate(s string, limit int) string {
 }
 
 var _ = fmt.Sprintf
+
+func (s *ClarifyService) clientForRequest(ctx context.Context, override *llm.Settings) llm.Client {
+	if override != nil {
+		return s.Factory.Client(override)
+	}
+	if s.SettingsStore != nil {
+		settings, err := s.SettingsStore.Load(ctx)
+		if err == nil && settings != nil {
+			if client := s.Factory.Client(settings); client != nil {
+				return client
+			}
+		}
+	}
+	if s.Client != nil {
+		return s.Client
+	}
+	return s.Factory.Client(nil)
+}

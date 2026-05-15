@@ -23,7 +23,7 @@ type PlanOutput struct {
 	Error string `json:"error,omitempty"`
 }
 
-func (s *PlanService) Generate(ctx context.Context, spec string) (*PlanOutput, error) {
+func (s *PlanService) Generate(ctx context.Context, spec string, settings *domain.PlanInput) (*PlanOutput, error) {
 	spec = strings.TrimSpace(spec)
 	if spec == "" {
 		return &PlanOutput{OK: false, Error: "spec is required"}, nil
@@ -32,11 +32,15 @@ func (s *PlanService) Generate(ctx context.Context, spec string) (*PlanOutput, e
 		return &PlanOutput{OK: false, Error: "planner is not configured"}, nil
 	}
 
-	graph, err := s.Planner.BuildGraph(ctx, domain.PlanInput{
+	planInput := domain.PlanInput{
 		GraphID: "plan-preview",
 		Spec:    spec,
 		Title:   previewTitle(spec),
-	})
+	}
+	if settings != nil {
+		planInput.LLMSettings = settings.LLMSettings
+	}
+	graph, err := s.Planner.BuildGraph(ctx, planInput)
 	if err != nil {
 		return &PlanOutput{OK: false, Error: err.Error()}, nil
 	}
