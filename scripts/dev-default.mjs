@@ -78,5 +78,5 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => shutdown(0));
 }
 
-start("server", ["server"]);
-start("web", ["web:dev"]);
+start("server", ["--dir", "apps/server-go", "dev"]);
+start("web", ["--filter", "@shipyard/web", "dev"]);
